@@ -565,13 +565,21 @@ export default function IjinTelatBayarPage() {
 
                                       <div className="min-w-0">
 
-                                        <p className="text-sm font-medium text-[#20366f]">
+                                        <p className="text-sm font-semibold text-[#20366f]">
                                           {
                                             permissionItem
                                               .recap
                                               ?.detail_barang ??
                                             "-"
                                           }
+                                        </p>
+
+                                        <p className="mt-1 text-xs text-[#7a89ad]">
+                                          {permissionItem.recap?.batch?.name ??
+                                            "Batch tidak diketahui"}
+                                          {" - "}
+                                          {permissionItem.recap?.batch?.country ??
+                                            "Country tidak diketahui"}
                                         </p>
 
                                         <p className="mt-1 text-xs text-[#7a89ad]">

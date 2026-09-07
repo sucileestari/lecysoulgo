@@ -1629,45 +1629,49 @@ const handlePaymentSuccess =
 
                             <div className="flex items-center justify-center gap-4">
 
-                              <button
-                                type="button"
-                                onClick={(
-                                  event,
-                                ) => {
+                              {batch.status !== "Sudah sampai di Admin" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(
+                                      event,
+                                    ) => {
 
-                                  event.stopPropagation();
+                                      event.stopPropagation();
 
-                                  handleEditBatchFromList(
-                                    batch,
-                                  );
-                                }}
-                                aria-label={`Edit ${batch.name}`}
-                                className="text-[#1457ff] transition hover:text-[#0d4be0]"
-                              >
+                                      handleEditBatchFromList(
+                                        batch,
+                                      );
+                                    }}
+                                    aria-label={`Edit ${batch.name}`}
+                                    className="text-[#1457ff] transition hover:text-[#0d4be0]"
+                                  >
 
-                                <Edit3 className="h-5 w-5" />
+                                    <Edit3 className="h-5 w-5" />
 
-                              </button>
+                                  </button>
 
-                              <button
-                                type="button"
-                                onClick={(
-                                  event,
-                                ) => {
+                                  <button
+                                    type="button"
+                                    onClick={(
+                                      event,
+                                    ) => {
 
-                                  event.stopPropagation();
+                                      event.stopPropagation();
 
-                                  handleDeleteBatchFromList(
-                                    batch,
-                                  );
-                                }}
-                                aria-label={`Hapus ${batch.name}`}
-                                className="text-[#ff2348] transition hover:text-[#dc1237]"
-                              >
+                                      handleDeleteBatchFromList(
+                                        batch,
+                                      );
+                                    }}
+                                    aria-label={`Hapus ${batch.name}`}
+                                    className="text-[#ff2348] transition hover:text-[#dc1237]"
+                                  >
 
-                                <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-5 w-5" />
 
-                              </button>
+                                  </button>
+                                </>
+                              )}
 
                             </div>
 
@@ -1898,37 +1902,39 @@ const handlePaymentSuccess =
 
                   {/* Actions */}
 
-                  <div className="flex items-center gap-4 xl:ml-auto">
+                  {activeBatch.status !== "Sudah sampai di Admin" && (
+                    <div className="flex items-center gap-4 xl:ml-auto">
 
-                    <button
-                      type="button"
-                      onClick={
-                        handleEditBatch
-                      }
-                      className="flex h-12 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-6 text-base font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
-                    >
+                      <button
+                        type="button"
+                        onClick={
+                          handleEditBatch
+                        }
+                        className="flex h-12 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-6 text-base font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
+                      >
 
-                      <Edit3 className="h-5 w-5" />
+                        <Edit3 className="h-5 w-5" />
 
-                      Edit Batch
+                        Edit Batch
 
-                    </button>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={
-                        handleAddRecap
-                      }
-                      className="flex h-12 items-center gap-2 rounded-lg bg-[#1457ff] px-6 text-base font-medium text-white transition hover:bg-[#0d4be0]"
-                    >
+                      <button
+                        type="button"
+                        onClick={
+                          handleAddRecap
+                        }
+                        className="flex h-12 items-center gap-2 rounded-lg bg-[#1457ff] px-6 text-base font-medium text-white transition hover:bg-[#0d4be0]"
+                      >
 
-                      <Plus className="h-5 w-5" />
+                        <Plus className="h-5 w-5" />
 
-                      Tambah Rekapan
+                        Tambah Rekapan
 
-                    </button>
+                      </button>
 
-                  </div>
+                    </div>
+                  )}
 
                 </div>
 

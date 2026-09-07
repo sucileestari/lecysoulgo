@@ -37,6 +37,7 @@ type FormState = {
     | "";
   packing_price: string;
   shipping_price: string;
+  no_resi: string;
 };
 
 type Props = {
@@ -46,6 +47,7 @@ type Props = {
   onSaved?: (
     shipment: ManualShipment,
   ) => void;
+  isCustomer?: boolean;
 };
 
 const EXPEDITION_OPTIONS: ManualShipmentExpedition[] =
@@ -64,6 +66,7 @@ function createDefaultForm(): FormState {
     expedition: "",
     packing_price: "",
     shipping_price: "",
+    no_resi: "",
   };
 }
 
@@ -112,6 +115,7 @@ export default function TambahPengirimanDialog({
   batchId,
   onClose,
   onSaved,
+  isCustomer = false,
 }: Props) {
   const queryClient =
     useQueryClient();
@@ -148,9 +152,16 @@ export default function TambahPengirimanDialog({
       return;
     }
 
-    setForm(
-      createDefaultForm(),
-    );
+    const customerMember = isCustomer
+      ? JSON.parse(
+          localStorage.getItem("customer_member") ?? "null",
+        )
+      : null;
+
+    setForm({
+      ...createDefaultForm(),
+      member_id: customerMember?.id ?? "",
+    });
     setFormError("");
     setIsItemDropdownOpen(false);
     setIsMemberDropdownOpen(false);
@@ -535,6 +546,8 @@ export default function TambahPengirimanDialog({
         Number(
           form.shipping_price || "0",
         ),
+      no_resi:
+        form.no_resi.trim() || null,
     });
   }
 
@@ -666,6 +679,7 @@ export default function TambahPengirimanDialog({
                     )
                   }
                   disabled={
+                    isCustomer ||
                     buyerOptionsQuery.isLoading ||
                     createMutation.isPending
                   }
@@ -675,7 +689,9 @@ export default function TambahPengirimanDialog({
                     {buyerOptionsQuery.isLoading
                       ? "Memuat pembeli..."
                       : selectedMember
-                        ? selectedMember.name
+                        ? isCustomer
+                          ? `${selectedMember.name} - ${selectedMember.phone}`
+                          : selectedMember.name
                         : "Pilih nama pembeli"}
                   </span>
 
@@ -690,7 +706,7 @@ export default function TambahPengirimanDialog({
                   />
                 </button>
 
-                {isMemberDropdownOpen && (
+                {isMemberDropdownOpen && !isCustomer && (
                   <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-xl border border-[#d9e0ef] bg-white p-2 shadow-xl">
                     {availableMembers.length === 0 ? (
                       <div className="px-3 py-5 text-center">
@@ -1094,7 +1110,8 @@ export default function TambahPengirimanDialog({
                     )
                   }
                   disabled={
-                    createMutation.isPending
+                    createMutation.isPending ||
+                    isCustomer
                   }
                   className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] outline-none focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f9fc]"
                 />
@@ -1128,14 +1145,44 @@ export default function TambahPengirimanDialog({
                     )
                   }
                   disabled={
-                    createMutation.isPending
+                    createMutation.isPending ||
+                    isCustomer
                   }
                   className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] outline-none focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f9fc]"
                 />
               </div>
             </div>
 
-            {/* TOTAL */}
+{/* NO RESI */}
+
+            <div className="mt-5">
+              <label
+                htmlFor="manual-shipment-no-resi"
+                className="mb-2 block text-sm font-medium text-[#405274]"
+              >
+                No. Resi
+              </label>
+
+              <input
+                id="manual-shipment-no-resi"
+                type="text"
+                value={form.no_resi}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    no_resi: event.target.value,
+                  }))
+                }
+                disabled={
+                  createMutation.isPending ||
+                  isCustomer
+                }
+                placeholder="Masukkan nomor resi"
+                className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] outline-none placeholder:text-[#9aa6bf] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f9fc]"
+              />
+            </div>
+
+                        {/* TOTAL */}
 
             <div className="mt-5 rounded-xl border border-[#d9e0ef] bg-[#f8faff] px-5 py-4">
               <div className="flex items-center justify-between gap-4">

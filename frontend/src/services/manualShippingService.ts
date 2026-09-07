@@ -135,6 +135,10 @@ export type ManualShipmentOptionItem = {
   reference_date: string;
 
   batch_id: string;
+
+  batch_name: string;
+
+  batch_country: string;
 };
 
 export type ManualShipmentOptions = {
@@ -152,6 +156,8 @@ export type CreateManualShipmentInput = {
 
   member_id: string;
 
+  no_resi: string | null;
+
   recap_ids: string[];
 
   address: string;
@@ -161,6 +167,8 @@ export type CreateManualShipmentInput = {
   packing_price: number;
 
   shipping_price: number;
+
+  no_resi?: string | null;
 
   shipping_status?: ManualShipmentShippingStatus;
 
@@ -173,6 +181,8 @@ export type CreateManualShipmentInput = {
 
 export type UpdateManualShipmentInput = {
   member_id?: string;
+
+  no_resi?: string | null;
 
   recap_ids?: string[];
 
@@ -478,6 +488,9 @@ export async function createManualShipment(
 
           member_id:
             input.member_id.trim(),
+
+          no_resi:
+            input.no_resi?.trim() || null,
 
           recap_ids:
             input.recap_ids.map(

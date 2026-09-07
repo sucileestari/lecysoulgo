@@ -251,11 +251,18 @@ export default function AppRoutes() {
               CUSTOMER - PENGIRIMAN MANUAL
 
               Tidak menggunakan permission admin
+
+              Customer mode:
+              isCustomer = true
           ========================================= */}
 
           <Route
             path="/customer/pengiriman-manual"
-            element={<PengirimanManualPage />}
+            element={
+              <PengirimanManualPage
+                isCustomer
+              />
+            }
           />
 
         </Route>

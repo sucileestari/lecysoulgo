@@ -16,6 +16,7 @@ type Props = {
   shipment: ManualShipment | null;
   onClose: () => void;
   onSaved?: (shipment: ManualShipment) => void;
+  isCustomer?: boolean;
 };
 
 type FormState = {
@@ -46,6 +47,18 @@ function formatCountry(value?: string | null) {
   return map[value.trim().toLowerCase()] ?? value;
 }
 
+function getShippingStatusValue(value: string): string {
+  if (
+    value === "Sudah di pick up" ||
+    value === "Dalam proses pick up" ||
+    value === "dalam_proses_pick_up"
+  ) {
+    return "Dalam proses pick up";
+  }
+
+  return "Sedang dikemas";
+}
+
 function currency(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -59,6 +72,7 @@ export default function EditPengirimanDialog({
   shipment,
   onClose,
   onSaved,
+  isCustomer = false,
 }: Props) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState | null>(null);
@@ -142,7 +156,9 @@ export default function EditPengirimanDialog({
 
   if (!open || !shipment || !form) return null;
 
-  const isPickup = shipment.shipping_status === "Dalam proses pick up";
+  const isPickup =
+    getShippingStatusValue(shipment.shipping_status) ===
+    "Dalam proses pick up";
   const total =
     Number(form.packing_price || "0") +
     Number(form.shipping_price || "0");
@@ -168,6 +184,7 @@ export default function EditPengirimanDialog({
       setError("Pengiriman yang sudah di pick up tidak dapat diedit.");
       return;
     }
+    if (!form) return;
     if (!form.member_id) {
       setError("Nama pembeli wajib dipilih.");
       return;
@@ -452,8 +469,8 @@ export default function EditPengirimanDialog({
                         : current,
                     )
                   }
-                  disabled={mutation.isPending}
-                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f]"
+                  disabled={mutation.isPending || isCustomer}
+                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] disabled:bg-[#f7f9fc]"
                 />
               </div>
 
@@ -476,8 +493,8 @@ export default function EditPengirimanDialog({
                         : current,
                     )
                   }
-                  disabled={mutation.isPending}
-                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f]"
+                  disabled={mutation.isPending || isCustomer}
+                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] disabled:bg-[#f7f9fc]"
                 />
               </div>
             </div>

@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -21,7 +22,7 @@ import DeleteBatchPengirimanDialog from "@/components/common/DeleteBatchPengirim
 import HapusPengirimanDialog from "@/components/common/HapusPengirimanDialog";
 import EditBatchPengirimanDialog from "@/components/common/EditBatchPengirimanDialog";
 import TambahPengirimanDialog from "@/components/common/TambahPengirimanDialog";
-import ManualShipmentPaymentDialog from "@/components/common/ManualShipmentPaymentDialog";
+import PaymentDialog from "@/components/common/PaymentDialog";
 import EditPengirimanDialog from "@/components/common/EditPengirimanDialog";
 
 import {
@@ -36,6 +37,10 @@ import {
   updateManualShipment,
   type ManualShipment,
 } from "@/services/manualShippingService";
+
+import {
+  createManualShipmentPayment,
+} from "@/services/manualShipmentPaymentService";
 
 /* =========================================
    CONSTANTS
@@ -175,7 +180,13 @@ function getPaymentDate(
    PAGE
 ========================================= */
 
-export default function PengirimanManualPage() {
+type Props = {
+  isCustomer?: boolean;
+};
+
+export default function PengirimanManualPage({
+  isCustomer = false,
+}: Props) {
   const queryClient =
     useQueryClient();
 
@@ -260,6 +271,11 @@ export default function PengirimanManualPage() {
     isShipmentPaymentDialogOpen,
     setIsShipmentPaymentDialogOpen,
   ] = useState(false);
+
+  const [
+    processingShipmentPaymentId,
+    setProcessingShipmentPaymentId,
+  ] = useState<string | null>(null);
 
   /* =======================================
      EDIT / DELETE SHIPMENT
@@ -678,15 +694,45 @@ export default function PengirimanManualPage() {
     }
   }
 
-  function openShipmentPayment(
+  async function openShipmentPayment(
     shipment: ManualShipment,
   ) {
-    setSelectedPaymentShipment(
-      shipment,
-    );
-    setIsShipmentPaymentDialogOpen(
-      true,
-    );
+    if (processingShipmentPaymentId === shipment.id) {
+      return;
+    }
+
+    setProcessingShipmentPaymentId(shipment.id);
+
+    try {
+      const payment =
+        await createManualShipmentPayment(
+          shipment.id,
+        );
+
+      setSelectedPaymentShipment(
+        shipment,
+      );
+
+      setIsShipmentPaymentDialogOpen(
+        true,
+      );
+
+      queryClient.setQueryData(
+        [
+          "manual-shipment-payment",
+          shipment.id,
+        ],
+        payment,
+      );
+    } catch (paymentError) {
+      window.alert(
+        paymentError instanceof Error
+          ? paymentError.message
+          : "Gagal menyiapkan pembayaran pengiriman.",
+      );
+    } finally {
+      setProcessingShipmentPaymentId(null);
+    }
   }
 
   function closeShipmentPayment() {
@@ -696,31 +742,9 @@ export default function PengirimanManualPage() {
     setSelectedPaymentShipment(null);
   }
 
-  function handleShipmentPaymentSuccess(
-    updatedShipment: ManualShipment,
-  ) {
-    setSelectedPaymentShipment(
-      updatedShipment,
-    );
-
-    queryClient.setQueryData<ManualShipment[]>(
-      [
-        "manual-shipments",
-        updatedShipment.batch_id,
-      ],
-      (current = []) =>
-        current.map((shipment) =>
-          shipment.id === updatedShipment.id
-            ? updatedShipment
-            : shipment,
-        ),
-    );
-
+  function handleShipmentPaymentSuccess() {
     queryClient.invalidateQueries({
-      queryKey: [
-        "manual-shipments",
-        updatedShipment.batch_id,
-      ],
+      queryKey: ["manual-shipments"],
     });
   }
 
@@ -778,6 +802,10 @@ export default function PengirimanManualPage() {
     shipment: ManualShipment,
     nextStatus: ManualShipment["shipping_status"],
   ) {
+    if (isCustomer) {
+      return;
+    }
+
     const previousStatus =
       getShippingStatusValue(
         shippingStatusOverrides[shipment.id] ??
@@ -903,16 +931,18 @@ export default function PengirimanManualPage() {
 
             {/* TAMBAH BATCH */}
 
-            <button
-              type="button"
-              onClick={
-                openCreateBatch
-              }
-              className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0]"
-            >
-              <Plus className="h-5 w-5" />
-              Tambah Batch
-            </button>
+            {!isCustomer && (
+              <button
+                type="button"
+                onClick={
+                  openCreateBatch
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0]"
+              >
+                <Plus className="h-5 w-5" />
+                Tambah Batch
+              </button>
+            )}
           </div>
         </div>
 
@@ -1138,39 +1168,42 @@ export default function PengirimanManualPage() {
                           </td>
 
                           <td className="px-6 py-6 text-center align-middle">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
+                            {!isCustomer &&
+                              batch.status !== "Selesai" && (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
 
-                                  openEditBatch(
-                                    batch,
-                                  );
-                                }}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                                aria-label="Edit batch"
-                                title="Edit batch"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
+                                    openEditBatch(
+                                      batch,
+                                    );
+                                  }}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                  aria-label="Edit batch"
+                                  title="Edit batch"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
 
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
 
-                                  setDeletingBatch(
-                                    batch,
-                                  );
-                                }}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                                aria-label="Hapus batch"
-                                title="Hapus batch"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                                    setDeletingBatch(
+                                      batch,
+                                    );
+                                  }}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                  aria-label="Hapus batch"
+                                  title="Hapus batch"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ),
@@ -1366,15 +1399,19 @@ export default function PengirimanManualPage() {
                     <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() =>
-                          openEditBatch(
-                            selectedBatch,
-                          )
-                        }
-                        className="inline-flex h-11 items-center justify-center rounded-lg border border-[#d9e0ef] bg-white px-5 text-lg font-medium text-[#20366f] transition hover:bg-[#f8faff]"
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit Batch
+                          onClick={() =>
+                            openEditBatch(
+                              selectedBatch,
+                            )
+                          }
+                        className={`inline-flex h-11 items-center justify-center rounded-lg border border-[#d9e0ef] bg-white px-5 text-lg font-medium text-[#20366f] transition hover:bg-[#f8faff] ${
+                          isCustomer || selectedBatch.status === "Selesai"
+                            ? "invisible pointer-events-none"
+                            : ""
+                        }`}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit Batch
                       </button>
 
                       <button
@@ -1382,7 +1419,11 @@ export default function PengirimanManualPage() {
                         onClick={
                           openAddShipment
                         }
-                        className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
+                        className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] ${
+                          selectedBatch.status === "Selesai"
+                            ? "invisible pointer-events-none"
+                            : ""
+                        }`}
                       >
                         <Plus className="h-4 w-4" />
                         Tambah Rekapan
@@ -1518,22 +1559,26 @@ export default function PengirimanManualPage() {
                                           key={item.id}
                                           className="text-sm text-[#20366f]"
                                         >
-                                          <span>
-                                            {item.recap?.detail_barang ?? "-"}
-                                          </span>
+                                          <div className="flex flex-col">
+                                            <div>
+                                              <span className="font-semibold">
+                                                {item.recap?.detail_barang ?? "-"}
+                                              </span>
 
-                                          <span className="ml-2 text-xs text-[#7a89ad]">
-                                            x{item.recap?.qty ?? 0}
-                                            {" "}
-                                          </span>
+                                              <span className="ml-2 text-xs text-[#7a89ad]">
+                                                x{item.recap?.qty ?? 0}
+                                                {" "}
+                                              </span>
+                                            </div>
 
-                                          <span className="ml-4 text-xs text-[#7a89ad]">
-                                            {item.recap?.batch?.name ??
-                                              "Batch tidak diketahui"}
-                                            {" - "}
-                                            {item.recap?.batch?.country ??
-                                              "Country tidak diketahui"}
-                                          </span>
+                                            <span className="mt-1 text-xs text-[#7a89ad]">
+                                              {item.recap?.batch?.name ??
+                                                "Batch tidak diketahui"}
+                                              {" - "}
+                                              {item.recap?.batch?.country ??
+                                                "Country tidak diketahui"}
+                                            </span>
+                                          </div>
                                         </div>
                                       ),
                                     )
@@ -1596,9 +1641,24 @@ export default function PengirimanManualPage() {
                                             shipment,
                                           )
                                         }
-                                        className="inline-flex rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0]"
+                                        disabled={
+                                          processingShipmentPaymentId ===
+                                          shipment.id
+                                        }
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
                                       >
-                                        Pembayaran
+                                        {processingShipmentPaymentId ===
+                                        shipment.id ? (
+                                          <>
+                                            <Loader2
+                                              size={14}
+                                              className="animate-spin"
+                                            />
+                                            Memproses...
+                                          </>
+                                        ) : (
+                                          "Pembayaran"
+                                        )}
                                       </button>
                                     )}
                                   </div>
@@ -1632,6 +1692,7 @@ export default function PengirimanManualPage() {
                                       )
                                     }
                                     disabled={
+                                      isCustomer ||
                                       getShippingStatusValue(
                                         shippingStatusOverrides[
                                           shipment.id
@@ -1689,33 +1750,37 @@ export default function PengirimanManualPage() {
                                   </span>
                                 ) : (
                                   <div className="flex items-center justify-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        openEditShipment(
-                                          shipment,
-                                        )
-                                      }
-                                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                                      aria-label="Edit pengiriman"
-                                      title="Edit pengiriman"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </button>
+                                    {selectedBatch.status !== "Selesai" && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openEditShipment(
+                                            shipment,
+                                          )
+                                        }
+                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                        aria-label="Edit pengiriman"
+                                        title="Edit pengiriman"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </button>
+                                    )}
 
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        openDeleteShipment(
-                                          shipment,
-                                        )
-                                      }
-                                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                                      aria-label="Hapus pengiriman"
-                                      title="Hapus pengiriman"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
+                                    {selectedBatch.status !== "Selesai" && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openDeleteShipment(
+                                            shipment,
+                                          )
+                                        }
+                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                        aria-label="Hapus pengiriman"
+                                        title="Hapus pengiriman"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </td>
@@ -1795,12 +1860,35 @@ export default function PengirimanManualPage() {
         onConfirm={handleDeleteShipment}
       />
 
-      <ManualShipmentPaymentDialog
+      <PaymentDialog
         open={
           isShipmentPaymentDialogOpen
         }
-        shipment={
+        payment={
           selectedPaymentShipment
+            ? queryClient.getQueryData(
+                [
+                  "manual-shipment-payment",
+                  selectedPaymentShipment.id,
+                ],
+              ) ?? null
+            : null
+        }
+        buyer={
+          selectedPaymentShipment
+            ? {
+                name:
+                  selectedPaymentShipment.member?.name ??
+                  null,
+                phone:
+                  selectedPaymentShipment.member?.phone ??
+                  null,
+              }
+            : null
+        }
+        isManualShipment
+        manualShipmentId={
+          selectedPaymentShipment?.id
         }
         onClose={
           closeShipmentPayment
@@ -1814,6 +1902,7 @@ export default function PengirimanManualPage() {
         open={Boolean(editingShipment)}
         shipment={editingShipment}
         onClose={closeEditShipment}
+        isCustomer={isCustomer}
         onSaved={(updatedShipment) => {
           queryClient.setQueryData<ManualShipment[]>(
             ["manual-shipments", updatedShipment.batch_id],
@@ -1842,6 +1931,9 @@ export default function PengirimanManualPage() {
         }
         onSaved={
           handleShipmentSaved
+        }
+        isCustomer={
+          isCustomer
         }
       />
     </div>
