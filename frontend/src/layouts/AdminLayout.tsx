@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ChartNoAxesCombined,
   WalletCards,
+  ShoppingBag,
 } from "lucide-react";
 
 import {
@@ -77,6 +78,7 @@ type MenuItem = {
    * untuk menampilkan menu.
    */
   permission?: string;
+  group?: string;
 
   children?: SubMenuItem[];
 };
@@ -87,6 +89,7 @@ type MenuItem = {
 
 const adminMenuItems: MenuItem[] = [
   {
+    group: "General",
     label: "Peraturan GO",
     path: "/rules-go",
     icon: FileText,
@@ -100,6 +103,7 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "General",
     label: "Anggota / Member",
     path: "/members",
     icon: Users,
@@ -108,6 +112,7 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "Rekapan",
     label: "Rekapan",
     icon: ReceiptText,
 
@@ -147,6 +152,7 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "Rekapan",
     label: "Ijin Telat Bayar",
     path: "/ijin-telat-bayar",
     icon: Clock3,
@@ -156,6 +162,7 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "Pengiriman",
     label: "Pengiriman Manual",
     path: "/pengiriman-manual",
     icon: Package,
@@ -164,18 +171,28 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "Pengiriman",
+    label: "Pesanan Marketplace",
+    path: "/pesanan-marketplace",
+    icon: ShoppingBag,
+  },
+
+  {
+    group: "Keuangan",
     label: "Modal dan Keuntungan",
     path: "/modal-dan-keuntungan",
     icon: ChartNoAxesCombined,
   },
 
   {
+    group: "Keuangan",
     label: "Keuangan / Arus Dana",
     path: "/arus-dana",
     icon: WalletCards,
   },
 
   {
+    group: "Keuangan",
     label: "Gaji Karyawan",
     path: "/gaji-karyawan",
     icon: Banknote,
@@ -186,6 +203,7 @@ const adminMenuItems: MenuItem[] = [
   ========================================= */
 
   {
+    group: "Permission",
     label: "Role & Permission",
     path: "/roles-permissions",
     icon: ShieldCheck,
@@ -200,27 +218,38 @@ const adminMenuItems: MenuItem[] = [
 
 const customerMenuItems: MenuItem[] = [
   {
+    group: "General",
     label: "Rules GO",
     path: "/rules-go",
     icon: FileText,
   },
 
   {
+    group: "Rekapan",
     label: "Rekapan Saya",
     path: "/customer/rekapan",
     icon: ClipboardList,
   },
 
   {
+    group: "Rekapan",
     label: "Ijin Telat Bayar",
     path: "/customer/ijin-telat-bayar",
     icon: Clock3,
   },
 
   {
+    group: "Pengiriman",
     label: "Pengiriman Manual",
     path: "/customer/pengiriman-manual",
     icon: Package,
+  },
+
+  {
+    group: "Pengiriman",
+    label: "Pesanan Marketplace",
+    path: "/customer/pesanan-marketplace",
+    icon: ShoppingBag,
   },
 ];
 
@@ -327,7 +356,7 @@ export default function AdminLayout({
 
   /* =======================================
      CUSTOMER DATA
-  ======================================== */
+  ======================================= */
 
   const customerMember =
     useMemo(
@@ -355,7 +384,7 @@ export default function AdminLayout({
 
   /* =======================================
      MENU
-  ======================================== */
+  ======================================= */
 
   const menuItems =
     isCustomer
@@ -364,7 +393,7 @@ export default function AdminLayout({
 
   /* =======================================
      AVATAR
-  ======================================== */
+  ======================================= */
 
   const avatarInitial =
     currentUser.name
@@ -373,7 +402,7 @@ export default function AdminLayout({
 
   /* =======================================
      LOGOUT
-  ======================================== */
+  ======================================= */
 
   function handleLogout() {
     /*
@@ -460,172 +489,217 @@ export default function AdminLayout({
 
             <div className="space-y-1">
 
-              {menuItems.map(
-                (item) => {
-                  const Icon =
-                    item.icon;
+              {(() => {
+                const groups = menuItems.reduce<
+                  Array<{
+                    label: string;
+                    items: MenuItem[];
+                  }>
+                >((result, item) => {
+                  const groupLabel =
+                    item.group ?? "General";
 
-                  /* =================================
-                     MENU DENGAN SUBMENU
-                  ================================== */
+                  let group = result.find(
+                    (current) =>
+                      current.label ===
+                      groupLabel,
+                  );
 
-                  if (
-                    item.children
-                  ) {
-                    return (
-                      <div
-                        key={
-                          item.label
-                        }
-                      >
+                  if (!group) {
+                    group = {
+                      label: groupLabel,
+                      items: [],
+                    };
 
-                        {/* PARENT MENU */}
+                    result.push(group);
+                  }
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setIsRekapOpen(
-                              (
-                                current,
-                              ) =>
-                                !current,
-                            )
-                          }
-                          className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#1f356c] transition-all hover:bg-[#f5f7fc]"
-                        >
+                  group.items.push(item);
+                  return result;
+                }, []);
 
-                          <Icon className="h-5 w-5 shrink-0 text-[#20366f]" />
+                return groups.map(
+                  (group) => (
+                    <div
+                      key={group.label}
+                      className="mb-5 last:mb-0"
+                    >
+                      <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a96b4]">
+                        {group.label}
+                      </p>
 
-                          <span className="flex-1">
-                            {
-                              item.label
-                            }
-                          </span>
+                      <div className="space-y-1">
+                        {group.items.map(
+                          (item) => {
+                            const Icon =
+                              item.icon;
 
-                          {isRekapOpen ? (
-                            <ChevronDown className="h-4 w-4 shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 shrink-0" />
-                          )}
+                            /* =================================
+                               MENU DENGAN SUBMENU
+                            ================================== */
 
-                        </button>
+                            if (
+                              item.children
+                            ) {
+                              return (
+                                <div
+                                  key={
+                                    item.label
+                                  }
+                                >
 
-                        {/* SUBMENU */}
+                                  {/* PARENT MENU */}
 
-                        {isRekapOpen && (
-                          <div className="mt-1 space-y-1 pl-3">
-
-                            {item.children.map(
-                              (
-                                subItem,
-                              ) => {
-                                const Flag =
-                                  subItem.flag;
-
-                                return (
-                                  <NavLink
-                                    key={
-                                      subItem.path
-                                    }
-                                    to={
-                                      subItem.path
-                                    }
-                                    className={( {
-                                      isActive,
-                                    }) =>
-                                      [
-                                        "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-all",
-
-                                        isActive
-                                          ? "bg-[#edf3ff] font-medium text-[#1457ff]"
-                                          : "text-[#50628e] hover:bg-[#f5f7fc] hover:text-[#20366f]",
-                                      ].join(
-                                        " ",
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setIsRekapOpen(
+                                        (
+                                          current,
+                                        ) =>
+                                          !current,
                                       )
                                     }
+                                    className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#1f356c] transition-all hover:bg-[#f5f7fc]"
                                   >
 
-                                    <Flag
-                                      title={
-                                        subItem.label
+                                    <Icon className="h-5 w-5 shrink-0 text-[#20366f]" />
+
+                                    <span className="flex-1">
+                                      {
+                                        item.label
                                       }
-                                      className="h-4 w-5 rounded-sm"
+                                    </span>
+
+                                    {isRekapOpen ? (
+                                      <ChevronDown className="h-4 w-4 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 shrink-0" />
+                                    )}
+
+                                  </button>
+
+                                  {/* SUBMENU */}
+
+                                  {isRekapOpen && (
+                                    <div className="mt-1 space-y-1 pl-3">
+
+                                      {item.children.map(
+                                        (
+                                          subItem,
+                                        ) => {
+                                          const Flag =
+                                            subItem.flag;
+
+                                          return (
+                                            <NavLink
+                                              key={
+                                                subItem.path
+                                              }
+                                              to={
+                                                subItem.path
+                                              }
+                                              className={( {
+                                                isActive,
+                                              }) =>
+                                                [
+                                                  "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-all",
+
+                                                  isActive
+                                                    ? "bg-[#edf3ff] font-medium text-[#1457ff]"
+                                                    : "text-[#50628e] hover:bg-[#f5f7fc] hover:text-[#20366f]",
+                                                ].join(
+                                                  " ",
+                                                )
+                                              }
+                                            >
+
+                                              <Flag
+                                                title={
+                                                  subItem.label
+                                                }
+                                                className="h-4 w-5 rounded-sm"
+                                              />
+
+                                              <span>
+                                                {
+                                                  subItem.label
+                                                }
+                                              </span>
+
+                                            </NavLink>
+                                          );
+                                        },
+                                      )}
+
+                                    </div>
+                                  )}
+
+                                </div>
+                              );
+                            }
+
+                            /* =================================
+                               NORMAL MENU
+                            ================================== */
+
+                            return (
+                              <NavLink
+                                key={
+                                  item.path
+                                }
+                                to={
+                                  item.path ??
+                                  "#"
+                                }
+                                className={( {
+                                  isActive,
+                                }) =>
+                                  [
+                                    "flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-all",
+
+                                    isActive
+                                      ? "bg-[#edf3ff] text-[#1457ff]"
+                                      : "text-[#1f356c] hover:bg-[#f5f7fc]",
+                                  ].join(
+                                    " ",
+                                  )
+                                }
+                              >
+
+                                {({
+                                  isActive,
+                                }) => (
+                                  <>
+                                    <Icon
+                                      className={[
+                                        "h-5 w-5 shrink-0",
+
+                                        isActive
+                                          ? "text-[#1457ff]"
+                                          : "text-[#20366f]",
+                                      ].join(
+                                        " ",
+                                      )}
                                     />
 
                                     <span>
                                       {
-                                        subItem.label
+                                        item.label
                                       }
                                     </span>
+                                  </>
+                                )}
 
-                                  </NavLink>
-                                );
-                              },
-                            )}
-
-                          </div>
+                              </NavLink>
+                            );
+                          },
                         )}
-
                       </div>
-                    );
-                  }
-
-                  /* =================================
-                     NORMAL MENU
-                  ================================== */
-
-                  return (
-                    <NavLink
-                      key={
-                        item.path
-                      }
-                      to={
-                        item.path ??
-                        "#"
-                      }
-                      className={( {
-                        isActive,
-                      }) =>
-                        [
-                          "flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-all",
-
-                          isActive
-                            ? "bg-[#edf3ff] text-[#1457ff]"
-                            : "text-[#1f356c] hover:bg-[#f5f7fc]",
-                        ].join(
-                          " ",
-                        )
-                      }
-                    >
-
-                      {({
-                        isActive,
-                      }) => (
-                        <>
-                          <Icon
-                            className={[
-                              "h-5 w-5 shrink-0",
-
-                              isActive
-                                ? "text-[#1457ff]"
-                                : "text-[#20366f]",
-                            ].join(
-                              " ",
-                            )}
-                          />
-
-                          <span>
-                            {
-                              item.label
-                            }
-                          </span>
-                        </>
-                      )}
-
-                    </NavLink>
-                  );
-                },
-              )}
+                    </div>
+                  ),
+                );
+              })()}
 
             </div>
 

@@ -11,7 +11,6 @@ import {
   createManualShippingBatch,
   updateManualShippingBatch,
   type ManualShippingBatch,
-  type ManualShippingBatchStatus,
 } from "@/services/manualShippingBatchService";
 
 /* =========================================
@@ -22,7 +21,6 @@ type BatchForm = {
   event_name: string;
   start_date: string;
   end_date: string;
-  status: ManualShippingBatchStatus;
 };
 
 type DatePickerType =
@@ -71,7 +69,6 @@ function createDefaultForm(): BatchForm {
     event_name: "",
     start_date: today,
     end_date: today,
-    status: "Aktif",
   };
 }
 
@@ -375,12 +372,19 @@ export default function ManualShippingBatchModal({
           ) {
             return updateManualShippingBatch(
               editingBatch.id,
-              values,
+              {
+                ...values,
+                status:
+                  editingBatch.status,
+              },
             );
           }
 
           return createManualShippingBatch(
-            values,
+            {
+              ...values,
+              status: "Aktif",
+            },
           );
         },
 
@@ -721,7 +725,7 @@ export default function ManualShippingBatchModal({
       aria-modal="true"
       aria-labelledby="manual-shipping-batch-modal-title"
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-visible rounded-2xl bg-white shadow-2xl">
         {/* =================================
             HEADER
         ================================== */}
@@ -754,7 +758,7 @@ export default function ManualShippingBatchModal({
         >
           {/* BODY */}
 
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="flex-1 overflow-visible px-6 py-6">
             {formError && (
               <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                 <p className="text-sm font-medium leading-5 text-red-600">
@@ -891,65 +895,6 @@ export default function ManualShippingBatchModal({
                   </span>
                 </div>
               </button>
-            </div>
-
-            {/* STATUS */}
-
-            <div className="mt-5">
-              <label
-                htmlFor="manual-shipping-status"
-                className="mb-2 block text-sm font-medium text-[#405274]"
-              >
-                Status Batch
-                <span className="ml-1 text-red-500">
-                  *
-                </span>
-              </label>
-
-              <select
-                id="manual-shipping-status"
-                value={
-                  form.status
-                }
-                onChange={(
-                  event,
-                ) => {
-                  setForm(
-                    (
-                      current,
-                    ) => ({
-                      ...current,
-                      status:
-                        event.target
-                          .value as ManualShippingBatchStatus,
-                    }),
-                  );
-
-                  if (
-                    formError
-                  ) {
-                    setFormError(
-                      "",
-                    );
-                  }
-                }}
-                disabled={
-                  saveMutation.isPending
-                }
-                className="h-12 w-full rounded-lg border border-[#d9e0ef] bg-white px-4 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f9fc]"
-              >
-                <option value="Aktif">
-                  Aktif
-                </option>
-
-                <option value="Selesai">
-                  Selesai
-                </option>
-
-                <option value="Dibatalkan">
-                  Dibatalkan
-                </option>
-              </select>
             </div>
           </div>
 

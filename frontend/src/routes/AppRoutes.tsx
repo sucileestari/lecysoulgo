@@ -19,6 +19,7 @@ import ArusDanaPage from "../pages/ArusDanaPage";
 import GajiKaryawanPage from "../pages/GajiKaryawanPage";
 import RekapanSaya from "../pages/RekapanSayaPage";
 import RolesPermissionPage from "../pages/RolesPermissionPage";
+import PesananMarketplacePage from "../pages/PesananMarketplacePage";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PermissionRoute from "./PermissionRoute";
@@ -207,6 +208,22 @@ export default function AppRoutes() {
           />
 
           {/* =========================================
+              PESANAN MARKETPLACE
+
+              Bisa diakses oleh:
+              - Admin
+              - Super Admin
+              - Role lain yang masuk aplikasi
+
+              Tidak menggunakan PermissionRoute.
+          ========================================= */}
+
+          <Route
+            path="/pesanan-marketplace"
+            element={<PesananMarketplacePage />}
+          />
+
+          {/* =========================================
               MODAL DAN KEUNTUNGAN
           ========================================= */}
 
@@ -293,6 +310,17 @@ export default function AppRoutes() {
                 isCustomer
               />
             }
+          />
+
+          {/* =========================================
+              CUSTOMER - PESANAN MARKETPLACE
+
+              Tidak menggunakan permission admin
+          ========================================= */}
+
+          <Route
+            path="/customer/pesanan-marketplace"
+            element={<PesananMarketplacePage />}
           />
 
         </Route>

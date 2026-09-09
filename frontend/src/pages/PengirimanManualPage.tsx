@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -28,7 +30,9 @@ import EditPengirimanDialog from "@/components/common/EditPengirimanDialog";
 import {
   deleteManualShippingBatch,
   getManualShippingBatches,
+  updateManualShippingBatch,
   type ManualShippingBatch,
+  type ManualShippingBatchStatus,
 } from "@/services/manualShippingBatchService";
 
 import {
@@ -208,6 +212,25 @@ export default function PengirimanManualPage({
     setSearch,
   ] = useState("");
 
+  const [
+    openStatusBatchId,
+    setOpenStatusBatchId,
+  ] = useState<string | null>(null);
+
+  const [
+    statusDropdownPosition,
+    setStatusDropdownPosition,
+  ] = useState<{
+    top: number;
+    left: number;
+    openUpward: boolean;
+  } | null>(null);
+
+  const [
+    updatingStatusBatchId,
+    setUpdatingStatusBatchId,
+  ] = useState<string | null>(null);
+
   /* =======================================
      PAGINATION
   ======================================== */
@@ -326,6 +349,7 @@ export default function PengirimanManualPage({
 
       queryFn:
         getManualShippingBatches,
+  updateManualShippingBatch,
 
       staleTime: 30_000,
     });
@@ -549,6 +573,76 @@ export default function PengirimanManualPage({
   });
 
   /* =======================================
+     UPDATE BATCH STATUS
+  ======================================== */
+
+  async function handleBatchStatusChange(
+    batch: ManualShippingBatch,
+    nextStatus: ManualShippingBatchStatus,
+  ) {
+    if (
+      isCustomer ||
+      updatingStatusBatchId === batch.id
+    ) {
+      setOpenStatusBatchId(null);
+      setStatusDropdownPosition(null);
+      return;
+    }
+
+    if (batch.status === nextStatus) {
+      setOpenStatusBatchId(null);
+      setStatusDropdownPosition(null);
+      return;
+    }
+
+    setUpdatingStatusBatchId(batch.id);
+    setOpenStatusBatchId(null);
+    setStatusDropdownPosition(null);
+
+    try {
+      const updatedBatch =
+        await updateManualShippingBatch(
+          batch.id,
+          {
+            event_name:
+              batch.event_name,
+            start_date:
+              batch.start_date,
+            end_date:
+              batch.end_date,
+            status:
+              nextStatus,
+          },
+        );
+
+      queryClient.setQueryData<ManualShippingBatch[]>(
+        ["manual-shipping-batches"],
+        (current = []) =>
+          current.map(
+            (item) =>
+              item.id === batch.id
+                ? updatedBatch
+                : item,
+          ),
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "manual-shipping-batches",
+        ],
+      });
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Gagal memperbarui status batch.",
+      );
+    } finally {
+      setUpdatingStatusBatchId(null);
+    }
+  }
+
+  /* =======================================
      OPEN CREATE MODAL
   ======================================== */
 
@@ -638,6 +732,8 @@ export default function PengirimanManualPage({
     setActiveTab(tab);
     setCurrentPage(1);
     setShippingStatusOverrides({});
+    setOpenStatusBatchId(null);
+    setStatusDropdownPosition(null);
   }
 
   /* =======================================
@@ -1160,16 +1256,147 @@ export default function PengirimanManualPage({
                           </td>
 
                           <td className="px-6 py-6 text-center align-middle">
-                            <span className="inline-flex rounded-md bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600">
-                              {
-                                batch.status
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+
+                                if (
+                                  isCustomer ||
+                                  batch.status === "Selesai" ||
+                                  batch.status === "Dibatalkan"
+                                ) {
+                                  return;
+                                }
+
+                                if (openStatusBatchId === batch.id) {
+                                  setOpenStatusBatchId(null);
+                                  setStatusDropdownPosition(null);
+                                  return;
+                                }
+
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                const menuWidth = 176;
+                                const menuHeight = 150;
+                                const gap = 8;
+                                const horizontalPadding = 8;
+                                const centeredLeft =
+                                  rect.left + rect.width / 2 - menuWidth / 2;
+                                const left = Math.min(
+                                  Math.max(
+                                    centeredLeft,
+                                    horizontalPadding,
+                                  ),
+                                  window.innerWidth -
+                                    menuWidth -
+                                    horizontalPadding,
+                                );
+                                const hasSpaceBelow =
+                                  rect.bottom +
+                                    gap +
+                                    menuHeight <=
+                                  window.innerHeight -
+                                    horizontalPadding;
+
+                                setOpenStatusBatchId(batch.id);
+                                setStatusDropdownPosition({
+                                  top: hasSpaceBelow
+                                    ? rect.bottom + gap
+                                    : rect.top -
+                                      gap -
+                                      menuHeight,
+                                  left,
+                                  openUpward: !hasSpaceBelow,
+                                });
+                              }}
+                              disabled={
+                                isCustomer ||
+                                batch.status === "Selesai" ||
+                                batch.status === "Dibatalkan" ||
+                                updatingStatusBatchId ===
+                                  batch.id
                               }
-                            </span>
+                              className="inline-flex min-w-[140px] items-center justify-between gap-2 rounded-md bg-blue-50 px-3 py-1.5 text-left text-xs font-semibold text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              aria-label={`Ubah status batch ${batch.event_name}`}
+                            >
+                              <span className="truncate">
+                                {updatingStatusBatchId ===
+                                batch.id
+                                  ? "Menyimpan..."
+                                  : batch.status}
+                              </span>
+
+                              <ChevronDown
+                                size={15}
+                                className={[
+                                  "shrink-0 transition-transform",
+                                  openStatusBatchId === batch.id
+                                    ? "rotate-180"
+                                    : "",
+                                ].join(" ")}
+                              />
+                            </button>
+
+                            {openStatusBatchId ===
+                              batch.id &&
+                              statusDropdownPosition &&
+                              createPortal(
+                                <div
+                                  className="fixed z-[9999] w-44 overflow-hidden rounded-xl border border-[#d9e0ef] bg-white p-2 text-left shadow-xl"
+                                  style={{
+                                    top: statusDropdownPosition.top,
+                                    left: statusDropdownPosition.left,
+                                  }}
+                                  onClick={(event) =>
+                                    event.stopPropagation()
+                                  }
+                                >
+                                  {([
+                                    "Aktif",
+                                    "Selesai",
+                                    "Dibatalkan",
+                                  ] as ManualShippingBatchStatus[]).map(
+                                    (status) => {
+                                      const selected =
+                                        batch.status === status;
+
+                                      return (
+                                        <button
+                                          key={status}
+                                          type="button"
+                                          onClick={() =>
+                                            void handleBatchStatusChange(
+                                              batch,
+                                              status,
+                                            )
+                                          }
+                                          disabled={
+                                            updatingStatusBatchId ===
+                                            batch.id
+                                          }
+                                          className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-[#20366f] transition hover:bg-[#f7f9ff] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          <span>{status}</span>
+
+                                          {selected && (
+                                            <Check
+                                              size={16}
+                                              className="shrink-0 text-[#1457ff]"
+                                            />
+                                          )}
+                                        </button>
+                                      );
+                                    },
+                                  )}
+                                </div>,
+                                document.body,
+                              )}
                           </td>
 
                           <td className="px-6 py-6 text-center align-middle">
                             {!isCustomer &&
-                              batch.status !== "Selesai" && (
+                              batch.status !== "Selesai" &&
+                              batch.status !== "Dibatalkan" && (
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   type="button"
@@ -1405,7 +1632,9 @@ export default function PengirimanManualPage({
                             )
                           }
                         className={`inline-flex h-11 items-center justify-center rounded-lg border border-[#d9e0ef] bg-white px-5 text-lg font-medium text-[#20366f] transition hover:bg-[#f8faff] ${
-                          isCustomer || selectedBatch.status === "Selesai"
+                          isCustomer ||
+                          selectedBatch.status === "Selesai" ||
+                          selectedBatch.status === "Dibatalkan"
                             ? "invisible pointer-events-none"
                             : ""
                         }`}
@@ -1420,7 +1649,8 @@ export default function PengirimanManualPage({
                           openAddShipment
                         }
                         className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] ${
-                          selectedBatch.status === "Selesai"
+                          selectedBatch.status === "Selesai" ||
+                          selectedBatch.status === "Dibatalkan"
                             ? "invisible pointer-events-none"
                             : ""
                         }`}

@@ -18,6 +18,7 @@ import rolePermissionRoutes from "./routes/rolePermissionRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import bankAccountRoutes from "./routes/bankAccountRoutes.js";
 import financeRoutes from "./routes/financeRoutes.js";
+import marketplaceOrderRoutes from "./routes/marketplaceOrderRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -429,6 +430,29 @@ app.use(
 app.use(
   "/api/finance",
   financeRoutes,
+);
+
+/* =========================================
+   MARKETPLACE ORDER ROUTES
+========================================= */
+
+/**
+ * GET
+ * /api/marketplace-orders/available-items
+ *
+ * Mengambil barang yang eligible
+ * untuk pesanan Marketplace milik
+ * customer yang sedang login.
+ *
+ * POST
+ * /api/marketplace-orders
+ *
+ * Membuat pesanan Marketplace baru.
+ */
+
+app.use(
+  "/api/marketplace-orders",
+  marketplaceOrderRoutes,
 );
 
 /* =========================================

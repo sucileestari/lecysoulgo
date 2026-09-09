@@ -590,7 +590,7 @@ export default function EditBatchPengirimanDialog({
           zIndex: 2147483646,
         }}
       >
-        <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-visible rounded-2xl bg-white shadow-2xl">
           {/* HEADER */}
 
           <div className="flex shrink-0 items-center justify-between border-b border-[#e5eaf4] px-6 py-5">
@@ -626,7 +626,7 @@ export default function EditBatchPengirimanDialog({
             }
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="overflow-y-auto px-6 py-6">
+            <div className="overflow-visible px-6 py-6">
               {error && (
                 <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                   <p className="text-sm font-medium text-red-600">
@@ -743,57 +743,6 @@ export default function EditBatchPengirimanDialog({
                     className="text-[#536795]"
                   />
                 </button>
-              </div>
-
-              {/* STATUS */}
-
-              <div className="mt-5">
-                <label
-                  htmlFor="edit-manual-shipping-status"
-                  className="mb-2 block text-sm font-medium text-[#405274]"
-                >
-                  Status Batch
-                  <span className="ml-1 text-red-500">
-                    *
-                  </span>
-                </label>
-
-                <select
-                  id="edit-manual-shipping-status"
-                  value={
-                    form.status
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setForm(
-                      (
-                        current,
-                      ) => ({
-                        ...current,
-                        status:
-                          event.target
-                            .value as ManualShippingBatchStatus,
-                      }),
-                    )
-                  }
-                  disabled={
-                    updateMutation.isPending
-                  }
-                  className="h-12 w-full rounded-lg border border-[#d9e0ef] bg-white px-4 text-sm text-[#20366f] outline-none focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f9fc]"
-                >
-                  <option value="Aktif">
-                    Aktif
-                  </option>
-
-                  <option value="Selesai">
-                    Selesai
-                  </option>
-
-                  <option value="Dibatalkan">
-                    Dibatalkan
-                  </option>
-                </select>
               </div>
             </div>
 
