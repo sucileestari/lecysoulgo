@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  Loader2,
+  X,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -23,20 +27,61 @@ export default function AddMemberDialog({
   onClose,
   onSuccess,
 }: AddMemberDialogProps) {
-  const [serverError, setServerError] = useState("");
+  const [serverError, setServerError] =
+    useState("");
+
+  const [
+    isTypeDropdownOpen,
+    setIsTypeDropdownOpen,
+  ] = useState(false);
+
+  const typeDropdownRef =
+    useRef<HTMLDivElement>(null);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<MemberFormData>({
     resolver: zodResolver(memberSchema),
     defaultValues: {
       name: "",
       phone: "",
+      type: "customer",
     },
   });
+
+  const selectedType = watch("type");
+
+  useEffect(() => {
+    const handleClickOutside = (
+      event: MouseEvent,
+    ) => {
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setIsTypeDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, []);
 
   if (!open) {
     return null;
@@ -49,16 +94,21 @@ export default function AddMemberDialog({
 
     reset();
     setServerError("");
+    setIsTypeDropdownOpen(false);
     onClose();
   };
 
-  const onSubmit = async (data: MemberFormData) => {
+  const onSubmit = async (
+    data: MemberFormData,
+  ) => {
     try {
       setServerError("");
 
-      const member = await createMember(data);
+      const member =
+        await createMember(data);
 
       reset();
+      setIsTypeDropdownOpen(false);
       onSuccess(member);
       onClose();
     } catch (error) {
@@ -71,8 +121,8 @@ export default function AddMemberDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+      <div className="max-h-[90vh] w-full max-w-[600px] overflow-visible rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-5">
           <div>
@@ -133,7 +183,7 @@ export default function AddMemberDialog({
           </div>
 
           {/* No Telepon */}
-          <div className="space-y-2">
+          <div className="mt-5 space-y-2">
             <label
               htmlFor="member-phone"
               className="text-sm font-medium text-[#20366f]"
@@ -157,8 +207,129 @@ export default function AddMemberDialog({
             )}
           </div>
 
+          {/* Tipe Anggota */}
+          <div
+            ref={typeDropdownRef}
+            className="relative mt-5 space-y-2"
+          >
+            <label className="text-sm font-medium text-[#20366f]">
+              Tipe Anggota
+            </label>
+
+            {/* SELECT BUTTON */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsTypeDropdownOpen(
+                  (current) => !current,
+                );
+              }}
+              disabled={isSubmitting}
+              className="mt-0 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
+            >
+              <span className="font-medium text-[#20366f]">
+                {selectedType === "employee"
+                  ? "Karyawan"
+                  : "Customer"}
+              </span>
+
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                  isTypeDropdownOpen
+                    ? "rotate-180"
+                    : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {/* DROPDOWN */}
+            {isTypeDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                <div
+                  style={{
+                    height: "112px",
+                    overflowY: "auto",
+                    overscrollBehavior:
+                      "contain",
+                  }}
+                >
+                  {[
+                    {
+                      value: "customer" as const,
+                      label: "Customer",
+                    },
+                    {
+                      value: "employee" as const,
+                      label: "Karyawan",
+                    },
+                  ].map((option) => {
+                    const isSelected =
+                      option.value ===
+                      selectedType;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setValue(
+                            "type",
+                            option.value,
+                            {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            },
+                          );
+
+                          setIsTypeDropdownOpen(
+                            false,
+                          );
+                        }}
+                        style={{
+                          height: "56px",
+                          minHeight: "56px",
+                        }}
+                        className={[
+                          "flex w-full shrink-0 items-center gap-3 px-4 text-left transition",
+                          isSelected
+                            ? "bg-[#edf3ff]"
+                            : "hover:bg-[#f8faff]",
+                        ].join(" ")}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium leading-5 text-[#20366f]">
+                            {option.label}
+                          </p>
+                        </div>
+
+                        {isSelected && (
+                          <span className="shrink-0 text-xs font-medium text-[#1457ff]">
+                            Dipilih
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Hidden registration for react-hook-form */}
+            <input
+              type="hidden"
+              {...register("type")}
+            />
+
+            {errors.type && (
+              <p className="text-xs text-red-500">
+                {errors.type.message}
+              </p>
+            )}
+          </div>
+
           {/* Actions */}
-          <div className="flex justify-end gap-3 border-t pt-5">
+          <div className="flex justify-end gap-3 pt-5">
             <button
               type="button"
               onClick={handleClose}

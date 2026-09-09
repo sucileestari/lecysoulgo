@@ -1053,7 +1053,7 @@ export default function PengirimanManualPage({
               <table className="w-full min-w-[1000px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#e8ecf4]">
-                    <th className="min-w-[320px] px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                    <th className="min-w-[320px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                       Nama Event
                     </th>
 
@@ -1131,7 +1131,7 @@ export default function PengirimanManualPage({
                           }
                           className="cursor-pointer border-b border-[#eef1f6] last:border-b-0 hover:bg-[#fbfcff]"
                         >
-                          <td className="px-6 py-6 align-middle">
+                          <td className="px-6 py-6 text-center align-middle">
                             <p className="text-base font-medium text-[#20366f]">
                               {
                                 batch.event_name
@@ -1442,31 +1442,31 @@ export default function PengirimanManualPage({
                   <table className="w-full min-w-[1650px] border-collapse">
                     <thead>
                       <tr className="border-b border-[#e8ecf4]">
-                        <th className="min-w-[210px] px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[210px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Nama Pembeli
                         </th>
 
-                        <th className="min-w-[260px] px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[260px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Detail Barang
                         </th>
 
-                        <th className="min-w-[180px] px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[180px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Ekspedisi
                         </th>
 
-                        <th className="min-w-[300px] px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[300px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Alamat Lengkap
                         </th>
 
-                        <th className="min-w-[170px] px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[170px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Ongkos Kirim
                         </th>
 
-                        <th className="min-w-[150px] px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[150px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Packing
                         </th>
 
-                        <th className="min-w-[190px] px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="min-w-[190px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Total
                         </th>
 
@@ -1540,7 +1540,7 @@ export default function PengirimanManualPage({
                               key={shipment.id}
                               className="border-b border-[#eef1f6] last:border-b-0"
                             >
-                              <td className="px-6 py-6 align-top">
+                              <td className="px-6 py-6 text-center align-top">
                                 <p className="text-sm font-semibold text-[#20366f]">
                                   {shipment.member?.name ?? "-"}
                                 </p>
@@ -1551,17 +1551,21 @@ export default function PengirimanManualPage({
                               </td>
 
                               <td className="px-6 py-6 align-top">
-                                <div className="space-y-1.5">
+                                <div className="space-y-3">
                                   {shipment.items?.length ? (
                                     shipment.items.map(
                                       (item) => (
                                         <div
                                           key={item.id}
-                                          className="text-sm text-[#20366f]"
+                                          className="flex items-start gap-2"
                                         >
-                                          <div className="flex flex-col">
+                                          <span className="mt-0.5 shrink-0 text-sm text-[#7a89ad]">
+                                            •
+                                          </span>
+
+                                          <div className="min-w-0">
                                             <div>
-                                              <span className="font-semibold">
+                                              <span className="text-sm font-semibold text-[#20366f]">
                                                 {item.recap?.detail_barang ?? "-"}
                                               </span>
 
@@ -1571,7 +1575,7 @@ export default function PengirimanManualPage({
                                               </span>
                                             </div>
 
-                                            <span className="mt-1 text-xs text-[#7a89ad]">
+                                            <span className="mt-1 block text-xs text-[#7a89ad]">
                                               {item.recap?.batch?.name ??
                                                 "Batch tidak diketahui"}
                                               {" - "}
@@ -1590,19 +1594,19 @@ export default function PengirimanManualPage({
                                 </div>
                               </td>
 
-                              <td className="px-6 py-6 align-top">
+                              <td className="px-6 py-6 text-center align-top">
                                 <p className="text-sm font-medium text-[#20366f]">
                                   {shipment.expedition}
                                 </p>
                               </td>
 
-                              <td className="px-6 py-6 align-top">
-                                <p className="max-w-[300px] whitespace-pre-wrap text-sm leading-6 text-[#20366f]">
+                              <td className="px-6 py-6 text-center align-top">
+                                <p className="max-w-[300px] whitespace-pre-wrap text-center text-sm leading-6 text-[#20366f]">
                                   {shipment.address || "-"}
                                 </p>
                               </td>
 
-                              <td className="px-6 py-6 text-right align-top">
+                              <td className="px-6 py-6 text-center align-top">
                                 <p className="text-sm text-[#20366f]">
                                   {formatCurrency(
                                     shipment.shipping_price,
@@ -1610,7 +1614,7 @@ export default function PengirimanManualPage({
                                 </p>
                               </td>
 
-                              <td className="px-6 py-6 text-right align-top">
+                              <td className="px-6 py-6 text-center align-top">
                                 <p className="text-sm text-[#20366f]">
                                   {formatCurrency(
                                     shipment.packing_price,
@@ -1618,8 +1622,8 @@ export default function PengirimanManualPage({
                                 </p>
                               </td>
 
-                              <td className="px-6 py-6 text-right align-top">
-                                <div className="flex flex-col items-end">
+                              <td className="px-6 py-6 text-center align-top">
+                                <div className="flex flex-col items-center">
                                   <p className="text-sm font-semibold text-[#20366f]">
                                     {formatCurrency(
                                       shipment.total_price,

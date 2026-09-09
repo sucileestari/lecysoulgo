@@ -11,10 +11,15 @@ if (!API_BASE_URL) {
 // Types
 // ==============================
 
+export type MemberType =
+  | "customer"
+  | "employee";
+
 export type Member = {
   id: string;
   name: string;
   phone: string;
+  type: MemberType;
   created_at: string;
   updated_at: string;
 };
@@ -22,11 +27,13 @@ export type Member = {
 export type CreateMemberInput = {
   name: string;
   phone: string;
+  type: MemberType;
 };
 
 export type UpdateMemberInput = {
   name?: string;
   phone?: string;
+  type?: MemberType;
 };
 
 type ApiSuccess<T> = {
@@ -197,7 +204,8 @@ export async function updateMember(
 
   if (
     input.name === undefined &&
-    input.phone === undefined
+    input.phone === undefined &&
+    input.type === undefined
   ) {
     throw new Error(
       "Minimal satu data harus diperbarui",

@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 
 import {
+  Banknote,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -20,6 +21,8 @@ import {
   Package,
   ClipboardList,
   ShieldCheck,
+  ChartNoAxesCombined,
+  WalletCards,
 } from "lucide-react";
 
 import {
@@ -158,6 +161,24 @@ const adminMenuItems: MenuItem[] = [
     icon: Package,
 
     permission: "shipping.view",
+  },
+
+  {
+    label: "Modal dan Keuntungan",
+    path: "/modal-dan-keuntungan",
+    icon: ChartNoAxesCombined,
+  },
+
+  {
+    label: "Keuangan / Arus Dana",
+    path: "/arus-dana",
+    icon: WalletCards,
+  },
+
+  {
+    label: "Gaji Karyawan",
+    path: "/gaji-karyawan",
+    icon: Banknote,
   },
 
   /* =========================================
@@ -319,7 +340,7 @@ export default function AdminLayout({
 
   /* =======================================
      CURRENT USER
-  ======================================== */
+  ======================================= */
 
   const currentUser =
     isCustomer
@@ -509,7 +530,7 @@ export default function AdminLayout({
                                     to={
                                       subItem.path
                                     }
-                                    className={({
+                                    className={( {
                                       isActive,
                                     }) =>
                                       [
@@ -562,7 +583,7 @@ export default function AdminLayout({
                         item.path ??
                         "#"
                       }
-                      className={({
+                      className={( {
                         isActive,
                       }) =>
                         [

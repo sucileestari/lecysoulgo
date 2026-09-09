@@ -13,7 +13,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Edit3,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -1627,7 +1627,7 @@ const handlePaymentSuccess =
 
                           <td className="px-6 py-5">
 
-                            <div className="flex items-center justify-center gap-4">
+                            <div className="flex items-center justify-center gap-2">
 
                               {batch.status !== "Sudah sampai di Admin" && (
                                 <>
@@ -1644,10 +1644,11 @@ const handlePaymentSuccess =
                                       );
                                     }}
                                     aria-label={`Edit ${batch.name}`}
-                                    className="text-[#1457ff] transition hover:text-[#0d4be0]"
+                                    title="Edit batch"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
                                   >
 
-                                    <Edit3 className="h-5 w-5" />
+                                    <Pencil className="h-4 w-4" />
 
                                   </button>
 
@@ -1664,10 +1665,11 @@ const handlePaymentSuccess =
                                       );
                                     }}
                                     aria-label={`Hapus ${batch.name}`}
-                                    className="text-[#ff2348] transition hover:text-[#dc1237]"
+                                    title="Hapus batch"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
                                   >
 
-                                    <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-4 w-4" />
 
                                   </button>
                                 </>
@@ -1913,7 +1915,7 @@ const handlePaymentSuccess =
                         className="flex h-12 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-6 text-base font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
                       >
 
-                        <Edit3 className="h-5 w-5" />
+                        <Pencil className="h-5 w-5" />
 
                         Edit Batch
 
@@ -2691,9 +2693,10 @@ const handlePaymentSuccess =
                                           )
                                         }
                                         aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
-                                        className="text-[#ff2348] transition hover:text-[#dc1237]"
+                                        title="Hapus rekapan"
+                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
                                       >
-                                        <Trash2 className="h-5 w-5" />
+                                        <Trash2 className="h-4 w-4" />
                                       </button>
                                     ) : (
                                       <span className="text-base text-[#7a89ad]">

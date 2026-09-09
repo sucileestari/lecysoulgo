@@ -14,6 +14,9 @@ import RekapPage from "../pages/RekapPage";
 import RulesGoPage from "../pages/RulesGoPage";
 import IjinTelatBayarPage from "../pages/IjinTelatBayarPage";
 import PengirimanManualPage from "../pages/PengirimanManualPage";
+import ModalDanKeuntunganPage from "../pages/ModalDanKeuntunganPage";
+import ArusDanaPage from "../pages/ArusDanaPage";
+import GajiKaryawanPage from "../pages/GajiKaryawanPage";
 import RekapanSaya from "../pages/RekapanSayaPage";
 import RolesPermissionPage from "../pages/RolesPermissionPage";
 
@@ -201,6 +204,33 @@ export default function AppRoutes() {
                 <PengirimanManualPage />
               </PermissionRoute>
             }
+          />
+
+          {/* =========================================
+              MODAL DAN KEUNTUNGAN
+          ========================================= */}
+
+          <Route
+            path="/modal-dan-keuntungan"
+            element={<ModalDanKeuntunganPage />}
+          />
+
+          {/* =========================================
+              ARUS DANA / KEUANGAN
+          ========================================= */}
+
+          <Route
+            path="/arus-dana"
+            element={<ArusDanaPage />}
+          />
+
+          {/* =========================================
+              GAJI KARYAWAN
+          ========================================= */}
+
+          <Route
+            path="/gaji-karyawan"
+            element={<GajiKaryawanPage />}
           />
 
           {/* =========================================

@@ -1,18 +1,46 @@
 import { supabase } from "../config/supabase.js";
 
+type MemberType =
+  | "customer"
+  | "employee";
+
 type MemberInput = {
   name: string;
   phone: string;
+  type?: MemberType;
 };
 
 type UpdateMemberInput = {
   name?: string;
   phone?: string;
+  type?: MemberType;
   updated_at?: string;
 };
 
 function normalizePhone(phone: string): string {
   return phone.trim();
+}
+
+function normalizeMemberType(
+  type: string | undefined,
+): MemberType {
+  if (
+    type === undefined ||
+    type === ""
+  ) {
+    return "customer";
+  }
+
+  if (
+    type !== "customer" &&
+    type !== "employee"
+  ) {
+    throw new Error(
+      "Tipe anggota tidak valid",
+    );
+  }
+
+  return type;
 }
 
 function handleSupabaseError(
@@ -70,6 +98,9 @@ export async function createMember(
 ) {
   const name = input.name.trim();
   const phone = normalizePhone(input.phone);
+  const type = normalizeMemberType(
+    input.type,
+  );
 
   if (!name) {
     throw new Error("Nama lengkap wajib diisi");
@@ -84,6 +115,7 @@ export async function createMember(
     .insert({
       name,
       phone,
+      type,
     })
     .select()
     .single();
@@ -119,6 +151,12 @@ export async function updateMember(
     }
 
     updateData.phone = phone;
+  }
+
+  if (input.type !== undefined) {
+    updateData.type = normalizeMemberType(
+      input.type,
+    );
   }
 
   if (Object.keys(updateData).length === 0) {

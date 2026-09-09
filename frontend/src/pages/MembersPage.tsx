@@ -172,10 +172,11 @@ export default function MembersPage() {
               {/* Column Width */}
               <colgroup>
                 <col className="w-[8%]" />
-                <col className="w-[27%]" />
-                <col className="w-[24%]" />
-                <col className="w-[25%]" />
-                <col className="w-[16%]" />
+                <col className="w-[23%]" />
+                <col className="w-[20%]" />
+                <col className="w-[17%]" />
+                <col className="w-[20%]" />
+                <col className="w-[12%]" />
               </colgroup>
 
               {/* =========================
@@ -196,6 +197,10 @@ export default function MembersPage() {
                   </th>
 
                   <th className="px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                    Tipe Anggota
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
                     Last Update
                   </th>
 
@@ -213,7 +218,7 @@ export default function MembersPage() {
                 {isLoading && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-20 text-center"
                     >
                       <p className="text-base text-[#7a89ad]">
@@ -229,7 +234,7 @@ export default function MembersPage() {
                 {isError && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-20 text-center"
                     >
                       <p className="text-base font-medium text-red-500">
@@ -251,7 +256,7 @@ export default function MembersPage() {
                   members.length === 0 && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={6}
                         className="px-6 py-20 text-center"
                       >
                         <div className="flex flex-col items-center">
@@ -300,6 +305,13 @@ export default function MembersPage() {
                         {member.phone}
                       </td>
 
+                      {/* Tipe Anggota */}
+                      <td className="px-6 py-6 text-base text-[#20366f]">
+                        {member.type === "employee"
+                          ? "Karyawan"
+                          : "Customer"}
+                      </td>
+
                       {/* Last Update */}
                       <td className="px-6 py-6 text-base text-[#20366f]">
                         {formatUpdatedAt(
@@ -309,7 +321,7 @@ export default function MembersPage() {
 
                       {/* Aksi */}
                       <td className="px-6 py-6 pr-12">
-                        <div className="flex items-center justify-center gap-6">
+                        <div className="flex items-center justify-center gap-2">
                           {/* Edit */}
                           <button
                             type="button"
@@ -317,9 +329,10 @@ export default function MembersPage() {
                               handleEditMember(member)
                             }
                             aria-label={`Edit ${member.name}`}
-                            className="text-[#1457ff] transition hover:text-[#0d4be0]"
+                            title="Edit anggota"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
                           >
-                            <Pencil className="h-5 w-5" />
+                            <Pencil className="h-4 w-4" />
                           </button>
 
                           {/* Delete */}
@@ -329,9 +342,10 @@ export default function MembersPage() {
                               handleDeleteMember(member)
                             }
                             aria-label={`Hapus ${member.name}`}
-                            className="text-[#ff2348] transition hover:text-[#dc1237]"
+                            title="Hapus anggota"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

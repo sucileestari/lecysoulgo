@@ -6,6 +6,7 @@ import helmet from "helmet";
 
 import memberRoutes from "./routes/memberRoutes.js";
 import batchRoutes from "./routes/batchRoutes.js";
+import productCostRoutes from "./routes/productCostRoutes.js";
 import recapRoutes from "./routes/recapRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import latePaymentPermissionRoutes from "./routes/latePaymentPermissionRoutes.js";
@@ -15,6 +16,8 @@ import authRoutes from "./routes/authRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import rolePermissionRoutes from "./routes/rolePermissionRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
+import bankAccountRoutes from "./routes/bankAccountRoutes.js";
+import financeRoutes from "./routes/financeRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -235,6 +238,23 @@ app.use(
 );
 
 /* =========================================
+   PRODUCT COST ROUTES
+========================================= */
+
+/**
+ * GET    /api/product-costs
+ * GET    /api/product-costs/batch/:batchId
+ * POST   /api/product-costs
+ * PUT    /api/product-costs/:id
+ * DELETE /api/product-costs/:id
+ */
+
+app.use(
+  "/api/product-costs",
+  productCostRoutes,
+);
+
+/* =========================================
    RECAP ROUTES
 ========================================= */
 
@@ -373,6 +393,42 @@ app.use(
 app.use(
   "/api/manual-shipments",
   manualShippingRoutes,
+);
+
+/* =========================================
+   BANK ACCOUNT ROUTES
+========================================= */
+
+/**
+ * GET
+ * /api/bank-accounts/active
+ *
+ * Digunakan untuk mengambil
+ * daftar rekening aktif.
+ */
+
+app.use(
+  "/api/bank-accounts",
+  bankAccountRoutes,
+);
+
+/* =========================================
+   FINANCE ROUTES
+========================================= */
+
+/**
+ * GET
+ * /api/finance
+ *
+ * Mengambil:
+ * - summary keuangan
+ * - saldo setiap rekening
+ * - riwayat transaksi keuangan
+ */
+
+app.use(
+  "/api/finance",
+  financeRoutes,
 );
 
 /* =========================================
