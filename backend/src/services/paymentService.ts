@@ -26,7 +26,9 @@ export type PaymentStatus =
 export type Payment = {
   id: string;
 
-  recap_id: string;
+  recap_id: string | null;
+
+  manual_shipment_id?: string | null;
 
   payment_type: PaymentType;
 
@@ -123,9 +125,38 @@ export type Payment = {
 };
 
 export type CreatePaymentInput = {
-  recap_id: string;
+  recap_id?: string;
+
+  manual_shipment_id?: string;
 
   payment_type: PaymentType;
+};
+
+
+/* =========================================
+   MANUAL SHIPMENT PAYMENT SUMMARY
+========================================= */
+
+export type ManualShipmentPaymentSummary = {
+  shipment_id: string;
+
+  amount: number;
+
+  base_amount: number;
+
+  penalty_days: number;
+
+  penalty_amount: number;
+
+  due_date: string | null;
+
+  status:
+    | PaymentStatus
+    | "unpaid";
+
+  paid_at: string | null;
+
+  payment: Payment | null;
 };
 
 /* =========================================
@@ -461,6 +492,296 @@ export async function getPaymentsByRecapId(
     (data ??
       []) as Payment[]
   );
+}
+
+/* =========================================
+   GET MANUAL SHIPMENT PAYMENT
+========================================= */
+
+export async function getManualShipmentPayment(
+  manualShipmentId: string,
+): Promise<Payment | null> {
+  const id =
+    manualShipmentId.trim();
+
+  if (!id) {
+    throw new Error(
+      "ID manual shipment wajib diisi.",
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("payments")
+    .select("*")
+    .eq(
+      "manual_shipment_id",
+      id,
+    )
+    .eq(
+      "payment_type",
+      "PELUNASAN",
+    )
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      },
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Gagal mengambil pembayaran manual shipment: ${error.message}`,
+    );
+  }
+
+  return data
+    ? (data as Payment)
+    : null;
+}
+
+/* =========================================
+   GET MANUAL SHIPMENT PAYMENT SUMMARY
+========================================= */
+
+/**
+ * Digunakan frontend Manual Shipping untuk
+ * mendapatkan:
+ *
+ * - nominal dasar
+ * - nominal saat ini
+ * - jumlah hari denda
+ * - total denda
+ * - status
+ * - tanggal jatuh tempo
+ * - payment terbaru
+ *
+ * Rule denda:
+ * - sebelum / pada due date = 0
+ * - setelah due date = Rp2.000 / hari
+ */
+export async function getManualShipmentPaymentSummary(
+  manualShipmentId: string,
+): Promise<ManualShipmentPaymentSummary> {
+  const id =
+    manualShipmentId.trim();
+
+  if (!id) {
+    throw new Error(
+      "ID manual shipment wajib diisi.",
+    );
+  }
+
+  /* -------------------------------------
+     Get manual shipment
+  ------------------------------------- */
+
+  const {
+    data: shipment,
+    error: shipmentError,
+  } = await supabase
+    .from("manual_shipments")
+    .select(
+      "id, total_amount, due_date",
+    )
+    .eq("id", id)
+    .single();
+
+  if (
+    shipmentError ||
+    !shipment
+  ) {
+    throw new Error(
+      `Data manual shipment tidak ditemukan.`,
+    );
+  }
+
+  const baseAmount =
+    Number(
+      shipment.total_amount ??
+        0,
+    );
+
+  if (
+    !Number.isFinite(baseAmount) ||
+    baseAmount < 0
+  ) {
+    throw new Error(
+      "Total pembayaran manual shipment tidak valid.",
+    );
+  }
+
+  const dueDate =
+    typeof shipment.due_date ===
+      "string" &&
+    shipment.due_date.trim()
+      ? shipment.due_date.trim()
+      : null;
+
+  /* -------------------------------------
+     Calculate penalty
+  ------------------------------------- */
+
+  let penaltyDays = 0;
+
+  if (dueDate) {
+    const today =
+      getTodayDateOnly();
+
+    const dueDateObject =
+      parseDateOnly(dueDate);
+
+    if (today > dueDateObject) {
+      penaltyDays =
+        Math.max(
+          0,
+          differenceInDays(
+            dueDateObject,
+            today,
+          ),
+        );
+    }
+  }
+
+  const penaltyAmount =
+    penaltyDays *
+    LATE_PAYMENT_PENALTY_PER_DAY;
+
+  const currentAmount =
+    baseAmount +
+    penaltyAmount;
+
+  /* -------------------------------------
+     Get latest payment
+  ------------------------------------- */
+
+  const {
+    data: paymentData,
+    error: paymentError,
+  } = await supabase
+    .from("payments")
+    .select("*")
+    .eq(
+      "manual_shipment_id",
+      id,
+    )
+    .eq(
+      "payment_type",
+      "PELUNASAN",
+    )
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      },
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (paymentError) {
+    throw new Error(
+      `Gagal mengambil pembayaran manual shipment: ${paymentError.message}`,
+    );
+  }
+
+  let payment =
+    paymentData
+      ? (paymentData as Payment)
+      : null;
+
+  /* -------------------------------------
+     Sync pending payment amount
+  ------------------------------------- */
+
+  if (
+    payment &&
+    payment.status === "pending" &&
+    Number(payment.amount) !==
+      currentAmount
+  ) {
+    const {
+      data: updatedPayment,
+      error: updateError,
+    } = await supabase
+      .from("payments")
+      .update({
+        amount:
+          currentAmount,
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        payment.id,
+      )
+      .select("*")
+      .single();
+
+    if (
+      updateError ||
+      !updatedPayment
+    ) {
+      throw new Error(
+        `Gagal memperbarui nominal pembayaran Manual Shipping: ${
+          updateError?.message ??
+          "Unknown error"
+        }`,
+      );
+    }
+
+    payment =
+      updatedPayment as Payment;
+  }
+
+  /* -------------------------------------
+     Paid payment
+  ------------------------------------- */
+
+  const isPaid =
+    payment?.status === "paid";
+
+  return {
+    shipment_id:
+      id,
+
+    amount:
+      isPaid
+        ? Number(
+            payment?.amount ??
+              baseAmount,
+          )
+        : currentAmount,
+
+    base_amount:
+      baseAmount,
+
+    penalty_days:
+      isPaid
+        ? 0
+        : penaltyDays,
+
+    penalty_amount:
+      isPaid
+        ? 0
+        : penaltyAmount,
+
+    due_date:
+      dueDate,
+
+    status:
+      payment?.status ??
+      "unpaid",
+
+    paid_at:
+      payment?.paid_at ??
+      null,
+
+    payment,
+  };
 }
 
 /* =========================================
@@ -1336,14 +1657,6 @@ export async function createPayment(
   ------------------------------------- */
 
   if (
-    !input.recap_id?.trim()
-  ) {
-    throw new Error(
-      "ID rekapan wajib diisi.",
-    );
-  }
-
-  if (
     input.payment_type !==
       "DP" &&
     input.payment_type !==
@@ -1351,6 +1664,276 @@ export async function createPayment(
   ) {
     throw new Error(
       "Tipe pembayaran tidak valid.",
+    );
+  }
+
+  /* =====================================
+     MANUAL SHIPPING PAYMENT
+  ====================================== */
+
+  if (input.manual_shipment_id) {
+    if (
+      input.payment_type !==
+      "PELUNASAN"
+    ) {
+      throw new Error(
+        "Manual Shipping hanya menggunakan pembayaran PELUNASAN.",
+      );
+    }
+
+    if (input.recap_id) {
+      throw new Error(
+        "Payment tidak boleh memiliki ID rekapan dan ID manual shipment sekaligus.",
+      );
+    }
+
+    const manualShipmentId =
+      input.manual_shipment_id.trim();
+
+    if (!manualShipmentId) {
+      throw new Error(
+        "ID manual shipment wajib diisi.",
+      );
+    }
+
+    /* -------------------------------------
+       Get manual shipment
+    ------------------------------------- */
+
+    const {
+      data: manualShipment,
+      error: manualShipmentError,
+    } = await supabase
+      .from("manual_shipments")
+      .select("id, total_amount, due_date")
+      .eq("id", manualShipmentId)
+      .single();
+
+    if (
+      manualShipmentError ||
+      !manualShipment
+    ) {
+      throw new Error(
+        "Data manual shipment tidak ditemukan.",
+      );
+    }
+
+    const baseAmount = Number(
+      manualShipment.total_amount ??
+        0,
+    );
+
+    if (
+      !Number.isFinite(baseAmount) ||
+      baseAmount <= 0
+    ) {
+      throw new Error(
+        "Total pembayaran manual shipment tidak valid.",
+      );
+    }
+
+    /* -------------------------------------
+       Calculate manual shipment penalty
+
+       Rule sama seperti Rekapan:
+       - sebelum / pada due date = 0
+       - setelah due date = Rp2.000 / hari
+    ------------------------------------- */
+
+    const dueDate =
+      typeof manualShipment.due_date ===
+        "string" &&
+      manualShipment.due_date.trim()
+        ? manualShipment.due_date.trim()
+        : null;
+
+    let penaltyDays = 0;
+
+    if (dueDate) {
+      const today =
+        getTodayDateOnly();
+
+      const dueDateObject =
+        parseDateOnly(dueDate);
+
+      if (today > dueDateObject) {
+        penaltyDays = Math.max(
+          0,
+          differenceInDays(
+            dueDateObject,
+            today,
+          ),
+        );
+      }
+    }
+
+    const penaltyAmount =
+      penaltyDays *
+      LATE_PAYMENT_PENALTY_PER_DAY;
+
+    const currentAmount =
+      baseAmount + penaltyAmount;
+
+    const penalty: PaymentPenaltyResult = {
+      baseAmount,
+      penaltyDays,
+      penaltyAmount,
+      currentAmount,
+      dueDate,
+      permission: null,
+    };
+
+    /* -------------------------------------
+       Existing manual shipment payments
+    ------------------------------------- */
+
+    const {
+      data: existingPayments,
+      error: existingPaymentsError,
+    } = await supabase
+      .from("payments")
+      .select("*")
+      .eq(
+        "manual_shipment_id",
+        manualShipmentId,
+      )
+      .eq(
+        "payment_type",
+        "PELUNASAN",
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        },
+      );
+
+    if (existingPaymentsError) {
+      throw new Error(
+        `Gagal mengambil pembayaran manual shipment: ${existingPaymentsError.message}`,
+      );
+    }
+
+    const paidPayment =
+      existingPayments?.find(
+        (payment) =>
+          payment.status ===
+          "paid",
+      );
+
+    if (paidPayment) {
+      throw new Error(
+        "Pembayaran Manual Shipping sudah lunas.",
+      );
+    }
+
+    const pendingPayment =
+      existingPayments?.find(
+        (payment) =>
+          payment.status ===
+          "pending",
+      );
+
+    if (pendingPayment) {
+      if (
+        Number(pendingPayment.amount) !==
+        currentAmount
+      ) {
+        const {
+          data: updatedPending,
+          error: updateError,
+        } = await supabase
+          .from("payments")
+          .update({
+            amount: currentAmount,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            pendingPayment.id,
+          )
+          .select("*")
+          .single();
+
+        if (
+          updateError ||
+          !updatedPending
+        ) {
+          throw new Error(
+            `Gagal memperbarui nominal pembayaran Manual Shipping: ${
+              updateError?.message ??
+              "Unknown error"
+            }`,
+          );
+        }
+
+        return buildPaymentMeta(
+          updatedPending as Payment,
+          baseAmount,
+          penalty,
+        );
+      }
+
+      return buildPaymentMeta(
+        pendingPayment as Payment,
+        baseAmount,
+        penalty,
+      );
+    }
+
+    /* -------------------------------------
+       Create manual shipment payment
+    ------------------------------------- */
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("payments")
+      .insert({
+        manual_shipment_id:
+          manualShipmentId,
+
+        payment_type:
+          "PELUNASAN",
+
+        amount:
+          currentAmount,
+
+        status:
+          "pending",
+
+        provider:
+          "simulation",
+      })
+      .select("*")
+      .single();
+
+    if (
+      error ||
+      !data
+    ) {
+      throw new Error(
+        `Gagal membuat pembayaran Manual Shipping: ${
+          error?.message ??
+          "Unknown error"
+        }`,
+      );
+    }
+
+    return buildPaymentMeta(
+      data as Payment,
+      baseAmount,
+      penalty,
+    );
+  }
+
+  if (
+    !input.recap_id?.trim()
+  ) {
+    throw new Error(
+      "ID rekapan wajib diisi.",
     );
   }
 
@@ -1749,6 +2332,7 @@ export async function createPayment(
  * Tujuannya agar denda terbaru
  * selalu digunakan.
  */
+
 export async function generatePaymentLink(
   paymentId: string,
 ): Promise<{
@@ -1795,14 +2379,123 @@ export async function generatePaymentLink(
      Calculate latest amount
   ------------------------------------- */
 
-  const penalty =
-    await calculateCurrentPaymentAmount(
-      payment.recap_id,
-      payment.payment_type,
+  let currentAmount: number;
+  let penalty: PaymentPenaltyResult;
+
+  if (payment.recap_id) {
+    /* -----------------------------------
+       REKAPAN
+    ----------------------------------- */
+
+    penalty =
+      await calculateCurrentPaymentAmount(
+        payment.recap_id,
+        payment.payment_type,
+      );
+
+    currentAmount =
+      penalty.currentAmount;
+  } else if (
+    payment.manual_shipment_id
+  ) {
+    /* -----------------------------------
+       MANUAL SHIPPING
+    ----------------------------------- */
+
+    const {
+      data: shipment,
+      error: shipmentError,
+    } = await supabase
+      .from("manual_shipments")
+      .select(`
+        total_amount,
+        due_date,
+        member:members (
+          name,
+          phone
+        )
+      `)
+      .eq(
+        "id",
+        payment.manual_shipment_id,
+      )
+      .single();
+
+    if (
+      shipmentError ||
+      !shipment
+    ) {
+      throw new Error(
+        `Gagal mengambil data Manual Shipping: ${
+          shipmentError?.message ??
+          "Data tidak ditemukan"
+        }`,
+      );
+    }
+
+    const baseAmount = Number(
+      shipment.total_amount,
     );
 
-  const currentAmount =
-    penalty.currentAmount;
+    if (
+      !Number.isFinite(
+        baseAmount,
+      ) ||
+      baseAmount < 0
+    ) {
+      throw new Error(
+        "Nominal Manual Shipping tidak valid.",
+      );
+    }
+
+    const dueDate =
+      typeof shipment.due_date ===
+        "string" &&
+      shipment.due_date.trim()
+        ? shipment.due_date.trim()
+        : null;
+
+    let penaltyDays = 0;
+
+    if (dueDate) {
+      const today =
+        getTodayDateOnly();
+
+      const dueDateObject =
+        parseDateOnly(dueDate);
+
+      if (today > dueDateObject) {
+        penaltyDays = Math.max(
+          0,
+          differenceInDays(
+            dueDateObject,
+            today,
+          ),
+        );
+      }
+    }
+
+    const penaltyAmount =
+      penaltyDays *
+      LATE_PAYMENT_PENALTY_PER_DAY;
+
+    currentAmount =
+      baseAmount + penaltyAmount;
+
+    penalty = {
+      baseAmount,
+      penaltyDays,
+      penaltyAmount,
+      currentAmount,
+      dueDate,
+      permission: null,
+    };
+
+  } else {
+    throw new Error(
+      "Payment tidak memiliki sumber pembayaran yang valid.",
+    );
+  }
 
   /* -------------------------------------
      Update amount if needed
@@ -1901,8 +2594,7 @@ export async function generatePaymentLink(
       payment:
         buildPaymentMeta(
           paymentData,
-          currentAmount -
-            penalty.penaltyAmount,
+          penalty.baseAmount,
           penalty,
         ),
 
@@ -1979,45 +2671,113 @@ export async function generatePaymentLink(
 
   /* -------------------------------------
      Get buyer information
-
-     Buyer diambil langsung dari relasi
-     recap -> member sehingga frontend tidak
-     perlu mengirim nama / nomor HP ke backend.
   ------------------------------------- */
 
-  const {
-    data: recapBuyer,
-    error: recapBuyerError,
-  } = await supabase
-    .from("recaps")
-    .select(`
-      member:members (
-        name,
-        phone
+  let buyerName:
+    | string
+    | null = null;
+
+  let buyerPhone:
+    | string
+    | null = null;
+
+  if (payment.recap_id) {
+    /* -----------------------------------
+       REKAPAN BUYER
+    ----------------------------------- */
+
+    const {
+      data: recapBuyer,
+      error: recapBuyerError,
+    } = await supabase
+      .from("recaps")
+      .select(`
+        member:members (
+          name,
+          phone
+        )
+      `)
+      .eq(
+        "id",
+        payment.recap_id,
       )
-    `)
-    .eq("id", payment.recap_id)
-    .single();
+      .single();
 
-  if (recapBuyerError) {
-    throw new Error(
-      `Gagal mengambil data pembeli: ${recapBuyerError.message}`,
-    );
+    if (recapBuyerError) {
+      throw new Error(
+        `Gagal mengambil data pembeli: ${recapBuyerError.message}`,
+      );
+    }
+
+    const rawMember =
+      Array.isArray(
+        recapBuyer?.member,
+      )
+        ? recapBuyer.member[0] ??
+          null
+        : recapBuyer?.member ??
+          null;
+
+    buyerName =
+      typeof rawMember?.name === "string"
+        ? rawMember.name.trim()
+        : null;
+
+    buyerPhone =
+      typeof rawMember?.phone === "string"
+        ? rawMember.phone.trim()
+        : null;
+  } else if (
+    payment.manual_shipment_id
+  ) {
+    /* -----------------------------------
+       MANUAL SHIPPING BUYER
+    ----------------------------------- */
+
+    const {
+      data: shipmentBuyer,
+      error: shipmentBuyerError,
+    } = await supabase
+      .from("manual_shipments")
+      .select(`
+        member:members (
+          name,
+          phone
+        )
+      `)
+      .eq(
+        "id",
+        payment.manual_shipment_id,
+      )
+      .single();
+
+    if (
+      shipmentBuyerError
+    ) {
+      throw new Error(
+        `Gagal mengambil data pembeli Manual Shipping: ${shipmentBuyerError.message}`,
+      );
+    }
+
+    const rawMember =
+      Array.isArray(
+        shipmentBuyer?.member,
+      )
+        ? shipmentBuyer.member[0] ??
+          null
+        : shipmentBuyer?.member ??
+          null;
+
+    buyerName =
+      typeof rawMember?.name === "string"
+        ? rawMember.name.trim()
+        : null;
+
+    buyerPhone =
+      typeof rawMember?.phone === "string"
+        ? rawMember.phone.trim()
+        : null;
   }
-
-  const rawMember = Array.isArray(recapBuyer?.member)
-    ? recapBuyer.member[0] ?? null
-    : recapBuyer?.member ?? null;
-
-  const buyerName =
-    typeof rawMember?.name === "string"
-      ? rawMember.name.trim()
-      : null;
-
-  const buyerPhone =
-    typeof rawMember?.phone === "string"
-      ? rawMember.phone.trim()
-      : null;
 
   /* -------------------------------------
      Create Midtrans Payment Link
@@ -2101,8 +2861,7 @@ export async function generatePaymentLink(
     payment:
       buildPaymentMeta(
         updatedPayment as Payment,
-        currentAmount -
-          penalty.penaltyAmount,
+        penalty.baseAmount,
         penalty,
       ),
 
@@ -2402,7 +3161,8 @@ export async function handleMidtransNotification(
 
   if (
     newStatus ===
-    "paid"
+    "paid" &&
+    updatedPayment.recap_id
   ) {
     await syncLatePaymentPermissionStatuses(
       updatedPayment.recap_id,

@@ -1,3 +1,8 @@
+import type {
+  Request,
+  Response,
+} from "express";
+
 import {
   getActiveBankAccounts,
 } from "../services/bankAccountService.js";
@@ -7,8 +12,8 @@ import {
 ========================================= */
 
 export async function listActiveBankAccountsHandler(
-  _req,
-  res,
+  _req: Request,
+  res: Response,
 ) {
   try {
     const data =

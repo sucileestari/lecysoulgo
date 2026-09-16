@@ -254,7 +254,9 @@ export default function EditMemberDialog({
               <span className="font-medium text-[#20366f]">
                 {selectedType === "employee"
                   ? "Karyawan"
-                  : "Customer"}
+                  : selectedType === "hnr"
+                    ? "HNR"
+                    : "Customer"}
               </span>
 
               <ChevronDown
@@ -272,7 +274,6 @@ export default function EditMemberDialog({
               <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
                 <div
                   style={{
-                    height: "112px",
                     overflowY: "auto",
                     overscrollBehavior:
                       "contain",
@@ -286,6 +287,10 @@ export default function EditMemberDialog({
                     {
                       value: "employee" as const,
                       label: "Karyawan",
+                    },
+                    {
+                      value: "hnr" as const,
+                      label: "HNR",
                     },
                   ].map((option) => {
                     const isSelected =

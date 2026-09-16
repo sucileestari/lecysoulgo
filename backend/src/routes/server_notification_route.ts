@@ -4,24 +4,24 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 
-import memberRoutes from "./routes/memberRoutes.js";
-import batchRoutes from "./routes/batchRoutes.js";
-import productCostRoutes from "./routes/productCostRoutes.js";
-import recapRoutes from "./routes/recapRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
-import latePaymentPermissionRoutes from "./routes/latePaymentPermissionRoutes.js";
-import manualShippingBatchRoutes from "./routes/manualShippingBatchRoutes.js";
-import manualShippingRoutes from "./routes/manualShippingRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-import customerRoutes from "./routes/customerRoutes.js";
-import rolePermissionRoutes from "./routes/rolePermissionRoutes.js";
-import whatsappRoutes from "./routes/whatsappRoutes.js";
-import bankAccountRoutes from "./routes/bankAccountRoutes.js";
-import financeRoutes from "./routes/financeRoutes.js";
-import marketplaceOrderRoutes from "./routes/marketplaceOrderRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
+import memberRoutes from "../routes/memberRoutes.js";
+import batchRoutes from "../routes/batchRoutes.js";
+import productCostRoutes from "../routes/productCostRoutes.js";
+import recapRoutes from "../routes/recapRoutes.js";
+import paymentRoutes from "../routes/paymentRoutes.js";
+import latePaymentPermissionRoutes from "../routes/latePaymentPermissionRoutes.js";
+import manualShippingBatchRoutes from "../routes/manualShippingBatchRoutes.js";
+import manualShippingRoutes from "../routes/manualShippingRoutes.js";
+import authRoutes from "../routes/authRoutes.js";
+import customerRoutes from "../routes/customerRoutes.js";
+import rolePermissionRoutes from "../routes/rolePermissionRoutes.js";
+import whatsappRoutes from "../routes/whatsappRoutes.js";
+import bankAccountRoutes from "../routes/bankAccountRoutes.js";
+import financeRoutes from "../routes/financeRoutes.js";
+import marketplaceOrderRoutes from "../routes/marketplaceOrderRoutes.js";
+import notificationRoutes from "../routes/notificationRoutes.js";
 
-import { errorHandler } from "./middleware/errorHandler.js";
+import { errorHandler } from "../middleware/errorHandler.js";
 
 /* =========================================
    APP
@@ -57,16 +57,6 @@ app.use(
    CORS
 ========================================= */
 
-/*
- * Mengizinkan frontend mengakses API.
- *
- * Development:
- * FRONTEND_URL=http://localhost:5173
- *
- * Production:
- * FRONTEND_URL=https://domain-frontend-kamu
- */
-
 app.use(
   cors({
     origin: FRONTEND_URL,
@@ -91,16 +81,6 @@ app.use(
    BODY PARSER
 ========================================= */
 
-/*
- * Parser untuk JSON request.
- *
- * Upload gambar menggunakan Multer
- * dengan multipart/form-data.
- *
- * Limit 1mb cukup untuk request JSON
- * karena file tidak dikirim melalui parser ini.
- */
-
 app.use(
   express.json({
     limit: "1mb",
@@ -110,13 +90,6 @@ app.use(
 /* =========================================
    HEALTH CHECK
 ========================================= */
-
-/**
- * GET /api/health
- *
- * Digunakan untuk memastikan
- * backend berjalan dengan normal.
- */
 
 app.get(
   "/api/health",
@@ -133,26 +106,10 @@ app.get(
    AUTH ROUTES
 ========================================= */
 
-/*
- * CUSTOMER AUTH
- *
- * POST /api/customer/access
- * GET  /api/customer/me
- * GET  /api/customer/dashboard
- * GET  /api/customer/recaps
- */
-
 app.use(
   "/api/customer",
   customerRoutes,
 );
-
-/*
- * ADMIN AUTH
- *
- * POST /api/auth/login
- * GET  /api/auth/me
- */
 
 app.use(
   "/api/auth",
@@ -163,37 +120,6 @@ app.use(
    ROLE & PERMISSION ROUTES
 ========================================= */
 
-/**
- * GET
- * /api/roles
- *
- * GET
- * /api/roles/permissions
- *
- * GET
- * /api/roles/:roleId/permissions
- *
- * POST
- * /api/roles
- *
- * PUT
- * /api/roles/:roleId
- *
- * DELETE
- * /api/roles/:roleId
- *
- * PUT
- * /api/roles/:roleId/permissions
- *
- * Semua endpoint diamankan oleh:
- *
- * authenticate
- * +
- * requirePermission
- *
- * di dalam rolePermissionRoutes.
- */
-
 app.use(
   "/api/roles",
   rolePermissionRoutes,
@@ -202,18 +128,6 @@ app.use(
 /* =========================================
    MEMBER ROUTES
 ========================================= */
-
-/**
- * GET    /api/members
- * GET    /api/members/:id
- * POST   /api/members
- * PUT    /api/members/:id
- * DELETE /api/members/:id
- *
- * Tidak menggunakan global rate limiter
- * karena endpoint data memang sering
- * diakses oleh frontend.
- */
 
 app.use(
   "/api/members",
@@ -224,16 +138,6 @@ app.use(
    BATCH ROUTES
 ========================================= */
 
-/**
- * GET    /api/batches
- * GET    /api/batches/:id
- * POST   /api/batches
- * PUT    /api/batches/:id
- * DELETE /api/batches/:id
- *
- * Tidak menggunakan global rate limiter.
- */
-
 app.use(
   "/api/batches",
   batchRoutes,
@@ -242,14 +146,6 @@ app.use(
 /* =========================================
    PRODUCT COST ROUTES
 ========================================= */
-
-/**
- * GET    /api/product-costs
- * GET    /api/product-costs/batch/:batchId
- * POST   /api/product-costs
- * PUT    /api/product-costs/:id
- * DELETE /api/product-costs/:id
- */
 
 app.use(
   "/api/product-costs",
@@ -260,19 +156,6 @@ app.use(
    RECAP ROUTES
 ========================================= */
 
-/**
- * GET
- * /api/recaps?batch_id=UUID
- *
- * POST
- * /api/recaps
- *
- * DELETE
- * /api/recaps/:id
- *
- * Tidak menggunakan global rate limiter.
- */
-
 app.use(
   "/api/recaps",
   recapRoutes,
@@ -282,40 +165,6 @@ app.use(
    PAYMENT ROUTES
 ========================================= */
 
-/**
- * CURRENT ENDPOINTS
- *
- * GET
- * /api/payments/recap/:recapId
- *
- * GET
- * /api/payments/recap/:recapId/history
- *
- * POST
- * /api/payments
- *
- * POST
- * /api/payments/:id/simulate-success
- *
- *
- * MIDTRANS ENDPOINTS
- *
- * POST
- * /api/payments/midtrans/create
- *
- * POST
- * /api/payments/midtrans/webhook
- *
- *
- * IMPORTANT:
- *
- * Midtrans webhook tidak menggunakan
- * global rate limiter.
- *
- * Keamanan webhook dilakukan dengan
- * verifikasi signature dari Midtrans.
- */
-
 app.use(
   "/api/payments",
   paymentRoutes,
@@ -324,29 +173,6 @@ app.use(
 /* =========================================
    WHATSAPP ROUTES
 ========================================= */
-
-/**
- * POST
- * /api/whatsapp/send
- *
- * Digunakan untuk mengirim pesan WhatsApp
- * melalui Fonnte.
- *
- * Flow:
- *
- * Frontend
- *    ↓
- * Backend GO
- *    ↓
- * WhatsApp Service
- *    ↓
- * Fonnte API
- *    ↓
- * WhatsApp
- *
- * FONNTE_TOKEN disimpan di backend .env
- * dan tidak boleh dikirim ke frontend.
- */
 
 app.use(
   "/api/whatsapp",
@@ -366,23 +192,6 @@ app.use(
    MANUAL SHIPPING BATCH ROUTES
 ========================================= */
 
-/**
- * GET
- * /api/manual-shipping-batches
- *
- * GET
- * /api/manual-shipping-batches/:id
- *
- * POST
- * /api/manual-shipping-batches
- *
- * PUT
- * /api/manual-shipping-batches/:id
- *
- * DELETE
- * /api/manual-shipping-batches/:id
- */
-
 app.use(
   "/api/manual-shipping-batches",
   manualShippingBatchRoutes,
@@ -401,14 +210,6 @@ app.use(
    BANK ACCOUNT ROUTES
 ========================================= */
 
-/**
- * GET
- * /api/bank-accounts/active
- *
- * Digunakan untuk mengambil
- * daftar rekening aktif.
- */
-
 app.use(
   "/api/bank-accounts",
   bankAccountRoutes,
@@ -418,16 +219,6 @@ app.use(
    FINANCE ROUTES
 ========================================= */
 
-/**
- * GET
- * /api/finance
- *
- * Mengambil:
- * - summary keuangan
- * - saldo setiap rekening
- * - riwayat transaksi keuangan
- */
-
 app.use(
   "/api/finance",
   financeRoutes,
@@ -436,20 +227,6 @@ app.use(
 /* =========================================
    MARKETPLACE ORDER ROUTES
 ========================================= */
-
-/**
- * GET
- * /api/marketplace-orders/available-items
- *
- * Mengambil barang yang eligible
- * untuk pesanan Marketplace milik
- * customer yang sedang login.
- *
- * POST
- * /api/marketplace-orders
- *
- * Membuat pesanan Marketplace baru.
- */
 
 app.use(
   "/api/marketplace-orders",
@@ -461,7 +238,7 @@ app.use(
 ========================================= */
 
 /**
- * GET
+ * POST
  * /api/notifications/process
  *
  * Dipanggil oleh scheduler/cron untuk
@@ -477,14 +254,6 @@ app.use(
    API 404 HANDLER
 ========================================= */
 
-/*
- * Harus diletakkan SETELAH
- * seluruh API routes.
- *
- * Endpoint API yang tidak ditemukan
- * tetap mengembalikan JSON.
- */
-
 app.use(
   "/api",
   (_req, res) => {
@@ -499,10 +268,6 @@ app.use(
 /* =========================================
    GLOBAL ERROR HANDLER
 ========================================= */
-
-/*
- * Harus diletakkan paling akhir.
- */
 
 app.use(
   errorHandler,

@@ -49,6 +49,11 @@ import {
   type PaymentType,
 } from "@/services/paymentService";
 
+import {
+  getMembers,
+  type Member,
+} from "@/services/memberService";
+
 /* =========================================
    TYPES
 ========================================= */
@@ -176,7 +181,7 @@ function formatPaymentDate(
     "id-ID",
     {
       day: "2-digit",
-      month: "long",
+      month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
@@ -398,6 +403,37 @@ const [
 
       staleTime: 0,
     });
+
+  /* =======================================
+     GET MEMBERS
+  ======================================= */
+
+  const {
+    data: members = [],
+  } = useQuery<Member[], Error>({
+    queryKey: ["members"],
+    queryFn: () =>
+      getMembers(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const getMemberName = (
+    memberId:
+      | string
+      | null
+      | undefined,
+  ) => {
+    if (!memberId) {
+      return "-";
+    }
+
+    return (
+      members.find(
+        (member) =>
+          member.id === memberId,
+      )?.name ?? "-"
+    );
+  };
 
   /* =======================================
      RESET SAAT PINDAH NEGARA
@@ -1361,7 +1397,7 @@ const handlePaymentSuccess =
 
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[1280px] border-collapse">
+              <table className="w-full min-w-[1500px] border-collapse">
 
                 <thead>
 
@@ -1387,6 +1423,14 @@ const handlePaymentSuccess =
                       Tanggal Last Payment Pelunasan
                     </th>
 
+                    <th className="min-w-[180px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
+                      Admin Nyelem
+                    </th>
+
+                    <th className="min-w-[180px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
+                      Admin Rekap
+                    </th>
+
                     <th className="w-[130px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                       Aksi
                     </th>
@@ -1404,7 +1448,7 @@ const handlePaymentSuccess =
                     <tr>
 
                       <td
-                        colSpan={6}
+                        colSpan={8}
                         className="px-6 py-20 text-center"
                       >
 
@@ -1426,7 +1470,7 @@ const handlePaymentSuccess =
                     <tr>
 
                       <td
-                        colSpan={6}
+                        colSpan={8}
                         className="px-6 py-20 text-center"
                       >
 
@@ -1457,7 +1501,7 @@ const handlePaymentSuccess =
                       <tr>
 
                         <td
-                          colSpan={6}
+                          colSpan={8}
                           className="px-6 py-20 text-center"
                         >
 
@@ -1623,6 +1667,26 @@ const handlePaymentSuccess =
 
                           </td>
 
+                          {/* Admin Nyelem */}
+
+                          <td className="px-6 py-5 text-center">
+                            <p className="text-sm font-medium text-[#20366f]">
+                              {getMemberName(
+                                batch.admin_nyelem_id,
+                              )}
+                            </p>
+                          </td>
+
+                          {/* Admin Rekap */}
+
+                          <td className="px-6 py-5 text-center">
+                            <p className="text-sm font-medium text-[#20366f]">
+                              {getMemberName(
+                                batch.admin_rekap_id,
+                              )}
+                            </p>
+                          </td>
+
                           {/* Aksi */}
 
                           <td className="px-6 py-5">
@@ -1763,159 +1827,165 @@ const handlePaymentSuccess =
 
               <section className="mt-4 rounded-xl border border-[#edf0f6] bg-white p-8 shadow-sm">
 
-                <div className="flex flex-col gap-8 xl:flex-row xl:items-center">
+                <div className="space-y-8">
 
-                  {/* Image */}
+                  {/* Header Batch */}
 
-                  <div className="h-32 w-full shrink-0 sm:w-44">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
 
-                    {activeBatch.image_url ? (
+                    {/* Image */}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handlePreviewImage(
-                            activeBatch.image_url!,
-                            activeBatch.name,
-                          )
-                        }
-                        className="group relative flex h-full w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-xl bg-[#edf2f9]"
-                      >
+                    <div className="h-32 w-full shrink-0 sm:w-44">
+                      {activeBatch.image_url ? (
 
-                        <img
-                          src={
-                            activeBatch.image_url
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handlePreviewImage(
+                              activeBatch.image_url!,
+                              activeBatch.name,
+                            )
                           }
-                          alt={
-                            activeBatch.name
-                          }
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
+                          className="group relative flex h-full w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-xl bg-[#edf2f9]"
+                        >
 
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
+                          <img
+                            src={
+                              activeBatch.image_url
+                            }
+                            alt={
+                              activeBatch.name
+                            }
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
 
-                          <span className="rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-[#20366f] opacity-0 shadow-sm transition group-hover:opacity-100">
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
 
-                            Klik untuk
-                            memperbesar
+                            <span className="rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-[#20366f] opacity-0 shadow-sm transition group-hover:opacity-100">
+                              Klik untuk
+                              memperbesar
+                            </span>
 
-                          </span>
+                          </div>
 
+                        </button>
+
+                      ) : (
+
+                        <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#edf2f9] text-base text-[#7a89ad]">
+                          Batch
                         </div>
 
-                      </button>
+                      )}
 
-                    ) : (
+                    </div>
 
-                      <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#edf2f9] text-base text-[#7a89ad]">
-                        Batch
+                    {/* Name */}
+
+                    <div className="min-w-0 flex-1">
+
+                      <h2 className="text-xl font-bold text-[#10245c]">
+                        {activeBatch.name}
+                      </h2>
+
+                      <span className="mt-3 inline-flex rounded-full bg-[#eef4ff] px-4 py-2 text-base font-medium text-[#1457ff]">
+                        {activeBatch.type}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* Batch Information */}
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+
+                    {/* DP */}
+
+                    <div className="rounded-xl border border-[#edf0f6] bg-[#f8faff] p-5">
+                      <div className="flex items-center gap-2.5 text-sm font-medium text-[#65749b]">
+                        <CalendarDays className="h-5 w-5 text-[#536795]" />
+                        Tanggal DP Terakhir
                       </div>
 
-                    )}
-
-                  </div>
-
-                  {/* Name */}
-
-                  <div className="min-w-[220px]">
-
-                    <h2 className="text-xl font-bold text-[#10245c]">
-                      {
-                        activeBatch.name
-                      }
-                    </h2>
-
-                    <span className="mt-3 inline-flex rounded-full bg-[#eef4ff] px-4 py-2 text-base font-medium text-[#1457ff]">
-
-                      {
-                        activeBatch.type
-                      }
-
-                    </span>
-
-                  </div>
-
-                  {/* DP */}
-
-                  <div className="min-w-[240px] text-center">
-
-                    <div className="flex items-center justify-center gap-2.5 text-base font-medium text-[#65749b]">
-
-                      <CalendarDays className="h-6 w-6 text-[#536795]" />
-
-                      Tanggal DP
-                      Terakhir
-
+                      <p className="mt-3 text-base font-bold text-[#1f3a7a]">
+                        {formatDate(
+                          activeBatch.last_payment_dp,
+                        )}
+                      </p>
                     </div>
 
-                    <p className="mt-3 text-lg font-bold text-[#1f3a7a]">
+                    {/* Pelunasan */}
 
-                      {formatDate(
-                        activeBatch.last_payment_dp,
-                      )}
+                    <div className="rounded-xl border border-[#edf0f6] bg-[#f8faff] p-5">
+                      <div className="flex items-center gap-2.5 text-sm font-medium text-[#65749b]">
+                        <CalendarDays className="h-5 w-5 text-[#536795]" />
+                        Tanggal Pelunasan Terakhir
+                      </div>
 
-                    </p>
-
-                  </div>
-
-                  {/* Pelunasan */}
-
-                  <div className="min-w-[280px] text-center">
-
-                    <div className="flex items-center justify-center gap-2.5 text-base font-medium text-[#65749b]">
-
-                      <CalendarDays className="h-6 w-6 text-[#536795]" />
-
-                      Tanggal Pelunasan
-                      Terakhir
-
+                      <p className="mt-3 text-base font-bold text-[#1f3a7a]">
+                        {formatDate(
+                          activeBatch.last_payment_pelunasan,
+                        )}
+                      </p>
                     </div>
 
-                    <p className="mt-3 text-lg font-bold text-[#1f3a7a]">
+                    {/* Status */}
 
-                      {formatDate(
-                        activeBatch.last_payment_pelunasan,
-                      )}
+                    <div className="rounded-xl border border-[#edf0f6] bg-[#f8faff] p-5">
+                      <p className="text-sm font-medium text-[#65749b]">
+                        Status Barang Saat Ini
+                      </p>
 
-                    </p>
+                      <p className="mt-3 text-base font-bold text-green-600">
+                        {activeBatch.status}
+                      </p>
+                    </div>
 
-                  </div>
+                    {/* Admin Nyelem */}
 
-                  {/* Status */}
+                    <div className="rounded-xl border border-[#edf0f6] bg-[#f8faff] p-5">
+                      <p className="text-sm font-medium text-[#65749b]">
+                        Admin Nyelem
+                      </p>
 
-                  <div className="min-w-[220px] text-center">
+                      <p className="mt-3 truncate text-base font-bold text-[#1f3a7a]">
+                        {getMemberName(
+                          activeBatch.admin_nyelem_id,
+                        )}
+                      </p>
+                    </div>
 
-                    <p className="text-base font-medium text-[#65749b]">
+                    {/* Admin Rekap */}
 
-                      Status Barang
-                      Saat Ini
+                    <div className="rounded-xl border border-[#edf0f6] bg-[#f8faff] p-5">
+                      <p className="text-sm font-medium text-[#65749b]">
+                        Admin Rekap
+                      </p>
 
-                    </p>
-
-                    <p className="mt-3 text-lg font-bold text-green-600">
-
-                      {
-                        activeBatch.status
-                      }
-
-                    </p>
+                      <p className="mt-3 truncate text-base font-bold text-[#1f3a7a]">
+                        {getMemberName(
+                          activeBatch.admin_rekap_id,
+                        )}
+                      </p>
+                    </div>
 
                   </div>
 
                   {/* Actions */}
 
                   {activeBatch.status !== "Sudah sampai di Admin" && (
-                    <div className="flex items-center gap-4 xl:ml-auto">
+                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#edf0f6] pt-6">
 
                       <button
                         type="button"
                         onClick={
                           handleEditBatch
                         }
-                        className="flex h-12 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-6 text-base font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
+                        className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
                       >
 
-                        <Pencil className="h-5 w-5" />
+                        <Pencil className="h-4 w-4" />
 
                         Edit Batch
 
@@ -1926,10 +1996,10 @@ const handlePaymentSuccess =
                         onClick={
                           handleAddRecap
                         }
-                        className="flex h-12 items-center gap-2 rounded-lg bg-[#1457ff] px-6 text-base font-medium text-white transition hover:bg-[#0d4be0]"
+                        className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
                       >
 
-                        <Plus className="h-5 w-5" />
+                        <Plus className="h-4 w-4" />
 
                         Tambah Rekapan
 
@@ -2402,7 +2472,7 @@ const handlePaymentSuccess =
 
                                       <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
 
-                                        <p>
+                                        <p className="font-semibold text-red-600">
                                           Terlambat{" "}
                                           {
                                             dpSummary!
@@ -2567,7 +2637,7 @@ const handlePaymentSuccess =
 
                                           <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
 
-                                            <p>
+                                            <p className="font-semibold text-red-600">
                                               Terlambat{" "}
                                               {
                                                 pelunasanSummary!

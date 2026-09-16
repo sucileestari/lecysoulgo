@@ -11,6 +11,7 @@ import {
 
 import {
   Banknote,
+  Bell,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -109,6 +110,13 @@ const adminMenuItems: MenuItem[] = [
     icon: Users,
 
     permission: "members.view",
+  },
+
+  {
+    group: "General",
+    label: "Notification Log",
+    path: "/notification-log",
+    icon: Bell,
   },
 
   {
@@ -485,7 +493,7 @@ export default function AdminLayout({
               NAVIGATION
           ================================== */}
 
-          <nav className="mt-8 px-4">
+          <nav className="mt-8 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
 
             <div className="space-y-1">
 
@@ -709,7 +717,7 @@ export default function AdminLayout({
               CURRENT USER
           ================================== */}
 
-          <div className="mt-auto px-4 pb-5">
+          <div className="mt-auto shrink-0 px-4 pb-5">
 
             <button
               type="button"

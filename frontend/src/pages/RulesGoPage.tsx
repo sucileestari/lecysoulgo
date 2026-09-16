@@ -8,13 +8,20 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+import {
+  getMembers,
+  type Member,
+} from "../services/memberService";
 
 type RuleCategory =
   | "general"
   | "behavior"
   | "payment"
   | "shipping"
-  | "information";
+  | "information"
+  | "hnr";
 
 type StandardRule = {
   description: string;
@@ -46,6 +53,7 @@ type RulesData = {
   payment: StandardRule;
   shipping: StandardRule;
   information: InformationRule;
+  hnr: StandardRule;
 };
 
 const ruleCategories = [
@@ -73,6 +81,11 @@ const ruleCategories = [
     id: "information" as const,
     label: "Informasi Penting",
     icon: Info,
+  },
+  {
+    id: "hnr" as const,
+    label: "HNR",
+    icon: UserRound,
   },
 ];
 
@@ -181,11 +194,32 @@ const rules: RulesData = {
       },
     ],
   },
+
+  hnr: {
+    description:
+      "Daftar member yang saat ini memiliki status HNR di Lecy Soulgo.",
+    items: [],
+  },
 };
 
 export default function RulesGoPage() {
   const [activeCategory, setActiveCategory] =
     useState<RuleCategory>("general");
+
+  const {
+    data: members = [],
+    isLoading: isMembersLoading,
+    isError: isMembersError,
+    error: membersError,
+  } = useQuery<Member[], Error>({
+    queryKey: ["members"],
+    queryFn: () => getMembers(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const hnrMembers = members.filter(
+    (member) => member.type === "hnr",
+  );
 
   const activeRules = rules[activeCategory];
 
@@ -210,16 +244,19 @@ export default function RulesGoPage() {
         {/* =========================
             CATEGORY TABS
         ========================== */}
-        <section className="mt-8 grid gap-2 text-left sm:grid-cols-2 lg:grid-cols-5">
+        <section className="mt-8 grid gap-2 text-left sm:grid-cols-2 lg:grid-cols-6">
           {ruleCategories.map((category) => {
             const Icon = category.icon;
-            const isActive = activeCategory === category.id;
+            const isActive =
+              activeCategory === category.id;
 
             return (
               <button
                 key={category.id}
                 type="button"
-                onClick={() => setActiveCategory(category.id)}
+                onClick={() =>
+                  setActiveCategory(category.id)
+                }
                 className={[
                   "flex min-h-[60px] items-center gap-3 rounded-xl border bg-white px-4 text-left text-sm font-medium shadow-sm transition-all",
                   isActive
@@ -245,7 +282,7 @@ export default function RulesGoPage() {
         {/* =========================
             ACTIVE TAB UNDERLINE
         ========================== */}
-        <div className="mt-0 hidden lg:grid lg:grid-cols-5 lg:gap-2">
+        <div className="mt-0 hidden lg:grid lg:grid-cols-6 lg:gap-2">
           {ruleCategories.map((category) => (
             <div
               key={category.id}
@@ -263,28 +300,31 @@ export default function RulesGoPage() {
             CONTENT
         ========================== */}
         <section className="mt-4 rounded-xl bg-white px-7 py-5 shadow-sm ring-1 ring-black/5 lg:px-8 lg:py-6">
-
           {/* =========================
               GENERAL / PAYMENT / SHIPPING
           ========================== */}
           {activeCategory !== "behavior" &&
-          activeCategory !== "information" ? (
+          activeCategory !== "information" &&
+          activeCategory !== "hnr" &&
+          "items" in activeRules ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
                 {activeRules.description}
               </p>
 
               <ul className="mt-4 space-y-4">
-                {activeRules.items.map((item, index) => (
-                  <li
-                    key={`${activeCategory}-${index}`}
-                    className="flex items-start gap-4 text-sm leading-7 text-[#20366f]"
-                  >
-                    <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1457ff]" />
+                {activeRules.items.map(
+                  (item, index) => (
+                    <li
+                      key={`${activeCategory}-${index}`}
+                      className="flex items-start gap-4 text-sm leading-7 text-[#20366f]"
+                    >
+                      <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1457ff]" />
 
-                    <span>{item}</span>
-                  </li>
-                ))}
+                      <span>{item}</span>
+                    </li>
+                  ),
+                )}
               </ul>
             </>
           ) : null}
@@ -299,7 +339,6 @@ export default function RulesGoPage() {
               </p>
 
               <div className="mt-6 space-y-8">
-
                 {/* Allowed */}
                 <section>
                   <div className="mb-4 flex items-center gap-2">
@@ -365,7 +404,6 @@ export default function RulesGoPage() {
               </p>
 
               <div className="mt-5 space-y-5">
-
                 {/* Contact Person */}
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
@@ -422,6 +460,70 @@ export default function RulesGoPage() {
                   </div>
                 </section>
               </div>
+            </>
+          ) : null}
+
+          {/* =========================
+              HNR
+          ========================== */}
+          {activeCategory === "hnr" ? (
+            <>
+              <p className="text-sm leading-7 text-[#20366f]">
+                {rules.hnr.description}
+              </p>
+
+              {isMembersLoading ? (
+                <div className="mt-6 rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-8 text-center">
+                  <p className="text-sm text-[#7a89ad]">
+                    Memuat daftar HNR...
+                  </p>
+                </div>
+              ) : isMembersError ? (
+                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-6 py-5">
+                  <p className="text-sm font-medium text-red-500">
+                    Gagal mengambil daftar HNR.
+                  </p>
+
+                  <p className="mt-1 text-sm text-red-400">
+                    {membersError.message}
+                  </p>
+                </div>
+              ) : hnrMembers.length === 0 ? (
+                <div className="mt-6 rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-8 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#edf3ff]">
+                    <UserRound className="h-5 w-5 text-[#1457ff]" />
+                  </div>
+
+                  <p className="mt-3 text-sm font-medium text-[#20366f]">
+                    Belum ada member HNR.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {hnrMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-5 py-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf3ff]">
+                          <UserRound className="h-5 w-5 text-[#1457ff]" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[#10245c]">
+                            {member.name}
+                          </p>
+
+                          <p className="mt-0.5 text-xs text-[#7a89ad]">
+                            HNR
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           ) : null}
         </section>

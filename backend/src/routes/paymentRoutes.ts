@@ -3,6 +3,8 @@ import { Router } from "express";
 import {
   createPaymentHandler,
   generatePaymentLinkHandler,
+  getManualShipmentPaymentHandler,
+  getManualShipmentPaymentSummaryHandler,
   getPaymentsByRecapHandler,
   getRecapPaymentSummaryHandler,
   midtransWebhookHandler,
@@ -39,6 +41,20 @@ router.get(
 router.get(
   "/recap/:recapId/history",
   getPaymentsByRecapHandler,
+);
+
+/* =========================================
+   MANUAL SHIPMENT PAYMENT
+========================================= */
+
+router.get(
+  "/manual-shipment/:shipmentId",
+  getManualShipmentPaymentHandler,
+);
+
+router.get(
+  "/manual-shipment/:shipmentId/summary",
+  getManualShipmentPaymentSummaryHandler,
 );
 
 router.post(

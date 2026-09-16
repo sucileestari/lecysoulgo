@@ -44,6 +44,36 @@ function formatRupiah(
 }
 
 /* =========================================
+   FORMAT DATE
+========================================= */
+
+function formatLongDate(
+  dateString: string | null | undefined,
+): string {
+  if (!dateString) {
+    return "-";
+  }
+
+  const date = new Date(
+    `${dateString}T00:00:00+07:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Jakarta",
+    },
+  ).format(date);
+}
+
+/* =========================================
    SEND WHATSAPP
 ========================================= */
 
@@ -54,7 +84,6 @@ export async function sendWhatsAppHandler(
   try {
     const {
       target,
-      message,
       payment_id,
     } = req.body;
 
@@ -63,14 +92,6 @@ export async function sendWhatsAppHandler(
         success: false,
         message:
           "Nomor tujuan wajib diisi.",
-      });
-    }
-
-    if (!message) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Pesan wajib diisi.",
       });
     }
 
@@ -97,8 +118,10 @@ export async function sendWhatsAppHandler(
       .select(`
         id,
         recap_id,
+        manual_shipment_id,
         payment_type,
-        amount
+        amount,
+        payment_url
       `)
       .eq(
         "id",
@@ -118,98 +141,334 @@ export async function sendWhatsAppHandler(
     }
 
     /* -------------------------------------
-       Get recap + batch + member
+       Validate payment link
     ------------------------------------- */
 
-    const {
-      data: recap,
-      error: recapError,
-    } = await supabase
-      .from("recaps")
-      .select(`
-        detail_barang,
-        batch:batches (
-          name,
-          country
-        ),
-        member:members (
-          name
-        )
-      `)
-      .eq(
-        "id",
-        payment.recap_id,
-      )
-      .single();
-
-    if (
-      recapError ||
-      !recap
-    ) {
-      return res.status(404).json({
+    if (!payment.payment_url) {
+      return res.status(400).json({
         success: false,
         message:
-          "Data rekapan tidak ditemukan.",
+          "Payment Link belum tersedia.",
       });
     }
 
     /* -------------------------------------
-       Normalize relation
+       PAYMENT SOURCE
     ------------------------------------- */
 
-    const batch =
-      Array.isArray(recap.batch)
-        ? recap.batch[0]
-        : recap.batch;
+    let productName = "-";
+    let batchName = "-";
+    let countryName = "-";
+    let buyerName = "Kak";
 
-    const member =
-      Array.isArray(recap.member)
-        ? recap.member[0]
-        : recap.member;
+    let dueDate: string | null = null;
 
     /* -------------------------------------
-       Product
+       RECAP PAYMENT
     ------------------------------------- */
 
-    const productName =
-      typeof recap.detail_barang ===
-        "string" &&
-      recap.detail_barang.trim()
-        ? recap.detail_barang.trim()
-        : "-";
+    if (payment.recap_id) {
+      const {
+        data: recap,
+        error: recapError,
+      } = await supabase
+        .from("recaps")
+        .select(`
+          detail_barang,
+          batch:batches (
+            name,
+            country,
+            last_payment_dp,
+            last_payment_pelunasan
+          ),
+          member:members (
+            name
+          )
+        `)
+        .eq(
+          "id",
+          payment.recap_id,
+        )
+        .single();
+
+      if (
+        recapError ||
+        !recap
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Data rekapan tidak ditemukan.",
+        });
+      }
+
+      /* -------------------------------------
+         Normalize relation
+      ------------------------------------- */
+
+      const batch =
+        Array.isArray(recap.batch)
+          ? recap.batch[0]
+          : recap.batch;
+
+      const member =
+        Array.isArray(recap.member)
+          ? recap.member[0]
+          : recap.member;
+
+      /* -------------------------------------
+         Product
+      ------------------------------------- */
+
+      productName =
+        typeof recap.detail_barang ===
+          "string" &&
+        recap.detail_barang.trim()
+          ? recap.detail_barang.trim()
+          : "-";
+
+      /* -------------------------------------
+         Batch
+      ------------------------------------- */
+
+      batchName =
+        batch &&
+        typeof batch.name ===
+          "string" &&
+        batch.name.trim()
+          ? batch.name.trim()
+          : "-";
+
+      /* -------------------------------------
+         Country
+      ------------------------------------- */
+
+      countryName =
+        getCountryName(
+          batch?.country,
+        );
+
+      /* -------------------------------------
+         Buyer Name
+      ------------------------------------- */
+
+      buyerName =
+        member &&
+        typeof member.name ===
+          "string" &&
+        member.name.trim()
+          ? member.name.trim()
+          : "Kak";
+
+      /* -------------------------------------
+         Payment Due Date
+      ------------------------------------- */
+
+      const paymentType =
+        String(
+          payment.payment_type ??
+            "",
+        ).toUpperCase();
+
+      if (
+        paymentType === "DP"
+      ) {
+        dueDate =
+          batch?.last_payment_dp ??
+          null;
+      } else if (
+        paymentType ===
+        "PELUNASAN"
+      ) {
+        dueDate =
+          batch?.last_payment_pelunasan ??
+          null;
+      }
+    }
 
     /* -------------------------------------
-       Batch
+       MANUAL SHIPPING PAYMENT
     ------------------------------------- */
 
-    const batchName =
-      batch &&
-      typeof batch.name ===
-        "string" &&
-      batch.name.trim()
-        ? batch.name.trim()
-        : "-";
+    else if (
+      payment.manual_shipment_id
+    ) {
+      /* -------------------------------------
+         Get Manual Shipment
+      ------------------------------------- */
+
+      const {
+        data: manualShipment,
+        error: manualShipmentError,
+      } = await supabase
+        .from("manual_shipments")
+        .select(`
+          id,
+          batch_id,
+          member_id,
+          due_date
+        `)
+        .eq(
+          "id",
+          payment.manual_shipment_id,
+        )
+        .single();
+
+      if (
+        manualShipmentError ||
+        !manualShipment
+      ) {
+        console.error(
+          "GET MANUAL SHIPMENT ERROR:",
+          {
+            manualShipmentId:
+              payment.manual_shipment_id,
+            error:
+              manualShipmentError,
+          },
+        );
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "Data manual shipment tidak ditemukan.",
+        });
+      }
+
+      /* -------------------------------------
+         Get Member
+      ------------------------------------- */
+
+      const {
+        data: member,
+        error: memberError,
+      } = await supabase
+        .from("members")
+        .select("name")
+        .eq(
+          "id",
+          manualShipment.member_id,
+        )
+        .single();
+
+      if (
+        memberError ||
+        !member
+      ) {
+        console.error(
+          "GET MANUAL SHIPMENT MEMBER ERROR:",
+          {
+            memberId:
+              manualShipment.member_id,
+            error:
+              memberError,
+          },
+        );
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "Data member manual shipment tidak ditemukan.",
+        });
+      }
+
+      /* -------------------------------------
+         Get Manual Shipping Batch
+      ------------------------------------- */
+
+      const {
+        data: batch,
+        error: batchError,
+      } = await supabase
+        .from("manual_shipping_batches")
+        .select(`
+          id,
+          event_name
+        `)
+        .eq(
+          "id",
+          manualShipment.batch_id,
+        )
+        .single();
+
+      if (
+        batchError ||
+        !batch
+      ) {
+        console.error(
+          "GET MANUAL SHIPPING BATCH ERROR:",
+          {
+            batchId:
+              manualShipment.batch_id,
+            error:
+              batchError,
+          },
+        );
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "Data batch manual shipment tidak ditemukan.",
+        });
+      }
+
+      /* -------------------------------------
+         Product
+         Manual Shipping = statis
+      ------------------------------------- */
+
+      productName =
+        "Pengiriman Manual";
+
+      /* -------------------------------------
+         Batch
+      ------------------------------------- */
+
+      batchName =
+        typeof batch.event_name ===
+          "string" &&
+        batch.event_name.trim()
+          ? batch.event_name.trim()
+          : "-";
+
+      /* -------------------------------------
+         Country
+         Manual Shipping = "-"
+      ------------------------------------- */
+
+      countryName = "-";
+
+      /* -------------------------------------
+         Buyer Name
+      ------------------------------------- */
+
+      buyerName =
+        typeof member.name ===
+          "string" &&
+        member.name.trim()
+          ? member.name.trim()
+          : "Kak";
+
+      /* -------------------------------------
+         Manual Shipping Due Date
+      ------------------------------------- */
+
+      dueDate =
+        manualShipment.due_date ??
+        null;
+    }
 
     /* -------------------------------------
-       Country
+       INVALID PAYMENT SOURCE
     ------------------------------------- */
 
-    const countryName =
-      getCountryName(
-        batch?.country,
-      );
-
-    /* -------------------------------------
-       Buyer Name
-    ------------------------------------- */
-
-    const buyerName =
-      member &&
-      typeof member.name ===
-        "string" &&
-      member.name.trim()
-        ? member.name.trim()
-        : "Kak";
+    else {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Payment tidak memiliki sumber data yang valid.",
+      });
+    }
 
     /* -------------------------------------
        Payment Type
@@ -218,7 +477,7 @@ export async function sendWhatsAppHandler(
     const paymentType =
       String(
         payment.payment_type ??
-        "",
+          "",
       ).toUpperCase();
 
     let paymentLabel =
@@ -251,24 +510,13 @@ export async function sendWhatsAppHandler(
       );
 
     /* -------------------------------------
-       Payment URL
-       
-       URL tetap diambil dari message
-       yang dikirim PaymentDialog.
+       Payment Due Date
     ------------------------------------- */
 
-    const paymentUrl =
-      message
-        .split("\n")
-        .find(
-          (line: string) =>
-            line.startsWith(
-              "http://",
-            ) ||
-            line.startsWith(
-              "https://",
-            ),
-        ) ?? "";
+    const formattedDueDate =
+      formatLongDate(
+        dueDate,
+      );
 
     /* -------------------------------------
        Final WhatsApp Message
@@ -283,9 +531,10 @@ export async function sendWhatsAppHandler(
       `🌏 Negara: ${countryName}`,
       `💰 Jenis Pembayaran: ${paymentLabel}`,
       `💰 Total Pembayaran: ${formattedAmount}`,
+      `📅 Maksimal Pembayaran: ${formattedDueDate}`,
       "",
       "Silakan lakukan pembayaran melalui link berikut:",
-      paymentUrl,
+      payment.payment_url,
       "",
       "*Mohon untuk Tidak klik Link jika tidak langsung membayar, karena batas pembayaran setelah klik link adalah 15 Menit*",
       "",

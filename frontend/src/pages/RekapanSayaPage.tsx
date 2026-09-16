@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -8,6 +10,7 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  ChevronDown,
   Search,
   Image as ImageIcon,
   X,
@@ -114,6 +117,34 @@ function formatPaymentDate(
   ).format(date);
 }
 
+function formatDueDate(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  ).format(date);
+}
+
 function getCountryInfo(
   country: string | null | undefined,
 ): {
@@ -146,8 +177,10 @@ function getCountryInfo(
 
 function PaymentInfo({
   payment,
+  showDueDate = true,
 }: {
   payment: CustomerRecap["down_payment"];
+  showDueDate?: boolean;
 }) {
   const isPaid =
     payment.status ===
@@ -156,6 +189,11 @@ function PaymentInfo({
   const paidAt =
     formatPaymentDate(
       payment.paid_at,
+    );
+
+  const dueDate =
+    formatDueDate(
+      payment.due_date,
     );
 
   return (
@@ -177,6 +215,34 @@ function PaymentInfo({
           ? "● Paid"
           : "● Unpaid"}
       </div>
+
+      {showDueDate &&
+        dueDate && (
+          <div className="text-xs text-gray-500">
+            Maks. pembayaran:{" "}
+            {dueDate}
+          </div>
+        )}
+
+      {!isPaid &&
+        Number(payment.penalty_days ?? 0) > 0 && (
+          <div className="text-xs leading-5">
+            <p className="text-red-500">
+              Terlambat{" "}
+              {payment.penalty_days}{" "}
+              hari
+            </p>
+            <p className="text-gray-900">
+              Denda +{" "}
+              {formatCurrency(
+                Number(
+                  payment.penalty_amount ??
+                    0,
+                ),
+              )}
+            </p>
+          </div>
+        )}
 
       {isPaid &&
         paidAt && (
@@ -307,6 +373,14 @@ export default function RekapanSaya() {
   ] = useState("all");
 
   const [
+    isCountryDropdownOpen,
+    setIsCountryDropdownOpen,
+  ] = useState(false);
+
+  const countryDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const [
     preview,
     setPreview,
   ] = useState<{
@@ -339,7 +413,7 @@ export default function RekapanSaya() {
           .trim()
           .toLowerCase();
 
-      return recaps.filter(
+      const filtered = recaps.filter(
         (recap) => {
           const matchesSearch =
             !keyword ||
@@ -365,6 +439,103 @@ export default function RekapanSaya() {
             matchesSearch &&
             matchesCountry
           );
+        },
+      );
+
+      return filtered.sort(
+        (a, b) => {
+          const aPendingPayments = [
+            {
+              status:
+                a.down_payment.status,
+              dueDate:
+                a.down_payment.due_date,
+            },
+            {
+              status:
+                a.pelunasan.status,
+              dueDate:
+                a.pelunasan.due_date,
+            },
+          ].filter(
+            (payment) =>
+              payment.status !== "paid" &&
+              payment.dueDate,
+          );
+
+          const bPendingPayments = [
+            {
+              status:
+                b.down_payment.status,
+              dueDate:
+                b.down_payment.due_date,
+            },
+            {
+              status:
+                b.pelunasan.status,
+              dueDate:
+                b.pelunasan.due_date,
+            },
+          ].filter(
+            (payment) =>
+              payment.status !== "paid" &&
+              payment.dueDate,
+          );
+
+          const aHasUnpaid =
+            aPendingPayments.length >
+            0;
+          const bHasUnpaid =
+            bPendingPayments.length >
+            0;
+
+          // Rekapan yang masih memiliki
+          // pembayaran belum paid berada di atas.
+          if (
+            aHasUnpaid !==
+            bHasUnpaid
+          ) {
+            return aHasUnpaid
+              ? -1
+              : 1;
+          }
+
+          // Untuk masing-masing rekapan,
+          // gunakan tanggal maksimal payment
+          // yang belum dibayar dan paling dekat.
+          if (
+            aHasUnpaid &&
+            bHasUnpaid
+          ) {
+            const aNearestDueDate =
+              Math.min(
+                ...aPendingPayments.map(
+                  (payment) =>
+                    new Date(
+                      payment.dueDate!,
+                    ).getTime(),
+                ),
+              );
+
+            const bNearestDueDate =
+              Math.min(
+                ...bPendingPayments.map(
+                  (payment) =>
+                    new Date(
+                      payment.dueDate!,
+                    ).getTime(),
+                ),
+              );
+
+            return (
+              aNearestDueDate -
+              bNearestDueDate
+            );
+          }
+
+          // Jika keduanya sudah paid,
+          // pertahankan urutan dari API.
+          return 0;
         },
       );
     }, [
@@ -400,6 +571,39 @@ export default function RekapanSaya() {
         unique,
       );
     }, [recaps]);
+
+  /* -------------------------------------
+     CLOSE COUNTRY DROPDOWN
+  ------------------------------------- */
+
+  useEffect(() => {
+    function handleClickOutside(
+      event: MouseEvent,
+    ) {
+      if (
+        countryDropdownRef.current &&
+        !countryDropdownRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setIsCountryDropdownOpen(
+          false,
+        );
+      }
+    }
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, []);
 
   /* -------------------------------------
      LOADING
@@ -485,39 +689,154 @@ export default function RekapanSaya() {
 
           {/* COUNTRY */}
 
-          <select
-            value={
-              selectedCountry
-            }
-            onChange={(event) =>
-              setSelectedCountry(
-                event.target.value,
-              )
-            }
-            className="h-11 rounded-lg border border-gray-200 bg-white px-4 text-sm outline-none focus:border-gray-400"
+          <div
+            ref={countryDropdownRef}
+            className="relative w-full md:w-[220px]"
           >
-            <option value="all">
-              Semua Negara
-            </option>
+            <button
+              type="button"
+              onClick={() =>
+                setIsCountryDropdownOpen(
+                  (current) => !current,
+                )
+              }
+              className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                {selectedCountry ===
+                "all" ? (
+                  <span className="truncate font-medium text-[#20366f]">
+                    Semua Negara
+                  </span>
+                ) : (
+                  (() => {
+                    const info =
+                      getCountryInfo(
+                        selectedCountry,
+                      );
+                    const Flag =
+                      info.flag;
 
-            {countries.map(
-              (country) => {
-                const info =
-                  getCountryInfo(
-                    country,
-                  );
+                    return (
+                      <>
+                        {Flag ? (
+                          <Flag
+                            title={
+                              info.name
+                            }
+                            className="h-5 w-7 shrink-0"
+                          />
+                        ) : null}
 
-                return (
-                  <option
-                    key={country}
-                    value={country}
+                        <span className="truncate font-medium text-[#20366f]">
+                          {info.name}
+                        </span>
+                      </>
+                    );
+                  })()
+                )}
+              </div>
+
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                  isCountryDropdownOpen
+                    ? "rotate-180"
+                    : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {isCountryDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                <div className="max-h-56 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCountry(
+                        "all",
+                      );
+                      setIsCountryDropdownOpen(
+                        false,
+                      );
+                    }}
+                    className={[
+                      "flex h-11 w-full items-center px-4 text-left text-sm transition",
+                      selectedCountry ===
+                      "all"
+                        ? "bg-[#edf3ff] text-[#1457ff]"
+                        : "text-[#20366f] hover:bg-[#f8faff]",
+                    ].join(" ")}
                   >
-                    {info.name}
-                  </option>
-                );
-              },
+                    Semua Negara
+                  </button>
+
+                  {countries.map(
+                    (country) => {
+                      const info =
+                        getCountryInfo(
+                          country,
+                        );
+                      const Flag =
+                        info.flag;
+                      const isSelected =
+                        country ===
+                        selectedCountry;
+
+                      return (
+                        <button
+                          key={country}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCountry(
+                              country,
+                            );
+                            setIsCountryDropdownOpen(
+                              false,
+                            );
+                          }}
+                          className={[
+                            "flex h-12 w-full items-center gap-3 px-4 text-left transition",
+                            isSelected
+                              ? "bg-[#edf3ff]"
+                              : "hover:bg-[#f8faff]",
+                          ].join(" ")}
+                        >
+                          {Flag ? (
+                            <Flag
+                              title={
+                                info.name
+                              }
+                              className="h-5 w-7 shrink-0"
+                            />
+                          ) : (
+                            <div className="h-5 w-7 shrink-0 rounded bg-gray-100" />
+                          )}
+
+                          <span
+                            className={[
+                              "text-sm",
+                              isSelected
+                                ? "font-medium text-[#1457ff]"
+                                : "text-[#20366f]",
+                            ].join(" ")}
+                          >
+                            {info.name}
+                          </span>
+
+                          {isSelected && (
+                            <span className="ml-auto text-xs font-medium text-[#1457ff]">
+                              Dipilih
+                            </span>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
             )}
-          </select>
+          </div>
         </div>
 
         {/* EMPTY */}
@@ -583,7 +902,15 @@ export default function RekapanSaya() {
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Maksimal DP
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Down Payment
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Maksimal Pelunasan
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -669,6 +996,16 @@ export default function RekapanSaya() {
                           </span>
                         </td>
 
+                        {/* MAKSIMAL DP */}
+
+                        <td className="px-5 py-5">
+                          <div className="text-sm font-medium text-gray-800">
+                            {formatDueDate(
+                              recap.down_payment.due_date,
+                            ) ?? "—"}
+                          </div>
+                        </td>
+
                         {/* DOWN PAYMENT */}
 
                         <td className="px-5 py-5">
@@ -676,7 +1013,18 @@ export default function RekapanSaya() {
                             payment={
                               recap.down_payment
                             }
+                            showDueDate={false}
                           />
+                        </td>
+
+                        {/* MAKSIMAL PELUNASAN */}
+
+                        <td className="px-5 py-5">
+                          <div className="text-sm font-medium text-gray-800">
+                            {formatDueDate(
+                              recap.pelunasan.due_date,
+                            ) ?? "—"}
+                          </div>
                         </td>
 
                         {/* PELUNASAN */}
@@ -686,6 +1034,7 @@ export default function RekapanSaya() {
                             payment={
                               recap.pelunasan
                             }
+                            showDueDate={false}
                           />
                         </td>
 

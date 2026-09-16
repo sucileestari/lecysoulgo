@@ -27,6 +27,8 @@ export type Batch = {
   last_payment_pelunasan: string | null;
   status: BatchStatus;
   image_path: string | null;
+  admin_nyelem_id: string | null;
+  admin_rekap_id: string | null;
   image_url: string | null;
   total_order: number;
   created_at: string;
@@ -39,6 +41,8 @@ export type CreateBatchInput = {
   type: string;
   last_payment_dp: string;
   last_payment_pelunasan?: string | null;
+  admin_nyelem_id: string;
+  admin_rekap_id: string;
   status?: BatchStatus;
 };
 
@@ -357,6 +361,12 @@ export async function createBatch(
     last_payment_pelunasan:
       input.last_payment_pelunasan ||
       null,
+
+    admin_nyelem_id:
+      input.admin_nyelem_id,
+
+    admin_rekap_id:
+      input.admin_rekap_id,
 
     status:
       input.status ??

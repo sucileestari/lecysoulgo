@@ -8,21 +8,13 @@ import {
   CheckCircle2,
   ExternalLink,
   MessageCircle,
+  Loader2,
 } from "lucide-react";
 
-import type {
-  Payment,
-} from "../../services/paymentService";
-
-import type {
-  ManualShipmentPayment,
-} from "../../services/manualShipmentPaymentService";
-
 import {
-  createManualShipmentPayment,
-  generateManualShipmentPaymentLink,
-  getManualShipmentPaymentById,
-} from "../../services/manualShipmentPaymentService";
+  generatePaymentLink,
+  type Payment,
+} from "../../services/paymentService";
 
 /* =========================================
    TYPES
@@ -30,12 +22,12 @@ import {
 
 type PaymentSuccessHandler = {
   bivarianceHack(
-    payment: Payment | ManualShipmentPayment,
+    payment: Payment,
   ): void | Promise<void>;
 }["bivarianceHack"];
 
 type PaymentDialogProps = {
-  payment: Payment | ManualShipmentPayment | null;
+  payment: Payment | null;
 
   buyer: {
     name: string | null;
@@ -162,12 +154,6 @@ function normalizePaymentType(
     : "PELUNASAN";
 }
 
-function isManualPayment(
-  value: Payment | ManualShipmentPayment,
-): value is ManualShipmentPayment {
-  return "shipment_id" in value;
-}
-
 /* =========================================
    COMPONENT
 ========================================= */
@@ -179,7 +165,6 @@ export default function PaymentDialog({
   onClose,
   onPaymentSuccess,
   isManualShipment = false,
-  manualShipmentId,
 }: PaymentDialogProps) {
   const [
     isProcessing,
@@ -192,10 +177,10 @@ export default function PaymentDialog({
   ] = useState("");
 
   const [
-  currentPayment,
-  setCurrentPayment,
+    currentPayment,
+    setCurrentPayment,
   ] = useState<
-  Payment | ManualShipmentPayment | null
+    Payment | null
   >(payment);
 
   /* =======================================
@@ -215,138 +200,34 @@ export default function PaymentDialog({
     open,
   ]);
 
-  useEffect(() => {
-    if (
-      !open ||
-      !isManualShipment ||
-      !manualShipmentId ||
-      currentPayment
-    ) {
-      return;
-    }
-
-    const shipmentId = manualShipmentId;
-    let cancelled = false;
-
-    async function createPayment() {
-      try {
-        setIsProcessing(true);
-        setError("");
-
-        const createdPayment =
-          await createManualShipmentPayment(
-            shipmentId,
-          );
-
-        if (cancelled) {
-          return;
-        }
-
-        setCurrentPayment(
-          createdPayment,
-        );
-      } catch (createError) {
-        console.error(
-          "create manual shipment payment error:",
-          createError,
-        );
-
-        if (!cancelled) {
-          setError(
-            createError instanceof Error
-              ? createError.message
-              : "Gagal membuat pembayaran.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsProcessing(false);
-        }
-      }
-    }
-
-    void createPayment();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    open,
-    isManualShipment,
-    manualShipmentId,
-    currentPayment,
-  ]);
 
   /* =======================================
      REFRESH PAYMENT FROM BACKEND
   ======================================== */
 
-  async function refreshPayment(
-    showLoading = false,
-  ): Promise<
-    Payment | ManualShipmentPayment | null
+  async function refreshPayment(): Promise<
+    Payment | null
   > {
     if (!currentPayment) {
       return null;
     }
 
-    if (
-      isManualShipment &&
-      isManualPayment(currentPayment)
-    ) {
-      try {
-        const updatedPayment =
-          await getManualShipmentPaymentById(
-            currentPayment.id,
-          );
-
-        if (updatedPayment) {
-          setCurrentPayment(
-            updatedPayment,
-          );
-
-          if (
-            updatedPayment.status ===
-            "paid"
-          ) {
-            await onPaymentSuccess(
-              updatedPayment,
-            );
-          }
-        }
-
-        return updatedPayment;
-      } catch (refreshError) {
-        console.error(
-          "refresh manual shipment payment error:",
-          refreshError,
-        );
-
-        return null;
-      } finally {
-      }
+    /*
+     * Manual Shipping belum memiliki
+     * endpoint GET /api/payments/:id.
+     *
+     * Jadi jangan memanggil endpoint
+     * yang tidak tersedia.
+     */
+    if (isManualShipment) {
+      return currentPayment;
     }
 
-    if (
-      !isManualShipment &&
-      !isManualPayment(currentPayment) &&
-      !currentPayment.recap_id
-    ) {
-      return null;
-    }
-
-    if (
-      isManualShipment ||
-      isManualPayment(currentPayment)
-    ) {
+    if (!currentPayment.recap_id) {
       return null;
     }
 
     try {
-      if (showLoading) {
-        setIsRefreshing(true);
-      }
-
       const response =
         await fetch(
           buildApiUrl(
@@ -357,14 +238,17 @@ export default function PaymentDialog({
       const result =
         (await response.json()) as {
           success?: boolean;
+
           data?: {
             dp?: {
               payment?: Payment | null;
             };
+
             pelunasan?: {
               payment?: Payment | null;
             };
           };
+
           message?: string;
         };
 
@@ -420,10 +304,6 @@ export default function PaymentDialog({
       );
 
       return null;
-    } finally {
-      if (showLoading) {
-        setIsRefreshing(false);
-      }
     }
   }
 
@@ -436,7 +316,8 @@ export default function PaymentDialog({
       !open ||
       !currentPayment ||
       currentPayment.status ===
-        "paid"
+        "paid" ||
+      isManualShipment
     ) {
       return;
     }
@@ -457,9 +338,7 @@ export default function PaymentDialog({
   }, [
     open,
     currentPayment?.id,
-    isManualShipment
-      ? undefined
-      : (currentPayment as Payment | null)?.recap_id,
+    currentPayment?.recap_id,
     isManualShipment,
     currentPayment?.status,
   ]);
@@ -471,131 +350,6 @@ export default function PaymentDialog({
   function handleClose() {
     setError("");
     onClose();
-  }
-
-  /* =======================================
-     GENERATE / REUSE PAYMENT LINK
-  ======================================== */
-
-  async function handleGeneratePaymentLink(): Promise<
-    Payment | ManualShipmentPayment | null
-  > {
-    if (!currentPayment) {
-      return null;
-    }
-
-    if (
-      isManualShipment &&
-      isManualPayment(currentPayment)
-    ) {
-      try {
-        setIsProcessing(true);
-        setError("");
-
-        const updatedPayment =
-          await generateManualShipmentPaymentLink(
-            currentPayment.id,
-          );
-
-        setCurrentPayment(
-          updatedPayment,
-        );
-
-        await onPaymentSuccess(
-          updatedPayment,
-        );
-
-        return updatedPayment;
-      } catch (generateError) {
-        console.error(
-          "generate manual shipment payment link error:",
-          generateError,
-        );
-
-        setError(
-          generateError instanceof Error
-            ? generateError.message
-            : "Gagal membuat Payment Link.",
-        );
-
-        return null;
-      } finally {
-        setIsProcessing(false);
-      }
-    }
-
-    if (isManualPayment(currentPayment)) {
-      return null;
-    }
-
-    try {
-      setIsProcessing(true);
-      setError("");
-
-      const response =
-        await fetch(
-          buildApiUrl(
-            `/payments/${currentPayment.id}/generate-link`,
-          ),
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          },
-        );
-
-      const result =
-        (await response.json()) as {
-          success?: boolean;
-          data?: {
-            payment?: Payment;
-            paymentUrl?: string;
-            expiresAt?: string;
-          };
-          message?: string;
-        };
-
-      if (
-        !response.ok ||
-        !result.success ||
-        !result.data?.payment
-      ) {
-        throw new Error(
-          result.message ??
-            "Gagal membuat Payment Link.",
-        );
-      }
-
-      const updatedPayment =
-        result.data.payment;
-
-      setCurrentPayment(
-        updatedPayment,
-      );
-
-      await onPaymentSuccess(
-        updatedPayment,
-      );
-
-      return updatedPayment;
-    } catch (generateError) {
-      console.error(
-        "generate payment link error:",
-        generateError,
-      );
-
-      setError(
-        generateError instanceof Error
-          ? generateError.message
-          : "Gagal membuat Payment Link.",
-      );
-
-      return null;
-    } finally {
-      setIsProcessing(false);
-    }
   }
 
   /* =======================================
@@ -654,58 +408,13 @@ export default function PaymentDialog({
        * agar isProcessing tidak selesai di tengah proses.
        */
       if (!paymentToSend.payment_url) {
-        let generatedPayment:
-          Payment | ManualShipmentPayment | null =
-          null;
+        const generatedResult =
+          await generatePaymentLink(
+            paymentToSend.id,
+          );
 
-        if (
-          isManualShipment &&
-          isManualPayment(paymentToSend)
-        ) {
-          generatedPayment =
-            await generateManualShipmentPaymentLink(
-              paymentToSend.id,
-            );
-        } else if (
-          !isManualPayment(paymentToSend)
-        ) {
-          const response =
-            await fetch(
-              buildApiUrl(
-                `/payments/${paymentToSend.id}/generate-link`,
-              ),
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-              },
-            );
-
-          const result =
-            (await response.json()) as {
-              success?: boolean;
-              data?: {
-                payment?: Payment;
-              };
-              message?: string;
-            };
-
-          if (
-            !response.ok ||
-            !result.success ||
-            !result.data?.payment
-          ) {
-            throw new Error(
-              result.message ??
-                "Gagal membuat Payment Link.",
-            );
-          }
-
-          generatedPayment =
-            result.data.payment;
-        }
+        const generatedPayment =
+          generatedResult.payment;
 
         if (!generatedPayment) {
           throw new Error(
@@ -746,45 +455,22 @@ export default function PaymentDialog({
         return;
       }
 
-      const paymentType =
-        isManualShipment
-          ? "PELUNASAN"
-          : normalizePaymentType(
-              (paymentToSend as Payment).payment_type,
-            );
-
-      const paymentLabel =
-        paymentType === "DP"
-          ? "DP"
-          : "Pelunasan";
-
-      const message = [
-        `Halo Kak ${buyer.name ?? ""} 👋`,
-        "",
-        `Pembayaran ${paymentLabel} untuk rekapan Lecy Soulgo sebesar ${formatRupiah(
-          Number(
-            paymentToSend.amount,
-          ),
-        )} sudah tersedia.`,
-        "",
-        "Silakan lakukan pembayaran melalui link berikut:",
-        paymentToSend.payment_url,
-        "",
-        "Terima kasih 🙏",
-      ].join("\n");
-
       const response = await fetch(
         buildApiUrl("/whatsapp/send"),
         {
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: JSON.stringify({
-            target: whatsappNumber,
-            message,
-            payment_id: paymentToSend.id,
+            target:
+              whatsappNumber,
+
+            payment_id:
+              paymentToSend.id,
           }),
         },
       );
@@ -792,7 +478,9 @@ export default function PaymentDialog({
       const result =
         (await response.json()) as {
           success?: boolean;
+
           message?: string;
+
           data?: unknown;
         };
 
@@ -825,10 +513,11 @@ export default function PaymentDialog({
      GUARD
   ======================================== */
 
-  if (
-    !open ||
-    !currentPayment
-  ) {
+  if (!open) {
+    return null;
+  }
+
+  if (!currentPayment) {
     return null;
   }
 
@@ -844,7 +533,7 @@ export default function PaymentDialog({
     isManualShipment
       ? "PELUNASAN"
       : normalizePaymentType(
-          (currentPayment as Payment).payment_type,
+          currentPayment.payment_type,
         );
 
   const paymentTitle =

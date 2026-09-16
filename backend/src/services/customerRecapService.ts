@@ -1,5 +1,9 @@
 import { supabase } from "../config/supabase.js";
 
+import {
+  calculateCurrentPaymentAmount,
+} from "./paymentService.js";
+
 /* =========================================
    TYPES
 ========================================= */
@@ -46,6 +50,12 @@ type CustomerRecap = {
     status: string;
 
     paid_at: string | null;
+
+    due_date: string | null;
+
+    penalty_days: number;
+
+    penalty_amount: number;
   };
 
   pelunasan: {
@@ -54,6 +64,12 @@ type CustomerRecap = {
     status: string;
 
     paid_at: string | null;
+
+    due_date: string | null;
+
+    penalty_days: number;
+
+    penalty_amount: number;
   };
 };
 
@@ -196,7 +212,9 @@ export async function getCustomerRecaps(
         id,
         country,
         name,
-        image_path
+        image_path,
+        last_payment_dp,
+        last_payment_pelunasan
       )
     `)
     .eq(
@@ -303,113 +321,169 @@ export async function getCustomerRecaps(
      BUILD RESPONSE
   ------------------------------------- */
 
-  return recaps.map(
-    (recap) => {
-      const batch =
-        Array.isArray(
-          recap.batch,
-        )
-          ? recap.batch[0] ??
-            null
-          : recap.batch;
+  return Promise.all(
+    recaps.map(
+      async (recap) => {
+        const batch =
+          Array.isArray(
+            recap.batch,
+          )
+            ? recap.batch[0] ??
+              null
+            : recap.batch;
 
-      const recapPayments =
-        paymentsByRecap.get(
-          recap.id,
-        ) ?? [];
+        const recapPayments =
+          paymentsByRecap.get(
+            recap.id,
+          ) ?? [];
 
-      const dpPayment =
-        getPaymentByType(
-          recapPayments,
-          "DP",
-        );
+        const dpPayment =
+          getPaymentByType(
+            recapPayments,
+            "DP",
+          );
 
-      const pelunasanPayment =
-        getPaymentByType(
-          recapPayments,
-          "PELUNASAN",
-        );
+        const pelunasanPayment =
+          getPaymentByType(
+            recapPayments,
+            "PELUNASAN",
+          );
 
-      return {
-        id: recap.id,
+        /* -------------------------------------
+           CALCULATE CURRENT PENALTY
+        ------------------------------------- */
 
-        country:
-          batch?.country ??
-          null,
-
-        batch_name:
-          batch?.name ??
-          null,
-
-        /*
-         * image_path berasal dari tabel batches.
-         *
-         * Untuk sementara kita ambil URL public
-         * langsung dari bucket yang digunakan
-         * oleh existing batch service.
-         */
-        product_image:
-          batch?.image_path
-            ? getBatchImageUrl(
-                batch.image_path,
-              )
-            : null,
-
-        detail_barang:
-          recap.detail_barang,
-
-        qty:
-          Number(
-            recap.qty ?? 0,
+        const [
+          dpCalculation,
+          pelunasanCalculation,
+        ] = await Promise.all([
+          calculateCurrentPaymentAmount(
+            recap.id,
+            "DP",
           ),
-
-        total_harga:
-          Number(
-            recap.total_harga ?? 0,
+          calculateCurrentPaymentAmount(
+            recap.id,
+            "PELUNASAN",
           ),
+        ]);
 
-        sudah_co:
-          Boolean(
-            recap.sudah_co,
-          ),
+        const dpPaid =
+          dpPayment?.status ===
+          "paid";
 
-        down_payment: {
-          amount:
-            Number(
-              dpPayment?.amount ??
-                recap.total_dp ??
-                0,
-            ),
+        const pelunasanPaid =
+          pelunasanPayment?.status ===
+          "paid";
 
-          status:
-            getPaymentStatus(
-              dpPayment,
-            ),
+        return {
+          id: recap.id,
 
-          paid_at:
-            dpPayment?.paid_at ??
+          country:
+            batch?.country ??
             null,
-        },
 
-        pelunasan: {
-          amount:
-            Number(
-              pelunasanPayment?.amount ??
-                recap.sisa_pelunasan ??
-                0,
-            ),
-
-          status:
-            getPaymentStatus(
-              pelunasanPayment,
-            ),
-
-          paid_at:
-            pelunasanPayment?.paid_at ??
+          batch_name:
+            batch?.name ??
             null,
-        },
-      };
-    },
+
+          /*
+           * image_path berasal dari tabel batches.
+           *
+           * Untuk sementara kita ambil URL public
+           * langsung dari bucket yang digunakan
+           * oleh existing batch service.
+           */
+          product_image:
+            batch?.image_path
+              ? getBatchImageUrl(
+                  batch.image_path,
+                )
+              : null,
+
+          detail_barang:
+            recap.detail_barang,
+
+          qty:
+            Number(
+              recap.qty ?? 0,
+            ),
+
+          total_harga:
+            Number(
+              recap.total_harga ?? 0,
+            ),
+
+          sudah_co:
+            Boolean(
+              recap.sudah_co,
+            ),
+
+          down_payment: {
+            amount:
+              dpPaid
+                ? Number(
+                    dpPayment?.amount ??
+                      dpCalculation.baseAmount,
+                  )
+                : dpCalculation.currentAmount,
+
+            status:
+              getPaymentStatus(
+                dpPayment,
+              ),
+
+            paid_at:
+              dpPayment?.paid_at ??
+              null,
+
+            due_date:
+              dpCalculation.dueDate,
+
+            penalty_days:
+              dpPaid
+                ? 0
+                : dpCalculation.penaltyDays,
+
+            penalty_amount:
+              dpPaid
+                ? 0
+                : dpCalculation.penaltyAmount,
+          },
+
+          pelunasan: {
+            amount:
+              pelunasanPaid
+                ? Number(
+                    pelunasanPayment?.amount ??
+                      pelunasanCalculation.baseAmount,
+                  )
+                : pelunasanCalculation.currentAmount,
+
+            status:
+              getPaymentStatus(
+                pelunasanPayment,
+              ),
+
+            paid_at:
+              pelunasanPayment?.paid_at ??
+              null,
+
+            due_date:
+              pelunasanCalculation.dueDate,
+
+            penalty_days:
+              pelunasanPaid
+                ? 0
+                : pelunasanCalculation.penaltyDays,
+
+            penalty_amount:
+              pelunasanPaid
+                ? 0
+                : pelunasanCalculation.penaltyAmount,
+          },
+        };
+      },
+    ),
   );
 }
 

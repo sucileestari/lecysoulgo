@@ -94,6 +94,8 @@ export type ManualShipment = {
 
   payment_status: ManualShipmentPaymentStatus;
 
+  due_date: string | null;
+
   paid_at: string | null;
 
   created_at: string;
@@ -164,9 +166,11 @@ export type CreateManualShipmentInput = {
 
   expedition: ManualShipmentExpedition;
 
-  packing_price: number;
+  due_date: string;
 
-  shipping_price: number;
+  packing_price?: number;
+
+  shipping_price?: number;
 
   no_resi?: string | null;
 
@@ -189,6 +193,8 @@ export type UpdateManualShipmentInput = {
   address?: string;
 
   expedition?: ManualShipmentExpedition;
+
+  due_date?: string | null;
 
   packing_price?: number;
 
@@ -446,11 +452,23 @@ export async function createManualShipment(
     );
   }
 
+  if (!input.due_date?.trim()) {
+    throw new Error(
+      "Tanggal jatuh tempo wajib diisi.",
+    );
+  }
+
+  const packingPrice =
+    input.packing_price ?? 0;
+
+  const shippingPrice =
+    input.shipping_price ?? 0;
+
   if (
     !Number.isFinite(
-      input.packing_price,
+      packingPrice,
     ) ||
-    input.packing_price < 0
+    packingPrice < 0
   ) {
     throw new Error(
       "Harga packing tidak valid.",
@@ -459,9 +477,9 @@ export async function createManualShipment(
 
   if (
     !Number.isFinite(
-      input.shipping_price,
+      shippingPrice,
     ) ||
-    input.shipping_price < 0
+    shippingPrice < 0
   ) {
     throw new Error(
       "Harga ongkos kirim tidak valid.",
@@ -504,11 +522,14 @@ export async function createManualShipment(
           expedition:
             input.expedition,
 
+          due_date:
+            input.due_date.trim(),
+
           packing_price:
-            input.packing_price,
+            packingPrice,
 
           shipping_price:
-            input.shipping_price,
+            shippingPrice,
 
           ...(input.shipping_status
             ? {

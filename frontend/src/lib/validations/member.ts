@@ -14,7 +14,7 @@ export const memberSchema = z.object({
     .max(20, "Nomor telepon maksimal 20 karakter"),
 
   type: z.enum(
-    ["customer", "employee"],
+    ["customer", "employee", "hnr"],
     {
       message: "Tipe anggota wajib dipilih",
     },

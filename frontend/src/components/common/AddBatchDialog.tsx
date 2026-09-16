@@ -1,11 +1,13 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
   CalendarDays,
+  ChevronDown,
   ImagePlus,
   Loader2,
   Upload,
@@ -19,6 +21,11 @@ import {
   type Country,
   type BatchStatus,
 } from "../../services/batchService";
+
+import {
+  getMembers,
+  type Member,
+} from "../../services/memberService";
 
 type AddBatchDialogProps = {
   open: boolean;
@@ -153,6 +160,17 @@ export default function AddBatchDialog({
       "Akan di Order",
     );
 
+  const [adminNyelemId, setAdminNyelemId] =
+    useState("");
+
+  const [adminRekapId, setAdminRekapId] =
+    useState("");
+
+  const [
+    employees,
+    setEmployees,
+  ] = useState<Member[]>([]);
+
   // ==============================
   // Image State
   // ==============================
@@ -194,6 +212,43 @@ export default function AddBatchDialog({
     setIsSubmitting,
   ] = useState(false);
 
+  const [
+    isLoadingEmployees,
+    setIsLoadingEmployees,
+  ] = useState(false);
+
+  const [
+    adminNyelemDropdownOpen,
+    setAdminNyelemDropdownOpen,
+  ] = useState(false);
+
+  const [
+    adminRekapDropdownOpen,
+    setAdminRekapDropdownOpen,
+  ] = useState(false);
+
+  const [
+    typeDropdownOpen,
+    setTypeDropdownOpen,
+  ] = useState(false);
+
+  const [
+    statusDropdownOpen,
+    setStatusDropdownOpen,
+  ] = useState(false);
+
+  const adminNyelemDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const adminRekapDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const typeDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const statusDropdownRef =
+    useRef<HTMLDivElement>(null);
+
   // ==============================
   // Default Date
   // ==============================
@@ -207,6 +262,123 @@ export default function AddBatchDialog({
       getTodayInputValue(),
     );
   }, [open]);
+
+  // ==============================
+  // Load Employees
+  // ==============================
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadEmployees = async () => {
+      try {
+        setIsLoadingEmployees(true);
+
+        const members =
+          await getMembers();
+
+        if (!cancelled) {
+          setEmployees(
+            members.filter(
+              (member) =>
+                member.type ===
+                "employee",
+            ),
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Get employees error:",
+          error,
+        );
+
+        if (!cancelled) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Gagal mengambil data karyawan.",
+          );
+
+          setEmployees([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingEmployees(false);
+        }
+      }
+    };
+
+    loadEmployees();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // ==============================
+  // Close Dropdown On Outside Click
+  // ==============================
+
+  useEffect(() => {
+    function handleClickOutside(
+      event: MouseEvent,
+    ) {
+      const target =
+        event.target as Node;
+
+      if (
+        adminNyelemDropdownRef.current &&
+        !adminNyelemDropdownRef.current.contains(
+          target,
+        )
+      ) {
+        setAdminNyelemDropdownOpen(false);
+      }
+
+      if (
+        adminRekapDropdownRef.current &&
+        !adminRekapDropdownRef.current.contains(
+          target,
+        )
+      ) {
+        setAdminRekapDropdownOpen(false);
+      }
+
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(
+          target,
+        )
+      ) {
+        setTypeDropdownOpen(false);
+      }
+
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(
+          target,
+        )
+      ) {
+        setStatusDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, []);
 
   // ==============================
   // Last Payment DP
@@ -283,6 +455,13 @@ export default function AddBatchDialog({
     );
     setPelunasanDays("");
     setStatus("Sudah di Order");
+
+    setAdminNyelemId("");
+    setAdminRekapId("");
+    setAdminNyelemDropdownOpen(false);
+    setAdminRekapDropdownOpen(false);
+    setTypeDropdownOpen(false);
+    setStatusDropdownOpen(false);
 
     setImagePreview("");
     setImageFile(null);
@@ -463,6 +642,20 @@ export default function AddBatchDialog({
       return;
     }
 
+    if (!adminNyelemId) {
+      setError(
+        "Admin Nyelem wajib dipilih.",
+      );
+      return;
+    }
+
+    if (!adminRekapId) {
+      setError(
+        "Admin Rekap wajib dipilih.",
+      );
+      return;
+    }
+
     const dpDaysNumber =
       Number(dpDays);
 
@@ -556,6 +749,12 @@ export default function AddBatchDialog({
                 pelunasanDate,
               )
             : null,
+
+        admin_nyelem_id:
+          adminNyelemId,
+
+        admin_rekap_id:
+          adminRekapId,
 
         /*
          * Status berasal dari dropdown.
@@ -680,7 +879,10 @@ export default function AddBatchDialog({
               JENIS BARANG
           ================================== */}
 
-          <div className="mt-5">
+          <div
+            ref={typeDropdownRef}
+            className="relative mt-5"
+          >
             <label className="text-sm font-medium text-[#20366f]">
               Jenis Barang
               <span className="ml-1 text-red-500">
@@ -688,30 +890,335 @@ export default function AddBatchDialog({
               </span>
             </label>
 
-            <select
-              value={type}
-              onChange={(event) =>
-                setType(
-                  event.target.value,
+            <button
+              type="button"
+              onClick={() =>
+                setTypeDropdownOpen(
+                  (current) => !current,
                 )
               }
               disabled={
                 isSubmitting ||
                 isCompressing
               }
-              className="mt-2 h-11 w-full rounded-lg border border-[#d8dfec] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f8fb]"
+              className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
             >
-              {BATCH_TYPES.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                ),
+              <span className="truncate font-medium text-[#20366f]">
+                {type}
+              </span>
+
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                  typeDropdownOpen
+                    ? "rotate-180"
+                    : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {typeDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                <div className="max-h-56 overflow-y-auto">
+                  {BATCH_TYPES.map(
+                    (item) => {
+                      const isSelected =
+                        item === type;
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            setType(item);
+                            setTypeDropdownOpen(
+                              false,
+                            );
+                          }}
+                          className={[
+                            "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
+                            isSelected
+                              ? "bg-[#edf3ff]"
+                              : "hover:bg-[#f8faff]",
+                          ].join(" ")}
+                        >
+                          <span
+                            className={[
+                              "truncate text-sm",
+                              isSelected
+                                ? "font-medium text-[#1457ff]"
+                                : "text-[#20366f]",
+                            ].join(" ")}
+                          >
+                            {item}
+                          </span>
+
+                          {isSelected && (
+                            <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
+                              Dipilih
+                            </span>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* =================================
+              ADMIN NYELEM & ADMIN REKAP
+          ================================== */}
+
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div
+              ref={adminNyelemDropdownRef}
+              className="relative"
+            >
+              <label className="text-sm font-medium text-[#20366f]">
+                Admin Nyelem
+                <span className="ml-1 text-red-500">
+                  *
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setAdminNyelemDropdownOpen(
+                    (current) => !current,
+                  )
+                }
+                disabled={
+                  isSubmitting ||
+                  isCompressing ||
+                  isLoadingEmployees
+                }
+                className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
+              >
+                <span
+                  className={
+                    adminNyelemId
+                      ? "truncate font-medium text-[#20366f]"
+                      : "truncate text-[#a0abc0]"
+                  }
+                >
+                  {isLoadingEmployees
+                    ? "Memuat karyawan..."
+                    : adminNyelemId
+                      ? employees.find(
+                          (employee) =>
+                            employee.id ===
+                            adminNyelemId,
+                        )?.name ??
+                        "Pilih Admin Nyelem"
+                      : "Pilih Admin Nyelem"}
+                </span>
+
+                <ChevronDown
+                  className={[
+                    "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                    adminNyelemDropdownOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
+              </button>
+
+              {adminNyelemDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto">
+                    {employees.length ===
+                    0 ? (
+                      <div className="px-4 py-3 text-sm text-[#8a96ae]">
+                        Tidak ada karyawan.
+                      </div>
+                    ) : (
+                      employees.map(
+                        (employee) => {
+                          const isSelected =
+                            employee.id ===
+                            adminNyelemId;
+
+                          return (
+                            <button
+                              key={employee.id}
+                              type="button"
+                              onClick={() => {
+                                setAdminNyelemId(
+                                  employee.id,
+                                );
+                                setAdminNyelemDropdownOpen(
+                                  false,
+                                );
+                              }}
+                              className={[
+                                "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
+                                isSelected
+                                  ? "bg-[#edf3ff]"
+                                  : "hover:bg-[#f8faff]",
+                              ].join(" ")}
+                            >
+                              <div className="min-w-0">
+                                <p
+                                  className={[
+                                    "truncate text-sm",
+                                    isSelected
+                                      ? "font-medium text-[#1457ff]"
+                                      : "text-[#20366f]",
+                                  ].join(" ")}
+                                >
+                                  {
+                                    employee.name
+                                  }
+                                </p>
+
+                                <p className="mt-0.5 text-xs text-[#8a96ae]">
+                                  {
+                                    employee.phone
+                                  }
+                                </p>
+                              </div>
+
+                              {isSelected && (
+                                <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
+                                  Dipilih
+                                </span>
+                              )}
+                            </button>
+                          );
+                        },
+                      )
+                    )}
+                  </div>
+                </div>
               )}
-            </select>
+            </div>
+
+            <div
+              ref={adminRekapDropdownRef}
+              className="relative"
+            >
+              <label className="text-sm font-medium text-[#20366f]">
+                Admin Rekap
+                <span className="ml-1 text-red-500">
+                  *
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setAdminRekapDropdownOpen(
+                    (current) => !current,
+                  )
+                }
+                disabled={
+                  isSubmitting ||
+                  isCompressing ||
+                  isLoadingEmployees
+                }
+                className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
+              >
+                <span
+                  className={
+                    adminRekapId
+                      ? "truncate font-medium text-[#20366f]"
+                      : "truncate text-[#a0abc0]"
+                  }
+                >
+                  {isLoadingEmployees
+                    ? "Memuat karyawan..."
+                    : adminRekapId
+                      ? employees.find(
+                          (employee) =>
+                            employee.id ===
+                            adminRekapId,
+                        )?.name ??
+                        "Pilih Admin Rekap"
+                      : "Pilih Admin Rekap"}
+                </span>
+
+                <ChevronDown
+                  className={[
+                    "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                    adminRekapDropdownOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
+              </button>
+
+              {adminRekapDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto">
+                    {employees.length ===
+                    0 ? (
+                      <div className="px-4 py-3 text-sm text-[#8a96ae]">
+                        Tidak ada karyawan.
+                      </div>
+                    ) : (
+                      employees.map(
+                        (employee) => {
+                          const isSelected =
+                            employee.id ===
+                            adminRekapId;
+
+                          return (
+                            <button
+                              key={employee.id}
+                              type="button"
+                              onClick={() => {
+                                setAdminRekapId(
+                                  employee.id,
+                                );
+                                setAdminRekapDropdownOpen(
+                                  false,
+                                );
+                              }}
+                              className={[
+                                "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
+                                isSelected
+                                  ? "bg-[#edf3ff]"
+                                  : "hover:bg-[#f8faff]",
+                              ].join(" ")}
+                            >
+                              <div className="min-w-0">
+                                <p
+                                  className={[
+                                    "truncate text-sm",
+                                    isSelected
+                                      ? "font-medium text-[#1457ff]"
+                                      : "text-[#20366f]",
+                                  ].join(" ")}
+                                >
+                                  {
+                                    employee.name
+                                  }
+                                </p>
+
+                                <p className="mt-0.5 text-xs text-[#8a96ae]">
+                                  {
+                                    employee.phone
+                                  }
+                                </p>
+                              </div>
+
+                              {isSelected && (
+                                <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
+                                  Dipilih
+                                </span>
+                              )}
+                            </button>
+                          );
+                        },
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* =================================
@@ -726,31 +1233,86 @@ export default function AddBatchDialog({
               </span>
             </label>
 
-            <select
-              value={status}
-              onChange={(event) =>
-                setStatus(
-                  event.target
-                    .value as BatchStatus,
+            <div
+              ref={statusDropdownRef}
+              className="relative mt-2"
+            >
+              <button
+              type="button"
+              onClick={() =>
+                setStatusDropdownOpen(
+                  (current) => !current,
                 )
               }
               disabled={
                 isSubmitting ||
                 isCompressing
               }
-              className="mt-2 h-11 w-full rounded-lg border border-[#d8dfec] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f8fb]"
+              className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
             >
-              {BATCH_STATUSES.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                ),
+              <span className="truncate font-medium text-[#20366f]">
+                {status}
+              </span>
+
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                  statusDropdownOpen
+                    ? "rotate-180"
+                    : "",
+                ].join(" ")}
+              />
+              </button>
+
+              {statusDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-[100] overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                <div className="max-h-56 overflow-y-auto">
+                  {BATCH_STATUSES.map(
+                    (item) => {
+                      const isSelected =
+                        item === status;
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            setStatus(item);
+                            setStatusDropdownOpen(
+                              false,
+                            );
+                          }}
+                          className={[
+                            "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
+                            isSelected
+                              ? "bg-[#edf3ff]"
+                              : "hover:bg-[#f8faff]",
+                          ].join(" ")}
+                        >
+                          <span
+                            className={[
+                              "truncate text-sm",
+                              isSelected
+                                ? "font-medium text-[#1457ff]"
+                                : "text-[#20366f]",
+                            ].join(" ")}
+                          >
+                            {item}
+                          </span>
+
+                          {isSelected && (
+                            <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
+                              Dipilih
+                            </span>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
               )}
-            </select>
+            </div>
 
             <p className="mt-2 text-xs text-[#7a89ad]">
               Status awal default adalah

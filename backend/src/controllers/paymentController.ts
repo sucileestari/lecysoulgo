@@ -3,6 +3,8 @@ import type { Request, Response } from "express";
 import {
   createPayment,
   generatePaymentLink,
+  getManualShipmentPayment,
+  getManualShipmentPaymentSummary,
   getPaymentsByRecapId,
   getRecapPaymentSummary,
   handleMidtransNotification,
@@ -110,6 +112,104 @@ export async function getPaymentsByRecapHandler(
 }
 
 /* =========================================
+   GET MANUAL SHIPMENT PAYMENT
+========================================= */
+
+export async function getManualShipmentPaymentHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const shipmentIdParam =
+      req.params.shipmentId;
+
+    if (
+      typeof shipmentIdParam !==
+        "string" ||
+      !shipmentIdParam.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID manual shipment wajib diisi.",
+      });
+    }
+
+    const data =
+      await getManualShipmentPayment(
+        shipmentIdParam.trim(),
+      );
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "getManualShipmentPaymentHandler error:",
+      error,
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil pembayaran manual shipment.",
+    });
+  }
+}
+
+/* =========================================
+   GET MANUAL SHIPMENT PAYMENT SUMMARY
+========================================= */
+
+export async function getManualShipmentPaymentSummaryHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const shipmentIdParam =
+      req.params.shipmentId;
+
+    if (
+      typeof shipmentIdParam !==
+        "string" ||
+      !shipmentIdParam.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID manual shipment wajib diisi.",
+      });
+    }
+
+    const data =
+      await getManualShipmentPaymentSummary(
+        shipmentIdParam.trim(),
+      );
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "getManualShipmentPaymentSummaryHandler error:",
+      error,
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil summary pembayaran manual shipment.",
+    });
+  }
+}
+
+/* =========================================
    CREATE PAYMENT
 ========================================= */
 
@@ -120,20 +220,36 @@ export async function createPaymentHandler(
   try {
     const {
       recap_id,
+      manual_shipment_id,
       payment_type,
     } = req.body;
 
+    /* -------------------------------------
+       VALIDATE SOURCE
+    ------------------------------------- */
+
+    const hasRecapId =
+      typeof recap_id === "string" &&
+      recap_id.trim();
+
+    const hasManualShipmentId =
+      typeof manual_shipment_id === "string" &&
+      manual_shipment_id.trim();
+
     if (
-      typeof recap_id !==
-        "string" ||
-      !recap_id.trim()
+      (!hasRecapId && !hasManualShipmentId) ||
+      (hasRecapId && hasManualShipmentId)
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "ID rekapan wajib diisi.",
+          "Harus mengisi salah satu ID: rekapan atau manual shipping.",
       });
     }
+
+    /* -------------------------------------
+       VALIDATE PAYMENT TYPE
+    ------------------------------------- */
 
     if (
       payment_type !== "DP" &&
@@ -147,10 +263,39 @@ export async function createPaymentHandler(
       });
     }
 
+    /* -------------------------------------
+       MANUAL SHIPPING
+       HANYA BOLEH PELUNASAN
+    ------------------------------------- */
+
+    if (
+      hasManualShipmentId &&
+      payment_type !==
+        "PELUNASAN"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Manual Shipping hanya dapat menggunakan pembayaran PELUNASAN.",
+      });
+    }
+
+    /* -------------------------------------
+       CREATE PAYMENT
+    ------------------------------------- */
+
     const data =
       await createPayment({
         recap_id:
-          recap_id.trim(),
+          hasRecapId
+            ? recap_id.trim()
+            : undefined,
+
+        manual_shipment_id:
+          hasManualShipmentId
+            ? manual_shipment_id.trim()
+            : undefined,
+
         payment_type,
       });
 
@@ -183,6 +328,12 @@ export async function createPaymentHandler(
       ) ||
       lowerMessage.includes(
         "tidak valid",
+      ) ||
+      lowerMessage.includes(
+        "wajib diisi",
+      ) ||
+      lowerMessage.includes(
+        "manual shipping",
       )
     ) {
       return res.status(400).json({

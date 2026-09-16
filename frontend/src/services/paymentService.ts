@@ -37,7 +37,9 @@ export type LatePaymentPermissionSummary = {
 export type Payment = {
   id: string;
 
-  recap_id: string;
+  recap_id: string | null;
+
+  manual_shipment_id?: string | null;
 
   payment_type: PaymentType;
 
@@ -269,9 +271,35 @@ export type PaymentSummary = {
 ========================================= */
 
 export type CreatePaymentInput = {
-  recap_id: string;
+  recap_id?: string;
+
+  manual_shipment_id?: string;
 
   payment_type: PaymentType;
+};
+
+/* =========================================
+   MANUAL SHIPMENT PAYMENT SUMMARY
+========================================= */
+
+export type ManualShipmentPaymentSummary = {
+  shipment_id: string;
+
+  amount: number;
+
+  base_amount: number;
+
+  penalty_days: number;
+
+  penalty_amount: number;
+
+  due_date: string | null;
+
+  status: PaymentStatus;
+
+  paid_at: string | null;
+
+  payment: Payment | null;
 };
 
 /* =========================================
@@ -435,6 +463,86 @@ export async function getPaymentsByRecap(
 }
 
 /* =========================================
+   GET MANUAL SHIPMENT PAYMENT
+========================================= */
+
+/**
+ * GET:
+ * /api/payments/manual-shipment/:shipmentId
+ *
+ * Mengambil payment terbaru dari
+ * manual shipment.
+ */
+export async function getManualShipmentPayment(
+  manualShipmentId: string,
+): Promise<Payment | null> {
+  const validShipmentId =
+    validateStringId(
+      manualShipmentId,
+      "ID manual shipment",
+    );
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/payments/manual-shipment/${encodeURIComponent(
+        validShipmentId,
+      )}`,
+      {
+        method: "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+        },
+      },
+    );
+
+  return parseResponse<Payment | null>(
+    response,
+  );
+}
+
+/* =========================================
+   GET MANUAL SHIPMENT PAYMENT SUMMARY
+========================================= */
+
+/**
+ * GET:
+ * /api/payments/manual-shipment/:shipmentId/summary
+ *
+ * Mengambil summary pembayaran Manual Shipping
+ * beserta informasi denda.
+ */
+export async function getManualShipmentPaymentSummary(
+  manualShipmentId: string,
+): Promise<ManualShipmentPaymentSummary> {
+  const validShipmentId =
+    validateStringId(
+      manualShipmentId,
+      "ID manual shipment",
+    );
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/payments/manual-shipment/${encodeURIComponent(
+        validShipmentId,
+      )}/summary`,
+      {
+        method: "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+        },
+      },
+    );
+
+  return parseResponse<ManualShipmentPaymentSummary>(
+    response,
+  );
+}
+
+/* =========================================
    GET PAYMENT HISTORY
 ========================================= */
 
@@ -466,6 +574,11 @@ export async function getPaymentHistory(
  * - jumlah hari telat
  * - denda
  * - ijin telat bayar
+ *
+ * Sumber pembayaran bisa:
+ *
+ * - recap_id
+ * - manual_shipment_id
  */
 export async function createPayment(
   input: CreatePaymentInput,
@@ -484,11 +597,26 @@ export async function createPayment(
     );
   }
 
-  const recapId =
-    validateStringId(
-      input.recap_id,
-      "ID rekapan",
+  const hasRecapId =
+    typeof input.recap_id ===
+      "string" &&
+    input.recap_id.trim();
+
+  const hasManualShipmentId =
+    typeof input.manual_shipment_id ===
+      "string" &&
+    input.manual_shipment_id.trim();
+
+  if (
+    (!hasRecapId &&
+      !hasManualShipmentId) ||
+    (hasRecapId &&
+      hasManualShipmentId)
+  ) {
+    throw new Error(
+      "Harus mengisi salah satu ID: rekapan atau manual shipping.",
     );
+  }
 
   if (
     input.payment_type !==
@@ -498,6 +626,16 @@ export async function createPayment(
   ) {
     throw new Error(
       "Tipe pembayaran tidak valid.",
+    );
+  }
+
+  if (
+    hasManualShipmentId &&
+    input.payment_type !==
+      "PELUNASAN"
+  ) {
+    throw new Error(
+      "Manual Shipping hanya dapat menggunakan pembayaran PELUNASAN.",
     );
   }
 
@@ -520,8 +658,15 @@ export async function createPayment(
         },
 
         body: JSON.stringify({
-          recap_id:
-            recapId,
+          ...(hasRecapId
+            ? {
+                recap_id:
+                  input.recap_id!.trim(),
+              }
+            : {
+                manual_shipment_id:
+                  input.manual_shipment_id!.trim(),
+              }),
 
           payment_type:
             input.payment_type,

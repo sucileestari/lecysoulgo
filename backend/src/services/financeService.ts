@@ -143,14 +143,23 @@ export async function createFinanceTransaction(
       );
     }
 
-    return syncProfitToCimb({
-      product_cost_id:
-        referenceId,
-      transaction_date:
-        transactionDate,
-      description,
-      amount,
-    });
+    const syncedProfit =
+      await syncProfitToCimb({
+        product_cost_id:
+          referenceId,
+        transaction_date:
+          transactionDate,
+        description,
+        amount,
+      });
+
+    if (!syncedProfit) {
+      throw new Error(
+        "Transaksi keuntungan tidak dibuat karena nominal keuntungan harus lebih besar dari 0.",
+      );
+    }
+
+    return syncedProfit;
   }
 
   /* =======================================
@@ -272,20 +281,17 @@ export async function createFinanceTransaction(
      VALIDASI REKENING
   ======================================== */
 
-  const bankAccountIds =
-    [
-      fromBankAccountId,
-      toBankAccountId,
-    ].filter(
-      (
-        value,
-      ): value is string =>
-        Boolean(value),
-    );
+  const bankAccountIds = [
+    fromBankAccountId,
+    toBankAccountId,
+  ].filter(
+    (
+      value,
+    ): value is string =>
+      Boolean(value),
+  );
 
-  if (
-    bankAccountIds.length > 0
-  ) {
+  if (bankAccountIds.length > 0) {
     const {
       data: bankAccounts,
       error: bankAccountsError,
@@ -351,16 +357,15 @@ export async function createFinanceTransaction(
      VALIDASI MEMBER
   ======================================== */
 
-  const memberIds =
-    [
-      fromMemberId,
-      toMemberId,
-    ].filter(
-      (
-        value,
-      ): value is string =>
-        Boolean(value),
-    );
+  const memberIds = [
+    fromMemberId,
+    toMemberId,
+  ].filter(
+    (
+      value,
+    ): value is string =>
+      Boolean(value),
+  );
 
   if (memberIds.length > 0) {
     const {

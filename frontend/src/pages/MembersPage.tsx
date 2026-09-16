@@ -308,8 +308,10 @@ export default function MembersPage() {
                       {/* Tipe Anggota */}
                       <td className="px-6 py-6 text-base text-[#20366f]">
                         {member.type === "employee"
-                          ? "Karyawan"
-                          : "Customer"}
+                        ? "Karyawan"
+                        : member.type === "hnr"
+                        ? "HNR"
+                        : "Customer"}
                       </td>
 
                       {/* Last Update */}

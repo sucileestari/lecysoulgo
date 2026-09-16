@@ -2,7 +2,8 @@ import { supabase } from "../config/supabase.js";
 
 type MemberType =
   | "customer"
-  | "employee";
+  | "employee"
+  | "hnr";
 
 type MemberInput = {
   name: string;
@@ -33,7 +34,8 @@ function normalizeMemberType(
 
   if (
     type !== "customer" &&
-    type !== "employee"
+    type !== "employee" &&
+    type !== "hnr"
   ) {
     throw new Error(
       "Tipe anggota tidak valid",

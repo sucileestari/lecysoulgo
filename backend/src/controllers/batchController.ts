@@ -200,6 +200,8 @@ export async function showBatch(
  * - type
  * - last_payment_dp
  * - last_payment_pelunasan
+ * - admin_nyelem_id
+ * - admin_rekap_id
  * - status
  * - image
  */
@@ -219,6 +221,8 @@ export async function createBatchHandler(
       last_payment_dp,
       last_payment_pelunasan,
       status,
+      admin_nyelem_id,
+      admin_rekap_id,
     } = req.body;
 
     /* -------------------------------------
@@ -296,6 +300,36 @@ export async function createBatchHandler(
     }
 
     /* -------------------------------------
+       Validate Admin Nyelem
+    ------------------------------------- */
+
+    if (
+      typeof admin_nyelem_id !== "string" ||
+      !admin_nyelem_id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Admin Nyelem wajib dipilih.",
+      });
+    }
+
+    /* -------------------------------------
+       Validate Admin Rekap
+    ------------------------------------- */
+
+    if (
+      typeof admin_rekap_id !== "string" ||
+      !admin_rekap_id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Admin Rekap wajib dipilih.",
+      });
+    }
+
+    /* -------------------------------------
        Get uploaded file
     ------------------------------------- */
 
@@ -338,6 +372,12 @@ export async function createBatchHandler(
             last_payment_pelunasan.trim()
               ? last_payment_pelunasan
               : null,
+
+          admin_nyelem_id:
+            admin_nyelem_id.trim(),
+
+          admin_rekap_id:
+            admin_rekap_id.trim(),
 
           status:
             isValidStatus(status)

@@ -12,6 +12,7 @@ import LoginPage from "../pages/LoginPage";
 import MembersPage from "../pages/MembersPage";
 import RekapPage from "../pages/RekapPage";
 import RulesGoPage from "../pages/RulesGoPage";
+import NotificationLogPage from "../pages/NotificationLogPage";
 import IjinTelatBayarPage from "../pages/IjinTelatBayarPage";
 import PengirimanManualPage from "../pages/PengirimanManualPage";
 import ModalDanKeuntunganPage from "../pages/ModalDanKeuntunganPage";
@@ -92,6 +93,15 @@ export default function AppRoutes() {
               </PermissionRoute>
             }
           />
+
+          {/* =========================================
+              NOTIFICATION LOG
+          ========================================= */}
+
+        <Route
+            path="/notification-log"
+            element={<NotificationLogPage />}
+        />
 
           {/* =========================================
               REKAPAN - CHINA

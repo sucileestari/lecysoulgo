@@ -77,9 +77,7 @@ export type ManualShipment = {
 
   shipping_status: ManualShipmentShippingStatus;
 
-  payment_status: ManualShipmentPaymentStatus;
-
-  paid_at: string | null;
+  due_date: string | null;
 
   created_at: string;
 
@@ -109,9 +107,11 @@ export type CreateManualShipmentInput = {
 
   expedition: ManualShipmentExpedition;
 
-  packing_price: number;
+  packing_price?: number;
 
-  shipping_price: number;
+  shipping_price?: number;
+
+  due_date: string;
 
   shipping_status?: ManualShipmentShippingStatus;
 
@@ -125,7 +125,7 @@ export type UpdateManualShipmentInput =
       "batch_id"
     >
   > & {
-    paid_at?: string | null;
+    due_date?: string | null;
   };
 
 /* =========================================
@@ -176,12 +176,6 @@ const ALLOWED_SHIPPING_STATUSES: ManualShipmentShippingStatus[] =
   [
     "Sedang dikemas",
     "Dalam proses pick up",
-  ];
-
-const ALLOWED_PAYMENT_STATUSES: ManualShipmentPaymentStatus[] =
-  [
-    "unpaid",
-    "paid",
   ];
 
 type PaymentRecord = {
@@ -1337,13 +1331,26 @@ export async function createManualShipment(
     recap_ids,
     address,
     expedition,
-    packing_price,
-    shipping_price,
   } = input;
+
+  const packing_price =
+    input.packing_price ?? 0;
+
+  const shipping_price =
+    input.shipping_price ?? 0;
+
+  const due_date =
+    input.due_date?.trim();
 
   if (!batch_id.trim()) {
     throw new Error(
       "ID batch wajib diisi.",
+    );
+  }
+
+  if (!due_date) {
+    throw new Error(
+      "Tanggal jatuh tempo wajib diisi.",
     );
   }
 
@@ -1423,15 +1430,7 @@ export async function createManualShipment(
           input.shipping_status ??
           "Sedang dikemas",
 
-        payment_status:
-          input.payment_status ??
-          "unpaid",
-
-        paid_at:
-          input.payment_status ===
-          "paid"
-            ? new Date().toISOString()
-            : null,
+        due_date,
       })
       .select("id")
       .single();
@@ -1523,8 +1522,7 @@ export async function updateManualShipment(
     input.expedition === undefined &&
     input.packing_price === undefined &&
     input.shipping_price === undefined &&
-    input.payment_status === undefined &&
-    input.paid_at === undefined;
+    input.due_date === undefined;
 
   if (
     isShippingStatusOnlyUpdate
@@ -1537,7 +1535,6 @@ export async function updateManualShipment(
      * bersifat final dan tidak boleh diubah kembali.
      *
      * Aturan ini hanya melihat shipping_status.
-     * Tidak dipengaruhi payment_status.
      */
     if (
       current.shipping_status ===
@@ -1653,80 +1650,6 @@ export async function updateManualShipment(
     );
   }
 
-  /*
-   * Update payment status secara terpisah.
-   *
-   * Pembayaran shipment tidak boleh bergantung pada
-   * status shipping maupun status CO pada recap.
-   * Shipment tetap boleh dibayar meskipun sudah
-   * "Dalam proses pick up" dan recaps.sudah_co = true.
-   */
-  const isPaymentOnlyUpdate =
-    input.payment_status !== undefined &&
-    input.shipping_status === undefined &&
-    input.member_id === undefined &&
-    input.recap_ids === undefined &&
-    input.address === undefined &&
-    input.expedition === undefined &&
-    input.packing_price === undefined &&
-    input.shipping_price === undefined &&
-    input.paid_at === undefined;
-
-  if (isPaymentOnlyUpdate) {
-    const paymentStatus =
-      input.payment_status;
-
-    if (paymentStatus === undefined) {
-      throw new Error(
-        "Status pembayaran wajib diisi.",
-      );
-    }
-
-    if (
-      !ALLOWED_PAYMENT_STATUSES.includes(
-        paymentStatus,
-      )
-    ) {
-      throw new Error(
-        "Status pembayaran tidak valid.",
-      );
-    }
-
-    const paidAt =
-      paymentStatus === "paid"
-        ? current.payment_status === "paid" &&
-          current.paid_at
-          ? current.paid_at
-          : new Date().toISOString()
-        : null;
-
-    const {
-      error: paymentError,
-    } = await supabase
-      .from("manual_shipments")
-      .update({
-        payment_status:
-          paymentStatus,
-        paid_at: paidAt,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq(
-        "id",
-        id.trim(),
-      );
-
-    if (paymentError) {
-      throw new Error(
-        `Gagal memperbarui status pembayaran: ${paymentError.message}`,
-      );
-    }
-
-    return getManualShipmentById(
-      id.trim(),
-    );
-  }
-
   const nextMemberId =
     input.member_id?.trim() ??
     current.member_id;
@@ -1751,21 +1674,10 @@ export async function updateManualShipment(
     input.shipping_status ??
     current.shipping_status;
 
-  const nextPaymentStatus =
-    input.payment_status ??
-    current.payment_status;
-
-  const nextPaidAt =
-    input.paid_at !== undefined
-      ? input.paid_at
-      : nextPaymentStatus ===
-          "paid"
-        ? current.payment_status ===
-            "paid" &&
-          current.paid_at
-          ? current.paid_at
-          : new Date().toISOString()
-        : null;
+  const nextDueDate =
+    input.due_date !== undefined
+      ? input.due_date?.trim() || null
+      : current.due_date;
 
   const nextRecapIds =
     input.recap_ids
@@ -1776,6 +1688,12 @@ export async function updateManualShipment(
           (item) =>
             item.recap_id,
         );
+
+  if (!nextDueDate) {
+    throw new Error(
+      "Tanggal jatuh tempo wajib diisi.",
+    );
+  }
 
   validateCommonInput({
     member_id:
@@ -1805,16 +1723,6 @@ export async function updateManualShipment(
   ) {
     throw new Error(
       "Status pengiriman tidak valid.",
-    );
-  }
-
-  if (
-    !ALLOWED_PAYMENT_STATUSES.includes(
-      nextPaymentStatus,
-    )
-  ) {
-    throw new Error(
-      "Status pembayaran tidak valid.",
     );
   }
 
@@ -1874,11 +1782,8 @@ export async function updateManualShipment(
         shipping_status:
           nextShippingStatus,
 
-        payment_status:
-          nextPaymentStatus,
-
-        paid_at:
-          nextPaidAt,
+        due_date:
+          nextDueDate,
 
         updated_at:
           new Date().toISOString(),

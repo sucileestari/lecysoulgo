@@ -36,15 +36,19 @@ import {
 } from "@/services/manualShippingBatchService";
 
 import {
+  createPayment,
+  getManualShipmentPaymentSummary,
+  type ManualShipmentPaymentSummary,
+  type Payment,
+} from "@/services/paymentService";
+
+import {
   deleteManualShipment,
   getManualShipmentsByBatch,
   updateManualShipment,
   type ManualShipment,
 } from "@/services/manualShippingService";
 
-import {
-  createManualShipmentPayment,
-} from "@/services/manualShipmentPaymentService";
 
 /* =========================================
    CONSTANTS
@@ -151,14 +155,14 @@ function formatDate(
 }
 
 function getPaymentDate(
-  shipment: ManualShipment,
+  paidAt: string | null | undefined,
 ): string {
-  if (!shipment.paid_at) {
+  if (!paidAt) {
     return "-";
   }
 
   const date =
-    new Date(shipment.paid_at);
+    new Date(paidAt);
 
   if (
     Number.isNaN(
@@ -317,6 +321,23 @@ export default function PengirimanManualPage({
   ] = useState<
     ManualShipment | null
   >(null);
+
+  /* =======================================
+     INLINE PRICE EDITING
+  ======================================== */
+
+  const [
+    editingPrice,
+    setEditingPrice,
+  ] = useState<{
+    shipmentId: string;
+    field: "packing_price" | "shipping_price";
+  } | null>(null);
+
+  const [
+    editingPriceValue,
+    setEditingPriceValue,
+  ] = useState("");
 
   /* =======================================
      SHIPPING STATUS OVERRIDE
@@ -510,8 +531,67 @@ export default function PengirimanManualPage({
   });
 
   /* =======================================
-     DELETE MUTATION
+     PAYMENT STATUS
   ======================================== */
+
+  const shipmentIds = useMemo(
+    () =>
+      shipments.map(
+        (shipment) => shipment.id,
+      ),
+    [shipments],
+  );
+
+  const {
+    data: shipmentPaymentSummaries = [],
+  } = useQuery<
+    ManualShipmentPaymentSummary[],
+    Error
+  >({
+    queryKey: [
+      "manual-shipment-payment-summaries",
+      selectedBatch?.id,
+      shipmentIds,
+    ],
+    queryFn: async () => {
+      if (shipmentIds.length === 0) {
+        return [];
+      }
+
+      return Promise.all(
+        shipmentIds.map(
+          (shipmentId) =>
+            getManualShipmentPaymentSummary(
+              shipmentId,
+            ),
+        ),
+      );
+    },
+    enabled:
+      Boolean(selectedBatch?.id) &&
+      shipmentIds.length > 0,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const shipmentPaymentSummaryMap =
+    useMemo(() => {
+      const map = new Map<
+        string,
+        ManualShipmentPaymentSummary
+      >();
+
+      shipmentPaymentSummaries.forEach(
+        (summary) => {
+          map.set(
+            summary.shipment_id,
+            summary,
+          );
+        },
+      );
+
+      return map;
+    }, [shipmentPaymentSummaries]);
 
   const deleteBatchMutation =
     useMutation<
@@ -797,20 +877,21 @@ export default function PengirimanManualPage({
       return;
     }
 
-    setProcessingShipmentPaymentId(shipment.id);
+    setProcessingShipmentPaymentId(
+      shipment.id,
+    );
 
     try {
       const payment =
-        await createManualShipmentPayment(
-          shipment.id,
-        );
+        await createPayment({
+          manual_shipment_id:
+            shipment.id,
+          payment_type:
+            "PELUNASAN",
+        });
 
       setSelectedPaymentShipment(
         shipment,
-      );
-
-      setIsShipmentPaymentDialogOpen(
-        true,
       );
 
       queryClient.setQueryData(
@@ -820,6 +901,18 @@ export default function PengirimanManualPage({
         ],
         payment,
       );
+
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "manual-shipment-payment-summaries",
+          selectedBatch?.id,
+          shipmentIds,
+        ],
+      });
+
+      setIsShipmentPaymentDialogOpen(
+        true,
+      );
     } catch (paymentError) {
       window.alert(
         paymentError instanceof Error
@@ -827,7 +920,9 @@ export default function PengirimanManualPage({
           : "Gagal menyiapkan pembayaran pengiriman.",
       );
     } finally {
-      setProcessingShipmentPaymentId(null);
+      setProcessingShipmentPaymentId(
+        null,
+      );
     }
   }
 
@@ -836,12 +931,38 @@ export default function PengirimanManualPage({
       false,
     );
     setSelectedPaymentShipment(null);
+    setProcessingShipmentPaymentId(null);
   }
 
-  function handleShipmentPaymentSuccess() {
-    queryClient.invalidateQueries({
-      queryKey: ["manual-shipments"],
+  function handleShipmentPaymentSuccess(
+    payment: Payment,
+  ) {
+    const shipmentId =
+      selectedPaymentShipment?.id ??
+      payment.manual_shipment_id ??
+      null;
+
+    if (!shipmentId) {
+      return;
+    }
+
+    queryClient.setQueryData(
+      [
+        "manual-shipment-payment",
+        shipmentId,
+      ],
+      payment,
+    );
+
+    void queryClient.invalidateQueries({
+      queryKey: [
+        "manual-shipment-payment-summaries",
+        selectedBatch?.id,
+        shipmentIds,
+      ],
     });
+
+    setProcessingShipmentPaymentId(null);
   }
 
   function openEditShipment(
@@ -883,6 +1004,54 @@ export default function PengirimanManualPage({
     deleteShipmentMutation.mutate(
       deletingShipment.id,
     );
+  }
+
+  /* =======================================
+     UPDATE INLINE PRICE
+  ======================================== */
+
+  async function handlePriceSave(
+    shipment: ManualShipment,
+    field: "packing_price" | "shipping_price",
+  ) {
+    const value = Number(editingPriceValue || "0");
+
+    if (!Number.isFinite(value) || value < 0) {
+      window.alert("Harga tidak valid.");
+      return;
+    }
+
+    try {
+      const updatedShipment =
+        await updateManualShipment(
+          shipment.id,
+          {
+            [field]: value,
+          },
+        );
+
+      queryClient.setQueryData<ManualShipment[]>(
+        [
+          "manual-shipments",
+          shipment.batch_id,
+        ],
+        (current = []) =>
+          current.map((item) =>
+            item.id === shipment.id
+              ? updatedShipment
+              : item,
+          ),
+      );
+
+      setEditingPrice(null);
+      setEditingPriceValue("");
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Gagal memperbarui harga.",
+      );
+    }
   }
 
   /* =======================================
@@ -1669,7 +1838,7 @@ export default function PengirimanManualPage({
 
               <section className="mt-4 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1650px] border-collapse">
+                  <table className="w-full min-w-[1750px] border-collapse">
                     <thead>
                       <tr className="border-b border-[#e8ecf4]">
                         <th className="min-w-[210px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
@@ -1700,6 +1869,10 @@ export default function PengirimanManualPage({
                           Total
                         </th>
 
+                        <th className="min-w-[190px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
+                          Maks. Pembayaran
+                        </th>
+
                         <th className="min-w-[210px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Status Pengiriman
                         </th>
@@ -1714,7 +1887,7 @@ export default function PengirimanManualPage({
                       {isShipmentsLoading && (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="px-6 py-20 text-center"
                           >
                             <p className="text-base text-[#7a89ad]">
@@ -1728,7 +1901,7 @@ export default function PengirimanManualPage({
                         isShipmentsError && (
                           <tr>
                             <td
-                              colSpan={9}
+                              colSpan={10}
                               className="px-6 py-20 text-center"
                             >
                               <p className="text-base font-medium text-red-600">
@@ -1747,7 +1920,7 @@ export default function PengirimanManualPage({
                         shipments.length === 0 && (
                           <tr>
                             <td
-                              colSpan={9}
+                              colSpan={10}
                               className="px-6 py-20 text-center"
                             >
                               <p className="text-base font-medium text-[#20366f]">
@@ -1837,75 +2010,231 @@ export default function PengirimanManualPage({
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">
-                                <p className="text-sm text-[#20366f]">
-                                  {formatCurrency(
-                                    shipment.shipping_price,
-                                  )}
-                                </p>
+                                {editingPrice?.shipmentId === shipment.id &&
+                                editingPrice.field === "shipping_price" ? (
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={editingPriceValue}
+                                    onChange={(event) =>
+                                      setEditingPriceValue(
+                                        event.target.value,
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      void handlePriceSave(
+                                        shipment,
+                                        "shipping_price",
+                                      )
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        event.currentTarget.blur();
+                                      }
+
+                                      if (event.key === "Escape") {
+                                        event.preventDefault();
+                                        setEditingPrice(null);
+                                        setEditingPriceValue("");
+                                      }
+                                    }}
+                                    className="h-9 w-28 rounded-lg border border-[#1457ff] px-3 text-center text-sm text-[#20366f] outline-none"
+                                  />
+                                ) : !isCustomer ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingPrice({
+                                        shipmentId: shipment.id,
+                                        field: "shipping_price",
+                                      });
+                                      setEditingPriceValue(
+                                        String(shipment.shipping_price ?? 0),
+                                      );
+                                    }}
+                                    className="text-sm text-[#20366f] hover:text-[#1457ff]"
+                                  >
+                                    {formatCurrency(
+                                      shipment.shipping_price,
+                                    )}
+                                  </button>
+                                ) : (
+                                  <p className="text-sm text-[#20366f]">
+                                    {formatCurrency(
+                                      shipment.shipping_price,
+                                    )}
+                                  </p>
+                                )}
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">
-                                <p className="text-sm text-[#20366f]">
-                                  {formatCurrency(
-                                    shipment.packing_price,
-                                  )}
-                                </p>
+                                {editingPrice?.shipmentId === shipment.id &&
+                                editingPrice.field === "packing_price" ? (
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={editingPriceValue}
+                                    onChange={(event) =>
+                                      setEditingPriceValue(
+                                        event.target.value,
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      void handlePriceSave(
+                                        shipment,
+                                        "packing_price",
+                                      )
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        event.currentTarget.blur();
+                                      }
+
+                                      if (event.key === "Escape") {
+                                        event.preventDefault();
+                                        setEditingPrice(null);
+                                        setEditingPriceValue("");
+                                      }
+                                    }}
+                                    className="h-9 w-28 rounded-lg border border-[#1457ff] px-3 text-center text-sm text-[#20366f] outline-none"
+                                  />
+                                ) : !isCustomer ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingPrice({
+                                        shipmentId: shipment.id,
+                                        field: "packing_price",
+                                      });
+                                      setEditingPriceValue(
+                                        String(shipment.packing_price ?? 0),
+                                      );
+                                    }}
+                                    className="text-sm text-[#20366f] hover:text-[#1457ff]"
+                                  >
+                                    {formatCurrency(
+                                      shipment.packing_price,
+                                    )}
+                                  </button>
+                                ) : (
+                                  <p className="text-sm text-[#20366f]">
+                                    {formatCurrency(
+                                      shipment.packing_price,
+                                    )}
+                                  </p>
+                                )}
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">
                                 <div className="flex flex-col items-center">
                                   <p className="text-sm font-semibold text-[#20366f]">
                                     {formatCurrency(
-                                      shipment.total_price,
+                                      shipmentPaymentSummaryMap.get(
+                                        shipment.id,
+                                      )?.amount ??
+                                        shipment.total_price,
                                     )}
                                   </p>
 
                                   <div className="mt-2">
-                                    {shipment.payment_status ===
-                                    "paid" ? (
-                                      <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
-                                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                        Paid
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openShipmentPayment(
-                                            shipment,
-                                          )
-                                        }
-                                        disabled={
-                                          processingShipmentPaymentId ===
-                                          shipment.id
-                                        }
-                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        {processingShipmentPaymentId ===
-                                        shipment.id ? (
-                                          <>
-                                            <Loader2
-                                              size={14}
-                                              className="animate-spin"
-                                            />
-                                            Memproses...
-                                          </>
-                                        ) : (
-                                          "Pembayaran"
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
+                                    {(() => {
+                                      const summary =
+                                        shipmentPaymentSummaryMap.get(
+                                          shipment.id,
+                                        ) ?? null;
 
-                                  {shipment.payment_status ===
-                                    "paid" && (
-                                    <p className="mt-2 text-xs text-[#7a89ad]">
-                                      {getPaymentDate(
-                                        shipment,
-                                      )}
-                                    </p>
-                                  )}
+                                      const isPaid =
+                                        summary?.status ===
+                                        "paid";
+
+                                      if (isPaid) {
+                                        return (
+                                          <div className="flex flex-col items-center">
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                              Paid
+                                            </div>
+
+                                            <p className="mt-2 text-xs text-[#7a89ad]">
+                                              {getPaymentDate(
+                                                summary?.paid_at,
+                                              )}
+                                            </p>
+                                          </div>
+                                        );
+                                      }
+
+                                      return (
+                                        <div className="flex flex-col items-center">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              openShipmentPayment(
+                                                shipment,
+                                              )
+                                            }
+                                            disabled={
+                                              processingShipmentPaymentId ===
+                                              shipment.id
+                                            }
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {processingShipmentPaymentId ===
+                                            shipment.id ? (
+                                              <>
+                                                <Loader2
+                                                  size={14}
+                                                  className="animate-spin"
+                                                />
+                                                Memproses...
+                                              </>
+                                            ) : (
+                                              "Pembayaran"
+                                            )}
+                                          </button>
+
+                                          {Number(
+                                            summary?.penalty_days ??
+                                              0,
+                                          ) > 0 && (
+                                            <div className="mt-2 text-center">
+                                              <p className="text-xs font-semibold text-red-600">
+                                                Terlambat{" "}
+                                                {
+                                                  summary?.penalty_days
+                                                }{" "}
+                                                hari
+                                              </p>
+
+                                              <p className="mt-1 text-xs text-[#7a89ad]">
+                                                Denda +{" "}
+                                                {formatCurrency(
+                                                  summary?.penalty_amount,
+                                                )}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
+                              </td>
+
+                              <td className="px-6 py-6 text-center align-top">
+                                <p className="text-sm font-semibold text-[#20366f]">
+                                  {formatDate(
+                                    shipmentPaymentSummaryMap.get(
+                                      shipment.id,
+                                    )?.due_date,
+                                  )}
+                                </p>
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">

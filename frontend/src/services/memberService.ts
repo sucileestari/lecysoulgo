@@ -13,7 +13,8 @@ if (!API_BASE_URL) {
 
 export type MemberType =
   | "customer"
-  | "employee";
+  | "employee"
+  | "hnr";
 
 export type Member = {
   id: string;

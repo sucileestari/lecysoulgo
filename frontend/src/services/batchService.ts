@@ -43,6 +43,16 @@ export type Batch = {
   image_path: string | null;
 
   /*
+   * Admin yang menangani nyelem.
+   */
+  admin_nyelem_id: string | null;
+
+  /*
+   * Admin yang menangani rekap.
+   */
+  admin_rekap_id: string | null;
+
+  /*
    * URL gambar dari backend.
    */
   image_url: string | null;
@@ -72,6 +82,16 @@ export type CreateBatchInput = {
   last_payment_dp: string;
 
   last_payment_pelunasan?: string | null;
+
+  /*
+   * Admin yang menangani nyelem.
+   */
+  admin_nyelem_id: string | null;
+
+  /*
+   * Admin yang menangani rekap.
+   */
+  admin_rekap_id: string | null;
 
   status?: BatchStatus;
 
@@ -265,6 +285,22 @@ export async function createBatch(
   formData.append(
     "last_payment_dp",
     input.last_payment_dp,
+  );
+
+  /*
+   * Admin Nyelem.
+   */
+  formData.append(
+    "admin_nyelem_id",
+    input.admin_nyelem_id ?? "",
+  );
+
+  /*
+   * Admin Rekap.
+   */
+  formData.append(
+    "admin_rekap_id",
+    input.admin_rekap_id ?? "",
   );
 
   /*

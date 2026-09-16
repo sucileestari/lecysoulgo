@@ -324,14 +324,17 @@ export default function GajiKaryawanPage() {
 
   const {
     data:
-      netProfitByMemberData,
+      payrollByMemberData,
     isLoading:
       isLoadingProfit,
     isError:
       isProfitError,
     error: profitError,
   } = useQuery<
-    Record<string, number>,
+    {
+      netProfitByMember: Record<string, number>;
+      salaryByMember: Record<string, number>;
+    },
     Error
   >({
     queryKey: [
@@ -348,6 +351,11 @@ export default function GajiKaryawanPage() {
         number
       > = {};
 
+      const salaryResult: Record<
+        string,
+        number
+      > = {};
+
       const relevantBatches =
         batches.filter(
           (batch) =>
@@ -359,6 +367,19 @@ export default function GajiKaryawanPage() {
       await Promise.all(
         relevantBatches.map(
           async (batch) => {
+            const adminNyelemId =
+              batch.admin_nyelem_id;
+
+            const adminRekapId =
+              batch.admin_rekap_id;
+
+            if (
+              !adminNyelemId &&
+              !adminRekapId
+            ) {
+              return;
+            }
+
             const productCost =
               productCosts.find(
                 (item) =>
@@ -392,6 +413,13 @@ export default function GajiKaryawanPage() {
                 ),
               );
 
+            let batchTotalHargaJual =
+              0;
+            let batchQtyTerjual =
+              0;
+            let batchTotalFee =
+              0;
+
             recaps.forEach(
               (
                 recap,
@@ -403,8 +431,7 @@ export default function GajiKaryawanPage() {
                   ];
 
                 if (
-                  !paymentSummary ||
-                  !recap.member_id
+                  !paymentSummary
                 ) {
                   return;
                 }
@@ -439,15 +466,6 @@ export default function GajiKaryawanPage() {
                       0,
                   );
 
-                const modalPerQty =
-                  Number(
-                    productCost.modal_per_qty ??
-                      0,
-                  );
-
-                const totalModal =
-                  modalPerQty * qty;
-
                 const totalFee =
                   calculatePaymentFee(
                     paymentSummary.dp,
@@ -456,33 +474,99 @@ export default function GajiKaryawanPage() {
                     paymentSummary.pelunasan,
                   );
 
-                const netProfit =
-                  totalHargaJual -
-                  totalModal -
-                  totalFee;
-
                 if (
                   !Number.isFinite(
-                    netProfit,
+                    totalHargaJual,
+                  ) ||
+                  !Number.isFinite(
+                    qty,
+                  ) ||
+                  !Number.isFinite(
+                    totalFee,
                   )
                 ) {
                   return;
                 }
 
-                result[
-                  recap.member_id
-                ] =
-                  (result[
-                    recap.member_id
-                  ] ?? 0) +
-                  netProfit;
+                batchTotalHargaJual +=
+                  totalHargaJual;
+                batchQtyTerjual +=
+                  qty;
+                batchTotalFee +=
+                  totalFee;
               },
             );
+
+            const modalPerQty =
+              Number(
+                productCost.modal_per_qty ??
+                  0,
+              );
+
+            const totalModal =
+              modalPerQty *
+              batchQtyTerjual;
+
+            const batchNetProfit =
+              batchTotalHargaJual -
+              totalModal -
+              batchTotalFee;
+
+            if (
+              !Number.isFinite(
+                batchNetProfit,
+              )
+            ) {
+              return;
+            }
+
+            if (adminNyelemId) {
+              result[
+                adminNyelemId
+              ] =
+                (result[
+                  adminNyelemId
+                ] ?? 0) +
+                batchNetProfit;
+
+              salaryResult[
+                adminNyelemId
+              ] =
+                (salaryResult[
+                  adminNyelemId
+                ] ?? 0) +
+                batchNetProfit *
+                SALARY_RATE;
+            }
+
+            if (adminRekapId) {
+              result[
+                adminRekapId
+              ] =
+                adminRekapId === adminNyelemId
+                  ? result[adminRekapId] ?? 0
+                  : (result[
+                      adminRekapId
+                    ] ?? 0) +
+                    batchNetProfit;
+
+              salaryResult[
+                adminRekapId
+              ] =
+                (salaryResult[
+                  adminRekapId
+                ] ?? 0) +
+                batchNetProfit *
+                SALARY_RATE;
+            }
           },
         ),
       );
 
-      return result;
+      return {
+        netProfitByMember: result,
+        salaryByMember: salaryResult,
+      };
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -492,7 +576,13 @@ export default function GajiKaryawanPage() {
     string,
     number
   > =
-    netProfitByMemberData ?? {};
+    payrollByMemberData?.netProfitByMember ?? {};
+
+  const salaryByMember: Record<
+    string,
+    number
+  > =
+    payrollByMemberData?.salaryByMember ?? {};
 
   const salaryTransactions =
     useMemo(() => {
@@ -583,8 +673,14 @@ export default function GajiKaryawanPage() {
             );
 
           const salary =
-            netProfit *
-            SALARY_RATE;
+            Math.max(
+              0,
+              Number(
+                salaryByMember[
+                  memberId
+                ] ?? 0,
+              ),
+            );
 
           const paid =
             Math.max(
@@ -604,10 +700,7 @@ export default function GajiKaryawanPage() {
             salary,
             paid,
             remaining:
-              Math.max(
-                0,
-                salary - paid,
-              ),
+              salary - paid,
           };
         })
         .sort((a, b) =>
@@ -622,6 +715,7 @@ export default function GajiKaryawanPage() {
     }, [
       members,
       netProfitByMember,
+      salaryByMember,
       paidByMember,
     ]);
 
@@ -960,16 +1054,24 @@ export default function GajiKaryawanPage() {
                       row,
                       index,
                     ) => {
+                      const isLoan =
+                        row.remaining < 0;
+
                       const isPaid =
-                        row.salary <=
-                          0 ||
-                        row.remaining <=
-                          0;
+                        !isLoan &&
+                        row.salary > 0 &&
+                        row.remaining === 0;
 
                       const isPartial =
-                        !isPaid &&
-                        row.paid >
-                          0;
+                        !isLoan &&
+                        row.salary > 0 &&
+                        row.paid > 0 &&
+                        row.remaining > 0;
+
+                      const hasNoSalary =
+                        !isLoan &&
+                        row.salary <= 0 &&
+                        row.paid <= 0;
 
                       return (
                         <tr
@@ -1013,20 +1115,35 @@ export default function GajiKaryawanPage() {
                             )}
                           </td>
 
-                          <td className="px-5 py-4 text-center text-sm text-amber-600">
+                          <td
+                            className={[
+                              "px-5 py-4 text-center text-sm",
+                              row.remaining < 0
+                                ? "text-red-600"
+                                : "text-amber-600",
+                            ].join(" ")}
+                          >
                             {formatRupiah(
                               row.remaining,
                             )}
                           </td>
 
                           <td className="px-5 py-4 text-center">
-                            {isPaid ? (
+                            {isLoan ? (
+                              <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                                Pinjaman
+                              </span>
+                            ) : isPaid ? (
                               <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                                 Lunas
                               </span>
                             ) : isPartial ? (
                               <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                                 Sebagian
+                              </span>
+                            ) : hasNoSalary ? (
+                              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                Belum Ada Gaji
                               </span>
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">

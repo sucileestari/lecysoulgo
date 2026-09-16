@@ -199,6 +199,7 @@ export async function createManualShipmentHandler(
       expedition,
       packing_price,
       shipping_price,
+      due_date,
       shipping_status,
       payment_status,
     } = req.body;
@@ -271,9 +272,17 @@ export async function createManualShipmentHandler(
       });
     }
 
+    const normalizedPackingPrice =
+      packing_price ?? 0;
+
+    const normalizedShippingPrice =
+      shipping_price ?? 0;
+
     if (
-      typeof packing_price !== "number" ||
-      !Number.isFinite(packing_price)
+      typeof normalizedPackingPrice !== "number" ||
+      !Number.isFinite(
+        normalizedPackingPrice,
+      )
     ) {
       return res.status(400).json({
         success: false,
@@ -283,13 +292,26 @@ export async function createManualShipmentHandler(
     }
 
     if (
-      typeof shipping_price !== "number" ||
-      !Number.isFinite(shipping_price)
+      typeof normalizedShippingPrice !== "number" ||
+      !Number.isFinite(
+        normalizedShippingPrice,
+      )
     ) {
       return res.status(400).json({
         success: false,
         message:
           "Harga ongkos kirim tidak valid.",
+      });
+    }
+
+    if (
+      typeof due_date !== "string" ||
+      !due_date.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tanggal jatuh tempo wajib diisi.",
       });
     }
 
@@ -313,9 +335,14 @@ export async function createManualShipmentHandler(
         expedition:
           expedition as ManualShipmentExpedition,
 
-        packing_price,
+        packing_price:
+          normalizedPackingPrice,
 
-        shipping_price,
+        shipping_price:
+          normalizedShippingPrice,
+
+        due_date:
+          due_date.trim(),
 
         shipping_status:
           shipping_status as
@@ -367,6 +394,7 @@ export async function createManualShipmentHandler(
       "Ekspedisi wajib dipilih.",
       "Harga packing tidak valid.",
       "Harga ongkos kirim tidak valid.",
+      "Tanggal jatuh tempo wajib diisi.",
       "Barang harus berasal dari batch yang sama dengan pengiriman.",
       "Barang yang dipilih harus milik pembeli yang sama.",
     ];
@@ -446,6 +474,7 @@ export async function updateManualShipmentHandler(
       shipping_price,
       shipping_status,
       payment_status,
+      due_date,
     } = req.body;
 
     const input: UpdateManualShipmentInput =
@@ -613,6 +642,24 @@ export async function updateManualShipmentHandler(
         payment_status as ManualShipmentPaymentStatus;
     }
 
+    if (
+      due_date !== undefined
+    ) {
+      if (
+        typeof due_date !== "string" ||
+        !due_date.trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Tanggal jatuh tempo tidak valid.",
+        });
+      }
+
+      input.due_date =
+        due_date.trim();
+    }
+
     const data =
       await updateManualShipment(
         id.trim(),
@@ -658,6 +705,7 @@ export async function updateManualShipmentHandler(
       "Harga ongkos kirim tidak valid.",
       "Status pengiriman tidak valid.",
       "Status pembayaran tidak valid.",
+      "Tanggal jatuh tempo tidak valid.",
       "Barang harus berasal dari batch yang sama dengan pengiriman.",
       "Barang yang dipilih harus milik pembeli yang sama.",
     ];
