@@ -133,6 +133,31 @@ export async function updateMember(
   id: string,
   input: UpdateMemberInput,
 ) {
+  /* =========================================
+     HNR TIDAK BOLEH DIUBAH
+  ========================================= */
+
+  const {
+    data: existingMember,
+    error: existingMemberError,
+  } = await supabase
+    .from("members")
+    .select("id, type")
+    .eq("id", id)
+    .single();
+
+  if (existingMemberError) {
+    handleSupabaseError(
+      existingMemberError,
+    );
+  }
+
+  if (existingMember?.type === "hnr") {
+    throw new Error(
+      "Member dengan status HNR tidak dapat diedit.",
+    );
+  }
+
   const updateData: UpdateMemberInput = {};
 
   if (input.name !== undefined) {
@@ -184,6 +209,31 @@ export async function updateMember(
 }
 
 export async function deleteMember(id: string) {
+  /* =========================================
+     HNR TIDAK BOLEH DIHAPUS
+  ========================================= */
+
+  const {
+    data: existingMember,
+    error: existingMemberError,
+  } = await supabase
+    .from("members")
+    .select("id, type")
+    .eq("id", id)
+    .single();
+
+  if (existingMemberError) {
+    handleSupabaseError(
+      existingMemberError,
+    );
+  }
+
+  if (existingMember?.type === "hnr") {
+    throw new Error(
+      "Member dengan status HNR tidak dapat dihapus.",
+    );
+  }
+
   const { error } = await supabase
     .from("members")
     .delete()

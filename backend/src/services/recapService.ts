@@ -47,6 +47,8 @@ export type Recap = {
     name: string;
 
     phone: string;
+
+    type: "customer" | "employee" | "hnr";
   } | null;
 };
 
@@ -195,7 +197,8 @@ export async function getRecapsByBatch(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .eq(
@@ -249,7 +252,8 @@ export async function getRecapById(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .eq(
@@ -479,7 +483,8 @@ export async function createRecap(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .single();
@@ -769,7 +774,8 @@ export async function createRecaps(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `);
 
@@ -846,7 +852,8 @@ export async function markRecapAsCheckedOut(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .eq(
@@ -978,7 +985,8 @@ export async function markRecapAsCheckedOut(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .single();

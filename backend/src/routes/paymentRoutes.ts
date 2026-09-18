@@ -8,7 +8,6 @@ import {
   getPaymentsByRecapHandler,
   getRecapPaymentSummaryHandler,
   midtransWebhookHandler,
-  simulatePaymentSuccessHandler,
 } from "../controllers/paymentController.js";
 
 const router =
@@ -65,15 +64,6 @@ router.post(
 router.post(
   "/:id/generate-link",
   generatePaymentLinkHandler,
-);
-
-/* =========================================
-   DEVELOPMENT ONLY
-========================================= */
-
-router.post(
-  "/:id/simulate-success",
-  simulatePaymentSuccessHandler,
 );
 
 export default router;

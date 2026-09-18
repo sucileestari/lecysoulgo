@@ -34,6 +34,12 @@ export type LatePaymentPermissionItem = {
         detail_barang: string;
 
         member_id: string;
+
+        batch?: {
+          name: string;
+
+          country: string;
+        } | null;
       }
     | null;
 };
@@ -66,6 +72,8 @@ export type LatePaymentPermission = {
         name: string;
 
         phone: string;
+
+        type?: string | null;
       }
     | null;
 
@@ -105,6 +113,8 @@ export type LatePaymentRecapOptionsResponse = {
     name: string;
 
     phone: string;
+
+    type?: string | null;
   }[];
 
   items: LatePaymentRecapOption[];
@@ -309,7 +319,8 @@ export async function getLatePaymentPermissions() {
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         ),
 
         items:late_payment_permission_items (
@@ -322,7 +333,12 @@ export async function getLatePaymentPermissions() {
           recap:recaps (
             id,
             detail_barang,
-            member_id
+            member_id,
+
+            batch:batches (
+              name,
+              country
+            )
           )
         )
       `)
@@ -477,6 +493,8 @@ export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOpti
     name: string;
 
     phone: string;
+
+    type?: string | null;
   }[] = [];
 
   if (
@@ -492,7 +510,8 @@ export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOpti
         .select(`
           id,
           name,
-          phone
+          phone,
+          type
         `)
         .in(
           "id",
@@ -524,6 +543,8 @@ export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOpti
         name: string;
 
         phone: string;
+
+        type?: string | null;
       }[];
   }
 
@@ -1786,7 +1807,8 @@ export async function createLatePaymentPermission(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         ),
 
         items:late_payment_permission_items (
@@ -1799,7 +1821,12 @@ export async function createLatePaymentPermission(
           recap:recaps (
             id,
             detail_barang,
-            member_id
+            member_id,
+
+            batch:batches (
+              name,
+              country
+            )
           )
         )
       `)

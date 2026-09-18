@@ -8,7 +8,6 @@ import {
   getPaymentsByRecapId,
   getRecapPaymentSummary,
   handleMidtransNotification,
-  simulatePaymentSuccess,
 } from "../services/paymentService.js";
 
 import type { MidtransNotification } from "../services/midtransService.js";
@@ -526,57 +525,6 @@ export async function midtransWebhookHandler(
     return res.status(500).json({
       success: false,
       message,
-    });
-  }
-}
-
-/* =========================================
-   SIMULATE PAYMENT SUCCESS
-========================================= */
-
-export async function simulatePaymentSuccessHandler(
-  req: Request,
-  res: Response,
-) {
-  try {
-    const idParam =
-      req.params.id;
-
-    if (
-      typeof idParam !==
-        "string" ||
-      !idParam.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "ID pembayaran wajib diisi.",
-      });
-    }
-
-    const data =
-      await simulatePaymentSuccess(
-        idParam.trim(),
-      );
-
-    return res.status(200).json({
-      success: true,
-      data,
-      message:
-        "Pembayaran berhasil disimulasikan sebagai paid.",
-    });
-  } catch (error) {
-    console.error(
-      "simulatePaymentSuccessHandler error:",
-      error,
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mensimulasikan pembayaran.",
     });
   }
 }

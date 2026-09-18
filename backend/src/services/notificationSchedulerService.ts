@@ -11,6 +11,9 @@ import {
   sendLoggedWhatsApp,
   type NotificationType,
 } from "./notificationService.js";
+import {
+  processHnrMembers,
+} from "./hnrService.js";
 
 const JAKARTA_TIME_ZONE = "Asia/Jakarta";
 const PAYMENT_SEND_HOUR = 15;
@@ -348,6 +351,8 @@ export async function processWhatsAppAutomations(date = new Date()) {
     result.overdueH3Dp = await runJob(await getRecapsByDueDate("DP", h3DueDate), "DP", "OVERDUE_H3");
     result.overdueH3Pelunasan = await runJob(await getRecapsByDueDate("PELUNASAN", h3DueDate), "PELUNASAN", "OVERDUE_H3");
   }
+
+  await processHnrMembers(date);
 
   const jobs = [result.recapPayment, result.dueDateDp, result.dueDatePelunasan, result.overdueH3Dp, result.overdueH3Pelunasan];
   result.processed = jobs.reduce((sum, job) => sum + job.processed, 0);

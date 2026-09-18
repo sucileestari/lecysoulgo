@@ -149,6 +149,7 @@ export async function customerMeHandler(
           req.customer.member_id,
 
         user_type:
+          req.customer.member_type ??
           req.customer.user_type,
       },
     });

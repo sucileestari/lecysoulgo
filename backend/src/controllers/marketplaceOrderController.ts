@@ -5,9 +5,12 @@ import type {
 
 import {
   createMarketplaceOrder,
+  deleteMarketplaceOrder,
   getAvailableMarketplaceItems,
   getMarketplaceMemberOptions,
   getMarketplaceOrders,
+  updateMarketplaceOrderStatus,
+  type MarketplaceOrderStatus,
 } from "../services/marketplaceOrderService.js";
 
 /* =========================================
@@ -202,6 +205,169 @@ export async function createMarketplaceOrderHandler(
       "Salah satu barang yang dipilih tidak ditemukan.",
       "Data customer tidak ditemukan.",
       "Member tidak ditemukan.",
+    ];
+
+    if (validationMessages.includes(message)) {
+      return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   UPDATE MARKETPLACE ORDER STATUS
+========================================= */
+
+export async function updateMarketplaceOrderStatusHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const orderId =
+      typeof req.params.id === "string"
+        ? req.params.id.trim()
+        : "";
+
+    const { status } = req.body ?? {};
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pesanan Marketplace wajib diisi.",
+      });
+    }
+
+    const allowedStatuses: MarketplaceOrderStatus[] = [
+      "waiting",
+      "processing",
+      "processed",
+    ];
+
+    if (
+      typeof status !== "string" ||
+      !allowedStatuses.includes(
+        status as MarketplaceOrderStatus,
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Status pesanan Marketplace tidak valid.",
+      });
+    }
+
+    const order =
+      await updateMarketplaceOrderStatus(
+        orderId,
+        status as MarketplaceOrderStatus,
+      );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        status === "processed"
+          ? "Status pesanan berhasil diubah dan Rekapan terkait otomatis menjadi Sudah CO."
+          : "Status pesanan Marketplace berhasil diubah.",
+      data: order,
+    });
+  } catch (error) {
+    console.error(
+      "updateMarketplaceOrderStatusHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengubah status pesanan Marketplace.";
+
+    const validationMessages = [
+      "ID pesanan Marketplace wajib diisi.",
+      "Pesanan Marketplace tidak ditemukan.",
+      "Pesanan Marketplace milik member HNR tidak dapat diubah.",
+    ];
+
+    if (validationMessages.includes(message)) {
+      return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   DELETE MARKETPLACE ORDER
+========================================= */
+
+export async function deleteMarketplaceOrderHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const orderId =
+      typeof req.params.id === "string"
+        ? req.params.id.trim()
+        : "";
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pesanan Marketplace wajib diisi.",
+      });
+    }
+
+    /*
+     * Jika request berasal dari customer,
+     * req.customer.member_id akan terisi.
+     *
+     * Jika request berasal dari admin/employee,
+     * req.customer tidak ada sehingga
+     * service menerima undefined.
+     */
+    const customerMemberId =
+      req.customer?.member_id;
+
+    await deleteMarketplaceOrder(
+      orderId,
+      customerMemberId,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Pesanan Marketplace berhasil dihapus.",
+    });
+  } catch (error) {
+    console.error(
+      "deleteMarketplaceOrderHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal menghapus pesanan Marketplace.";
+
+    const validationMessages = [
+      "ID pesanan Marketplace wajib diisi.",
+      "Pesanan Marketplace tidak ditemukan.",
+      "Pesanan Marketplace milik member HNR tidak dapat dihapus.",
+      "Pesanan Marketplace bukan milik customer yang sedang login.",
     ];
 
     if (validationMessages.includes(message)) {

@@ -44,6 +44,11 @@ type CustomerRecap = {
 
   sudah_co: boolean;
 
+  member_type:
+    | "customer"
+    | "employee"
+    | "hnr";
+
   down_payment: {
     amount: number;
 
@@ -155,7 +160,8 @@ export async function getCustomerRecaps(
     .select(`
       id,
       name,
-      phone
+      phone,
+      type
     `)
     .eq(
       "id",
@@ -417,6 +423,20 @@ export async function getCustomerRecaps(
             Boolean(
               recap.sudah_co,
             ),
+
+          /*
+           * Status tipe member saat ini.
+           *
+           * Jika member diubah menjadi HNR
+           * dari Members Page, seluruh rekapan
+           * customer tersebut akan menerima
+           * member_type = "hnr".
+           */
+          member_type:
+            member.type as
+              | "customer"
+              | "employee"
+              | "hnr",
 
           down_payment: {
             amount:

@@ -304,16 +304,10 @@ export async function createManualShipmentHandler(
       });
     }
 
-    if (
-      typeof due_date !== "string" ||
-      !due_date.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Tanggal jatuh tempo wajib diisi.",
-      });
-    }
+    const normalizedDueDate =
+      typeof due_date === "string"
+        ? due_date.trim() || null
+        : null;
 
     const input: CreateManualShipmentInput =
       {
@@ -342,7 +336,7 @@ export async function createManualShipmentHandler(
           normalizedShippingPrice,
 
         due_date:
-          due_date.trim(),
+          normalizedDueDate,
 
         shipping_status:
           shipping_status as
@@ -394,7 +388,6 @@ export async function createManualShipmentHandler(
       "Ekspedisi wajib dipilih.",
       "Harga packing tidak valid.",
       "Harga ongkos kirim tidak valid.",
-      "Tanggal jatuh tempo wajib diisi.",
       "Barang harus berasal dari batch yang sama dengan pengiriman.",
       "Barang yang dipilih harus milik pembeli yang sama.",
     ];

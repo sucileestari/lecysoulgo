@@ -14,6 +14,16 @@ export type MarketplaceOrderItem = {
   marketplace_order_id: string;
   recap_id: string;
   created_at: string;
+  recap?: {
+    id: string;
+    detail_barang?: string | null;
+    qty?: number | null;
+    batch?: {
+      id: string;
+      name?: string | null;
+      country?: string | null;
+    } | null;
+  } | null;
 };
 
 export type MarketplaceOrder = {
@@ -22,6 +32,7 @@ export type MarketplaceOrder = {
   member_id: string;
   member_name: string;
   member_phone: string;
+  member_type?: string | null;
   status: MarketplaceOrderStatus;
   created_at: string;
   updated_at: string;
@@ -105,13 +116,24 @@ export async function getMarketplaceOrders(
       updated_at,
       member:members (
         name,
-        phone
+        phone,
+        type
       ),
       items:marketplace_order_items (
         id,
         marketplace_order_id,
         recap_id,
-        created_at
+        created_at,
+        recap:recaps (
+          id,
+          detail_barang,
+          qty,
+          batch:batches (
+            id,
+            name,
+            country
+          )
+        )
       )
     `);
 
@@ -158,6 +180,11 @@ export async function getMarketplaceOrders(
           "string"
             ? rawMember.phone
             : "",
+        member_type:
+          typeof rawMember?.type ===
+          "string"
+            ? rawMember.type
+            : null,
         status:
           order.status as MarketplaceOrderStatus,
         created_at:
@@ -166,15 +193,56 @@ export async function getMarketplaceOrders(
           order.updated_at,
         items:
           (order.items ?? []).map(
-            (item) => ({
-              id: item.id,
-              marketplace_order_id:
-                item.marketplace_order_id,
-              recap_id:
-                item.recap_id,
-              created_at:
-                item.created_at,
-            }),
+            (item) => {
+              const rawRecap =
+                Array.isArray(item.recap)
+                  ? item.recap[0] ?? null
+                  : item.recap ?? null;
+
+              const rawBatch =
+                Array.isArray(rawRecap?.batch)
+                  ? rawRecap.batch[0] ?? null
+                  : rawRecap?.batch ?? null;
+
+              return {
+                id: item.id,
+                marketplace_order_id:
+                  item.marketplace_order_id,
+                recap_id:
+                  item.recap_id,
+                created_at:
+                  item.created_at,
+                recap: rawRecap
+                  ? {
+                      id: rawRecap.id,
+                      detail_barang:
+                        typeof rawRecap.detail_barang ===
+                        "string"
+                          ? rawRecap.detail_barang
+                          : null,
+                      qty:
+                        typeof rawRecap.qty === "number"
+                          ? rawRecap.qty
+                          : Number(rawRecap.qty),
+                      batch: rawBatch
+                        ? {
+                            id: rawBatch.id,
+                            name:
+                              typeof rawBatch.name ===
+                              "string"
+                                ? rawBatch.name
+                                : null,
+                            country:
+                              typeof rawBatch.country ===
+                              "string"
+                                ? rawBatch.country
+                                : null,
+                          }
+                        : null,
+                    }
+                  : null,
+              };
+            },
           ),
       };
     },
@@ -901,6 +969,10 @@ export async function createMarketplaceOrder(
       member.name,
     member_phone:
       member.phone,
+    member_type:
+      typeof member.type === "string"
+        ? member.type
+        : null,
     status:
       createdOrder.status as MarketplaceOrderStatus,
     created_at:
@@ -920,4 +992,399 @@ export async function createMarketplaceOrder(
         }),
       ),
   };
+}
+
+/* =========================================
+   UPDATE MARKETPLACE ORDER STATUS
+========================================= */
+
+/**
+ * Mengubah status pesanan Marketplace.
+ *
+ * Jika status berubah menjadi "processed"
+ * (di UI ditampilkan sebagai "Sudah di pick up"),
+ * seluruh recap yang terhubung dengan pesanan
+ * akan otomatis diubah menjadi sudah_co = true.
+ */
+export async function updateMarketplaceOrderStatus(
+  orderId: string,
+  status: MarketplaceOrderStatus,
+): Promise<MarketplaceOrder> {
+  const trimmedOrderId = orderId.trim();
+
+  if (!trimmedOrderId) {
+    throw new Error(
+      "ID pesanan Marketplace wajib diisi.",
+    );
+  }
+
+  /* -----------------------------------------
+     GET EXISTING ORDER
+  ----------------------------------------- */
+
+  const {
+    data: existingOrder,
+    error: existingOrderError,
+  } = await supabase
+    .from("marketplace_orders")
+    .select(`
+      id,
+      order_number,
+      member_id,
+      status
+    `)
+    .eq("id", trimmedOrderId)
+    .maybeSingle();
+
+  if (existingOrderError) {
+    throw new Error(
+      `Gagal mengambil pesanan Marketplace: ${existingOrderError.message}`,
+    );
+  }
+
+  if (!existingOrder) {
+    throw new Error(
+      "Pesanan Marketplace tidak ditemukan.",
+    );
+  }
+
+  /* -----------------------------------------
+     VALIDATE MEMBER
+  ----------------------------------------- */
+
+  const {
+    data: member,
+    error: memberError,
+  } = await supabase
+    .from("members")
+    .select("type")
+    .eq("id", existingOrder.member_id)
+    .maybeSingle();
+
+  if (memberError) {
+    throw new Error(
+      `Gagal mengambil data member Marketplace: ${memberError.message}`,
+    );
+  }
+
+  if (member?.type === "hnr") {
+    throw new Error(
+      "Pesanan Marketplace milik member HNR tidak dapat diubah.",
+    );
+  }
+
+  /* -----------------------------------------
+     GET ORDER ITEMS
+  ----------------------------------------- */
+
+  const {
+    data: orderItems,
+    error: orderItemsError,
+  } = await supabase
+    .from("marketplace_order_items")
+    .select("recap_id")
+    .eq(
+      "marketplace_order_id",
+      trimmedOrderId,
+    );
+
+  if (orderItemsError) {
+    throw new Error(
+      `Gagal mengambil barang pesanan Marketplace: ${orderItemsError.message}`,
+    );
+  }
+
+  const recapIds = Array.from(
+    new Set(
+      (orderItems ?? [])
+        .map((item) => item.recap_id)
+        .filter(
+          (recapId): recapId is string =>
+            typeof recapId === "string" &&
+            Boolean(recapId),
+        ),
+    ),
+  );
+
+  /* -----------------------------------------
+     UPDATE MARKETPLACE ORDER
+  ----------------------------------------- */
+
+  const {
+    data: updatedOrder,
+    error: updateOrderError,
+  } = await supabase
+    .from("marketplace_orders")
+    .update({
+      status,
+    })
+    .eq("id", trimmedOrderId)
+    .select(`
+      id,
+      order_number,
+      member_id,
+      status,
+      created_at,
+      updated_at
+    `)
+    .single();
+
+  if (updateOrderError || !updatedOrder) {
+    throw new Error(
+      updateOrderError?.message ??
+        "Gagal mengubah status pesanan Marketplace.",
+    );
+  }
+
+  /* -----------------------------------------
+     AUTO CHECKOUT RECAPS
+  ----------------------------------------- */
+
+  if (
+    status === "processed" &&
+    recapIds.length > 0
+  ) {
+    const {
+      error: updateRecapsError,
+    } = await supabase
+      .from("recaps")
+      .update({
+        sudah_co: true,
+      })
+      .in("id", recapIds);
+
+    if (updateRecapsError) {
+      /*
+       * Rollback status order apabila
+       * update CO pada Rekapan gagal.
+       */
+      await supabase
+        .from("marketplace_orders")
+        .update({
+          status:
+            existingOrder.status as MarketplaceOrderStatus,
+        })
+        .eq(
+          "id",
+          trimmedOrderId,
+        );
+
+      throw new Error(
+        `Status pesanan berhasil diubah, tetapi gagal mengubah status CO Rekapan: ${updateRecapsError.message}`,
+      );
+    }
+  }
+
+  /* -----------------------------------------
+     GET UPDATED ORDER
+  ----------------------------------------- */
+
+  const orders =
+    await getMarketplaceOrders(
+      existingOrder.member_id,
+    );
+
+  const result = orders.find(
+    (order) => order.id === trimmedOrderId,
+  );
+
+  if (!result) {
+    throw new Error(
+      "Pesanan Marketplace berhasil diubah, tetapi data pesanan terbaru tidak dapat diambil.",
+    );
+  }
+
+  return result;
+}
+
+
+/* =========================================
+   DELETE MARKETPLACE ORDER
+========================================= */
+
+/**
+ * Menghapus pesanan Marketplace.
+ *
+ * Item Marketplace yang terhubung dihapus terlebih dahulu,
+ * kemudian pesanan Marketplace dihapus.
+ *
+ * Recap tidak diubah.
+ * Jika pesanan sudah "processed", status CO pada Rekapan
+ * tetap dipertahankan.
+ */
+export async function deleteMarketplaceOrder(
+  orderId: string,
+  customerMemberId?: string,
+): Promise<void> {
+  const trimmedOrderId = orderId.trim();
+
+  if (!trimmedOrderId) {
+    throw new Error(
+      "ID pesanan Marketplace wajib diisi.",
+    );
+  }
+
+  /* -----------------------------------------
+     GET EXISTING ORDER
+  ----------------------------------------- */
+
+  const {
+    data: existingOrder,
+    error: existingOrderError,
+  } = await supabase
+    .from("marketplace_orders")
+    .select(`
+      id,
+      member_id,
+      status
+    `)
+    .eq("id", trimmedOrderId)
+    .maybeSingle();
+
+  if (existingOrderError) {
+    throw new Error(
+      `Gagal mengambil pesanan Marketplace: ${existingOrderError.message}`,
+    );
+  }
+
+  if (!existingOrder) {
+    throw new Error(
+      "Pesanan Marketplace tidak ditemukan.",
+    );
+  }
+
+  /* -----------------------------------------
+     VALIDATE CUSTOMER OWNERSHIP
+  ----------------------------------------- */
+
+  if (
+    customerMemberId &&
+    existingOrder.member_id !==
+      customerMemberId
+  ) {
+    throw new Error(
+      "Pesanan Marketplace bukan milik customer yang sedang login.",
+    );
+  }
+
+  /* -----------------------------------------
+     VALIDATE MEMBER
+  ----------------------------------------- */
+
+  const {
+    data: member,
+    error: memberError,
+  } = await supabase
+    .from("members")
+    .select("type")
+    .eq("id", existingOrder.member_id)
+    .maybeSingle();
+
+  if (memberError) {
+    throw new Error(
+      `Gagal mengambil data member Marketplace: ${memberError.message}`,
+    );
+  }
+
+  if (member?.type === "hnr") {
+    throw new Error(
+      "Pesanan Marketplace milik member HNR tidak dapat dihapus.",
+    );
+  }
+
+  /* -----------------------------------------
+     GET ORDER ITEMS
+  ----------------------------------------- */
+
+  const {
+    data: orderItems,
+    error: orderItemsError,
+  } = await supabase
+    .from("marketplace_order_items")
+    .select(`
+      id,
+      marketplace_order_id,
+      recap_id,
+      created_at
+    `)
+    .eq(
+      "marketplace_order_id",
+      trimmedOrderId,
+    );
+
+  if (orderItemsError) {
+    throw new Error(
+      `Gagal mengambil barang pesanan Marketplace: ${orderItemsError.message}`,
+    );
+  }
+
+  /* -----------------------------------------
+     DELETE ORDER ITEMS
+  ----------------------------------------- */
+
+  if (
+    orderItems &&
+    orderItems.length > 0
+  ) {
+    const {
+      error: deleteItemsError,
+    } = await supabase
+      .from("marketplace_order_items")
+      .delete()
+      .eq(
+        "marketplace_order_id",
+        trimmedOrderId,
+      );
+
+    if (deleteItemsError) {
+      throw new Error(
+        `Gagal menghapus barang pesanan Marketplace: ${deleteItemsError.message}`,
+      );
+    }
+  }
+
+  /* -----------------------------------------
+     DELETE ORDER
+  ----------------------------------------- */
+
+  const {
+    error: deleteOrderError,
+  } = await supabase
+    .from("marketplace_orders")
+    .delete()
+    .eq(
+      "id",
+      trimmedOrderId,
+    );
+
+  if (deleteOrderError) {
+    /*
+     * Coba kembalikan item apabila delete order gagal
+     * setelah item berhasil dihapus.
+     */
+    if (
+      orderItems &&
+      orderItems.length > 0
+    ) {
+      await supabase
+        .from("marketplace_order_items")
+        .insert(
+          orderItems.map(
+            (item) => ({
+              id: item.id,
+              marketplace_order_id:
+                item.marketplace_order_id,
+              recap_id:
+                item.recap_id,
+              created_at:
+                item.created_at,
+            }),
+          ),
+        );
+    }
+
+    throw new Error(
+      `Gagal menghapus pesanan Marketplace: ${deleteOrderError.message}`,
+    );
+  }
 }

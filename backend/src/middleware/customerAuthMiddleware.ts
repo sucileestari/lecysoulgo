@@ -28,8 +28,23 @@ if (!JWT_SECRET) {
 
 export type CustomerAuthPayload = {
   sub: string;
+
+  /*
+   * Jenis token.
+   *
+   * Ini TETAP customer karena token ini
+   * memang customer token.
+   */
   user_type: "customer";
+
   member_id: string;
+
+  /*
+   * Jenis member sebenarnya yang diambil
+   * dari members.type.
+   */
+  member_type?: string;
+
   iat?: number;
   exp?: number;
 };
@@ -212,7 +227,9 @@ export async function authenticateCustomer(
       error,
     } = await supabase
       .from("members")
-      .select("id")
+      .select(
+        "id, type",
+      )
       .eq(
         "id",
         payload.member_id,
@@ -251,13 +268,35 @@ export async function authenticateCustomer(
     ===================================== */
 
     req.customer = {
-      sub: payload.sub,
+      sub:
+        payload.sub,
 
+      /*
+       * TETAP customer karena ini adalah
+       * jenis JWT/token.
+       */
       user_type:
         "customer",
 
       member_id:
         payload.member_id,
+
+      /*
+       * Jenis member sebenarnya diambil
+       * dari database.
+       *
+       * Contoh:
+       * customer → customer
+       * hnr      → hnr
+       * employee → employee
+       */
+      ...(typeof member.type ===
+      "string"
+        ? {
+            member_type:
+              member.type,
+          }
+        : {}),
 
       ...(typeof payload.iat ===
       "number"

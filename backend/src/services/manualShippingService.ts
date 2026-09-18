@@ -54,6 +54,7 @@ export type ManualShipmentItem = {
       id: string;
       name: string;
       phone: string;
+      type?: string | null;
     } | null;
   } | null;
 };
@@ -87,6 +88,7 @@ export type ManualShipment = {
     id: string;
     name: string;
     phone: string;
+    type?: string | null;
   } | null;
 
   items: ManualShipmentItem[];
@@ -436,7 +438,8 @@ async function getRecapsForShipment(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         )
       `)
       .in(
@@ -608,7 +611,8 @@ export async function getManualShipmentsByBatch(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         ),
         items:manual_shipment_items (
           id,
@@ -839,7 +843,8 @@ export async function getManualShipmentById(
         member:members (
           id,
           name,
-          phone
+          phone,
+          type
         ),
         items:manual_shipment_items (
           id,
@@ -1523,6 +1528,42 @@ export async function updateManualShipment(
     input.packing_price === undefined &&
     input.shipping_price === undefined &&
     input.due_date === undefined;
+
+  const isDueDateOnlyUpdate =
+    input.due_date !== undefined &&
+    input.member_id === undefined &&
+    input.recap_ids === undefined &&
+    input.address === undefined &&
+    input.expedition === undefined &&
+    input.packing_price === undefined &&
+    input.shipping_price === undefined &&
+    input.shipping_status === undefined &&
+    input.payment_status === undefined;
+
+  if (isDueDateOnlyUpdate) {
+    const dueDate =
+      input.due_date?.trim() || null;
+
+    const {
+      error: dueDateError,
+    } = await supabase
+      .from('manual_shipments')
+      .update({
+        due_date: dueDate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id.trim());
+
+    if (dueDateError) {
+      throw new Error(
+        `Gagal memperbarui tanggal jatuh tempo: ${dueDateError.message}`,
+      );
+    }
+
+    return getManualShipmentById(
+      id.trim(),
+    );
+  }
 
   if (
     isShippingStatusOnlyUpdate

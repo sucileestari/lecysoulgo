@@ -2874,6 +2874,163 @@ export async function generatePaymentLink(
 }
 
 /* =========================================
+   RESTORE MEMBER FROM HNR
+========================================= */
+
+/**
+ * Jika seluruh Rekapan milik member sudah lunas,
+ * dan member saat ini berstatus HNR,
+ * maka status member dikembalikan menjadi customer.
+ *
+ * Yang dicek hanya pembayaran Rekapan:
+ * - DP harus paid
+ * - PELUNASAN harus paid
+ *
+ * Manual Shipping tidak ikut diperiksa.
+ */
+async function restoreMemberToCustomerIfAllRecapPaymentsPaid(
+  recapId: string,
+): Promise<void> {
+  if (!recapId.trim()) {
+    return;
+  }
+
+  /* -------------------------------------
+     Get member from recap
+  ------------------------------------- */
+
+  const {
+    data: recap,
+    error: recapError,
+  } = await supabase
+    .from("recaps")
+    .select("member_id")
+    .eq("id", recapId.trim())
+    .single();
+
+  if (recapError || !recap?.member_id) {
+    console.error(
+      "restoreMemberToCustomerIfAllRecapPaymentsPaid error saat mengambil member:",
+      recapError,
+    );
+
+    return;
+  }
+
+  const memberId = recap.member_id;
+
+  /* -------------------------------------
+     Get all recaps owned by member
+  ------------------------------------- */
+
+  const {
+    data: recaps,
+    error: recapsError,
+  } = await supabase
+    .from("recaps")
+    .select("id")
+    .eq("member_id", memberId);
+
+  if (recapsError) {
+    console.error(
+      "restoreMemberToCustomerIfAllRecapPaymentsPaid error saat mengambil recaps:",
+      recapsError,
+    );
+
+    return;
+  }
+
+  if (!recaps || recaps.length === 0) {
+    return;
+  }
+
+  const recapIds = recaps.map(
+    (item) => item.id,
+  );
+
+  /* -------------------------------------
+     Get all recap payments
+  ------------------------------------- */
+
+  const {
+    data: payments,
+    error: paymentsError,
+  } = await supabase
+    .from("payments")
+    .select(
+      "recap_id, payment_type, status",
+    )
+    .in("recap_id", recapIds);
+
+  if (paymentsError) {
+    console.error(
+      "restoreMemberToCustomerIfAllRecapPaymentsPaid error saat mengambil payments:",
+      paymentsError,
+    );
+
+    return;
+  }
+
+  const allRecapsFullyPaid =
+    recaps.every((recapItem) => {
+      const recapPayments =
+        (payments ?? []).filter(
+          (payment) =>
+            payment.recap_id ===
+            recapItem.id,
+        );
+
+      const dpPaid =
+        recapPayments.some(
+          (payment) =>
+            payment.payment_type ===
+              "DP" &&
+            payment.status === "paid",
+        );
+
+      const pelunasanPaid =
+        recapPayments.some(
+          (payment) =>
+            payment.payment_type ===
+              "PELUNASAN" &&
+            payment.status === "paid",
+        );
+
+      return (
+        dpPaid &&
+        pelunasanPaid
+      );
+    });
+
+  if (!allRecapsFullyPaid) {
+    return;
+  }
+
+  /* -------------------------------------
+     Restore HNR -> customer
+  ------------------------------------- */
+
+  const {
+    error: updateMemberError,
+  } = await supabase
+    .from("members")
+    .update({
+      type: "customer",
+      updated_at:
+        new Date().toISOString(),
+    })
+    .eq("id", memberId)
+    .eq("type", "hnr");
+
+  if (updateMemberError) {
+    console.error(
+      "Gagal mengembalikan member HNR menjadi customer:",
+      updateMemberError,
+    );
+  }
+}
+
+/* =========================================
    HANDLE MIDTRANS NOTIFICATION
 ========================================= */
 
@@ -2995,23 +3152,7 @@ export async function handleMidtransNotification(
   }
 
   /* -------------------------------------
-     5. IDEMPOTENCY
-  ------------------------------------- */
-
-  /**
-   * Kalau sudah paid, jangan diproses lagi.
-   *
-   * Midtrans dapat mengirim notification
-   * lebih dari sekali.
-   */
-  if (
-    payment.status === "paid"
-  ) {
-    return payment;
-  }
-
-  /* -------------------------------------
-     6. MAP MIDTRANS STATUS
+     5. MAP MIDTRANS STATUS
   ------------------------------------- */
 
   let newStatus:
@@ -3045,11 +3186,41 @@ export async function handleMidtransNotification(
     newStatus = "expired";
   } else if (
     transactionStatus ===
-      "cancel" ||
+    "cancel"
+  ) {
+    newStatus = "cancelled";
+  } else if (
     transactionStatus ===
-      "deny"
+      "deny" ||
+    transactionStatus ===
+      "failure"
   ) {
     newStatus = "failed";
+  }
+
+  /* -------------------------------------
+     IDEMPOTENCY
+  ------------------------------------- */
+
+  /**
+   * Midtrans dapat mengirim notification
+   * lebih dari sekali.
+   *
+   * Jika status yang diterima sama dengan
+   * status payment saat ini, tidak perlu
+   * menulis ulang data payment.
+   *
+   * Jangan menghentikan proses hanya karena
+   * payment sudah "paid", karena Midtrans
+   * masih dapat mengirim status berikutnya
+   * seperti "cancel" atau "deny" pada kondisi
+   * reversal / perubahan status transaksi.
+   */
+  if (
+    payment.status ===
+    newStatus
+  ) {
+    return payment;
   }
 
   /* -------------------------------------
@@ -3100,7 +3271,7 @@ export async function handleMidtransNotification(
           payment.paid_at ??
           now
         )
-      : payment.paid_at;
+      : null;
 
   /* -------------------------------------
      8. UPDATE PAYMENT
@@ -3168,91 +3339,13 @@ export async function handleMidtransNotification(
       updatedPayment.recap_id,
       updatedPayment.payment_type,
     );
+
+    await restoreMemberToCustomerIfAllRecapPaymentsPaid(
+      updatedPayment.recap_id,
+    );
   }
 
   return updatedPayment;
-}
-
-/* =========================================
-   SIMULATE PAYMENT SUCCESS
-========================================= */
-
-/**
- * Sementara untuk testing.
- *
- * Nanti digantikan webhook Midtrans.
- */
-export async function simulatePaymentSuccess(
-  paymentId: string,
-): Promise<Payment> {
-  if (
-    !paymentId.trim()
-  ) {
-    throw new Error(
-      "ID pembayaran wajib diisi.",
-    );
-  }
-
-  const payment =
-    await getPaymentById(
-      paymentId,
-    );
-
-  if (
-    payment.status ===
-    "paid"
-  ) {
-    return payment;
-  }
-
-  const now =
-    new Date().toISOString();
-
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("payments")
-      .update({
-        status:
-          "paid",
-
-        paid_at:
-          now,
-
-        updated_at:
-          now,
-      })
-      .eq(
-        "id",
-        paymentId.trim(),
-      )
-      .select("*")
-      .single();
-
-  if (
-    error ||
-    !data
-  ) {
-    throw new Error(
-      `Gagal mengupdate pembayaran: ${
-        error?.message ??
-        "Unknown error"
-      }`,
-    );
-  }
-
-  /**
-   * Setelah payment menjadi paid,
-   * permission terkait akan dicek.
-   */
-  await syncLatePaymentPermissionStatuses(
-    data.recap_id,
-    data.payment_type,
-  );
-
-  return data as Payment;
 }
 
 /* =========================================
