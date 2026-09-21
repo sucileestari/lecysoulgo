@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
 import {
+  calculateCurrentPaymentAmount,
   generatePaymentLink,
   type Payment,
   type PaymentType,
@@ -762,15 +763,22 @@ function buildRetryMessage(
   batchName: string | null | undefined,
   country: string | null | undefined,
   payment: Payment,
+  baseAmount: number,
+  penaltyAmount: number,
+  currentAmount: number,
   dueDate: string | null | undefined,
   paymentUrl?: string,
 ): string {
   const buyer =
-    memberName?.trim() || "Kak";
+    memberName?.trim() ||
+    "Kak";
   const normalizedProduct =
-    product?.trim() || "-";
+    product?.trim() ||
+    "-";
   const normalizedBatch =
-    batchName?.trim() || "-";
+    batchName?.trim() ||
+    "-";
+
   if (
     notificationType ===
     "RECAP_PAYMENT"
@@ -783,7 +791,9 @@ function buildRetryMessage(
       `🏷️ Batch: ${normalizedBatch}`,
       `🌏 Negara: ${retryCountryName(country)}`,
       `💰 Jenis Pembayaran: ${retryPaymentLabel(payment.payment_type)}`,
-      `💰 Total Pembayaran: ${retryRupiah(Number(payment.amount ?? 0))}`,
+      `💰 Harga Asli: ${retryRupiah(baseAmount)}`,
+      `💰 Jumlah Denda: ${retryRupiah(penaltyAmount)}`,
+      `💰 Total yang Harus Dibayar: ${retryRupiah(currentAmount)}`,
       `📅 Maksimal Pembayaran: ${retryFormatLongDate(dueDate)}`,
       "",
       "Silakan lakukan pembayaran melalui link berikut:",
@@ -795,23 +805,50 @@ function buildRetryMessage(
     ].join("\n");
   }
 
+  if (
+    notificationType ===
+    "DUE_DATE_REMINDER"
+  ) {
+    return [
+      `Halo Kak ${buyer} 👋`,
+      "",
+      "Ini adalah pengingat pembayaran:",
+      `📦 Product: ${normalizedProduct}`,
+      `🏷️ Batch: ${normalizedBatch}`,
+      `🌏 Negara: ${retryCountryName(country)}`,
+      `💰 Jenis Pembayaran: ${retryPaymentLabel(payment.payment_type)}`,
+      `💰 Harga Asli: ${retryRupiah(baseAmount)}`,
+      `💰 Jumlah Denda: ${retryRupiah(penaltyAmount)}`,
+      `💰 Total yang Harus Dibayar: ${retryRupiah(currentAmount)}`,
+      `📅 Maksimal Pembayaran: ${retryFormatLongDate(dueDate)}`,
+      "",
+      "Pembayaran kamu masih belum kami terima.",
+      "Mohon segera lakukan pembayaran melalui link pembayaran yang tersedia.",
+      "",
+      "Terima kasih Sudah Belanja di Lecy Soulgo 🙏",
+    ].join("\n");
+  }
+
   return [
     `Halo Kak ${buyer} 👋`,
     "",
-    "Ini adalah pengingat pembayaran:",
+    "Pembayaran kamu sudah melewati batas pembayaran dan saat ini sudah masuk keterlambatan.",
+    "",
     `📦 Product: ${normalizedProduct}`,
     `🏷️ Batch: ${normalizedBatch}`,
     `🌏 Negara: ${retryCountryName(country)}`,
     `💰 Jenis Pembayaran: ${retryPaymentLabel(payment.payment_type)}`,
-    `💰 Total Pembayaran: ${retryRupiah(Number(payment.amount ?? 0))}`,
+    `💰 Harga Asli: ${retryRupiah(baseAmount)}`,
+    `💰 Jumlah Denda: ${retryRupiah(penaltyAmount)}`,
+    `💰 Total yang Harus Dibayar: ${retryRupiah(currentAmount)}`,
     `📅 Maksimal Pembayaran: ${retryFormatLongDate(dueDate)}`,
     "",
-    "Pembayaran kamu masih belum kami terima.",
-    "Mohon segera lakukan pembayaran melalui link pembayaran yang tersedia.",
+    "Mohon segera hubungi admin untuk melakukan pembayaran dan konfirmasi keterlambatan.",
     "",
     "Terima kasih Sudah Belanja di Lecy Soulgo 🙏",
   ].join("\n");
 }
+
 
 export async function retryNotificationLog(
   logId: string,
@@ -900,16 +937,21 @@ export async function retryNotificationLog(
     );
   }
 
-  const paymentData = payment as Payment;
+  let paymentData =
+    payment as Payment;
 
   const dueDate =
-    payment?.payment_type === "DP"
+    paymentData?.payment_type === "DP"
       ? batch?.last_payment_dp ?? null
-      : payment?.payment_type === "PELUNASAN"
+      : paymentData?.payment_type ===
+          "PELUNASAN"
         ? batch?.last_payment_pelunasan ?? null
         : null;
 
-  let paymentUrl: string | undefined;
+  let paymentUrl:
+    | string
+    | undefined;
+
   if (
     item.notification_type ===
     "RECAP_PAYMENT"
@@ -918,8 +960,25 @@ export async function retryNotificationLog(
       await generatePaymentLink(
         paymentData.id,
       );
-    paymentUrl = generated.paymentUrl;
+
+    paymentData =
+      generated.payment as Payment;
+
+    paymentUrl =
+      generated.paymentUrl;
   }
+
+  if (!recap?.id) {
+    throw new Error(
+      "Data rekapan untuk notification log tidak tersedia.",
+    );
+  }
+
+  const paymentAmount =
+    await calculateCurrentPaymentAmount(
+      recap.id,
+      paymentData.payment_type,
+    );
 
   const message = buildRetryMessage(
     item.notification_type as NotificationType,
@@ -928,7 +987,10 @@ export async function retryNotificationLog(
     batch?.name,
     batch?.country,
     paymentData,
-    dueDate,
+    paymentAmount.baseAmount,
+    paymentAmount.penaltyAmount,
+    paymentAmount.currentAmount,
+    paymentAmount.dueDate ?? dueDate,
     paymentUrl,
   );
 

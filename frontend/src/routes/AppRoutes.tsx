@@ -26,6 +26,50 @@ import ProtectedRoute from "./ProtectedRoute";
 import PermissionRoute from "./PermissionRoute";
 
 /* =========================================
+   RULES GO ACCESS
+========================================= */
+
+function RulesGoAccessLayout() {
+  const hasAdminSession = Boolean(
+    localStorage.getItem(
+      "auth_token",
+    ),
+  );
+
+  const hasCustomerSession = Boolean(
+    localStorage.getItem(
+      "customer_token",
+    ),
+  );
+
+  const isRulesOnlyCustomer =
+    localStorage.getItem(
+      "customer_rules_only",
+    ) === "true";
+
+  /*
+   * Rules GO boleh dibuka oleh:
+   * - Admin / Super Admin
+   * - Customer normal
+   * - Customer tanpa member / rekapan
+   */
+  if (
+    !hasAdminSession &&
+    !hasCustomerSession &&
+    !isRulesOnlyCustomer
+  ) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  return <AdminLayout />;
+}
+
+/* =========================================
    APP ROUTES
 ========================================= */
 
@@ -42,6 +86,30 @@ export default function AppRoutes() {
           path="/login"
           element={<LoginPage />}
         />
+
+        {/* =========================================
+            RULES GO
+
+            Bisa diakses oleh:
+            - Admin
+            - Super Admin
+            - Customer normal
+            - Customer tanpa member / rekapan
+
+            Customer tanpa member hanya akan
+            melihat menu Rules GO dari AdminLayout.
+        ========================================= */}
+
+        <Route
+          element={
+            <RulesGoAccessLayout />
+          }
+        >
+          <Route
+            path="/rules-go"
+            element={<RulesGoPage />}
+          />
+        </Route>
 
         {/* =========================================
             PROTECTED APPLICATION AREA
@@ -61,24 +129,6 @@ export default function AppRoutes() {
         >
 
           {/* =========================================
-              RULES GO
-
-              Bisa diakses oleh:
-              - Admin
-              - Super Admin
-              - Customer
-
-              Tidak menggunakan PermissionRoute
-              karena Customer juga harus bisa melihat
-              Rules GO.
-          ========================================= */}
-
-          <Route
-            path="/rules-go"
-            element={<RulesGoPage />}
-          />
-
-          {/* =========================================
               MEMBERS
 
               Admin permission:
@@ -88,7 +138,9 @@ export default function AppRoutes() {
           <Route
             path="/members"
             element={
-              <PermissionRoute permission="members.view">
+              <PermissionRoute
+                permission="members.view"
+              >
                 <MembersPage />
               </PermissionRoute>
             }
@@ -98,10 +150,10 @@ export default function AppRoutes() {
               NOTIFICATION LOG
           ========================================= */}
 
-        <Route
+          <Route
             path="/notification-log"
             element={<NotificationLogPage />}
-        />
+          />
 
           {/* =========================================
               REKAPAN - CHINA
@@ -113,8 +165,12 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/china"
             element={
-              <PermissionRoute permission="recaps.view">
-                <RekapPage country="china" />
+              <PermissionRoute
+                permission="recaps.view"
+              >
+                <RekapPage
+                  country="china"
+                />
               </PermissionRoute>
             }
           />
@@ -129,8 +185,12 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/indonesia"
             element={
-              <PermissionRoute permission="recaps.view">
-                <RekapPage country="indonesia" />
+              <PermissionRoute
+                permission="recaps.view"
+              >
+                <RekapPage
+                  country="indonesia"
+                />
               </PermissionRoute>
             }
           />
@@ -145,8 +205,12 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/jepang"
             element={
-              <PermissionRoute permission="recaps.view">
-                <RekapPage country="jepang" />
+              <PermissionRoute
+                permission="recaps.view"
+              >
+                <RekapPage
+                  country="jepang"
+                />
               </PermissionRoute>
             }
           />
@@ -161,8 +225,12 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/korea"
             element={
-              <PermissionRoute permission="recaps.view">
-                <RekapPage country="korea" />
+              <PermissionRoute
+                permission="recaps.view"
+              >
+                <RekapPage
+                  country="korea"
+                />
               </PermissionRoute>
             }
           />
@@ -177,8 +245,12 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/thailand"
             element={
-              <PermissionRoute permission="recaps.view">
-                <RekapPage country="thailand" />
+              <PermissionRoute
+                permission="recaps.view"
+              >
+                <RekapPage
+                  country="thailand"
+                />
               </PermissionRoute>
             }
           />
@@ -211,7 +283,9 @@ export default function AppRoutes() {
           <Route
             path="/pengiriman-manual"
             element={
-              <PermissionRoute permission="shipping.view">
+              <PermissionRoute
+                permission="shipping.view"
+              >
                 <PengirimanManualPage />
               </PermissionRoute>
             }
@@ -230,7 +304,9 @@ export default function AppRoutes() {
 
           <Route
             path="/pesanan-marketplace"
-            element={<PesananMarketplacePage />}
+            element={
+              <PesananMarketplacePage />
+            }
           />
 
           {/* =========================================
@@ -239,7 +315,9 @@ export default function AppRoutes() {
 
           <Route
             path="/modal-dan-keuntungan"
-            element={<ModalDanKeuntunganPage />}
+            element={
+              <ModalDanKeuntunganPage />
+            }
           />
 
           {/* =========================================
@@ -276,7 +354,9 @@ export default function AppRoutes() {
           <Route
             path="/roles-permissions"
             element={
-              <PermissionRoute permission="roles.view">
+              <PermissionRoute
+                permission="roles.view"
+              >
                 <RolesPermissionPage />
               </PermissionRoute>
             }
@@ -330,7 +410,9 @@ export default function AppRoutes() {
 
           <Route
             path="/customer/pesanan-marketplace"
-            element={<PesananMarketplacePage />}
+            element={
+              <PesananMarketplacePage />
+            }
           />
 
         </Route>

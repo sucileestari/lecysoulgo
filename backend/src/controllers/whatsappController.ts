@@ -624,8 +624,9 @@ export async function sendWhatsAppHandler(
         payment.amount ?? 0,
       );
 
-    const formattedAmount =
-      formatRupiah(
+    let paymentBaseAmount =
+      Math.max(
+        0,
         paymentAmount,
       );
 
@@ -640,6 +641,10 @@ export async function sendWhatsAppHandler(
        penalty_amount bukan kolom database.
        Untuk payment existing, hitung ulang
        dari sumber pembayaran.
+
+       Base amount = harga asli
+       Penalty     = denda berjalan
+       Total       = harga asli + denda
     ------------------------------------- */
 
     if (payment.recap_id) {
@@ -649,6 +654,9 @@ export async function sendWhatsAppHandler(
           payment.payment_type as
             "DP" | "PELUNASAN",
         );
+
+      paymentBaseAmount =
+        penaltyResult.baseAmount;
 
       paymentPenalty =
         penaltyResult.penaltyAmount;
@@ -660,13 +668,30 @@ export async function sendWhatsAppHandler(
           payment.manual_shipment_id,
         );
 
+      paymentBaseAmount =
+        manualPaymentSummary.base_amount;
+
       paymentPenalty =
         manualPaymentSummary.penalty_amount;
     }
 
+    const paymentTotalAmount =
+      paymentBaseAmount +
+      paymentPenalty;
+
+    const formattedBaseAmount =
+      formatRupiah(
+        paymentBaseAmount,
+      );
+
     const formattedPenalty =
       formatRupiah(
         paymentPenalty,
+      );
+
+    const formattedTotalAmount =
+      formatRupiah(
+        paymentTotalAmount,
       );
 
     /* -------------------------------------
@@ -690,9 +715,10 @@ export async function sendWhatsAppHandler(
       `🏷️ Batch: ${batchName}`,
       `🌏 Negara: ${countryName}`,
       `💰 Jenis Pembayaran: ${paymentLabel}`,
-      `💰 Jumlah Denda: ${formattedPenalty}`,
-      `💰 Total yang Harus Dibayar: ${formattedAmount}`,
+      `💰 Harga Barang: ${formattedBaseAmount}`,
       `📅 Maksimal Pembayaran: ${formattedDueDate}`,
+      `💰 Jumlah Denda: ${formattedPenalty}`,
+      `💰 Total yang Harus Dibayar: ${formattedTotalAmount}`,
       "",
       "Silakan lakukan pembayaran melalui link berikut:",
       payment.payment_url,

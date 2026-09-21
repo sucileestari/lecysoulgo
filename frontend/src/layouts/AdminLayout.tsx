@@ -261,6 +261,10 @@ const customerMenuItems: MenuItem[] = [
   },
 ];
 
+const customerRulesOnlyMenuItems: MenuItem[] = [
+  customerMenuItems[0],
+];
+
 /* =========================================
    DEFAULT ADMIN USER
 ========================================= */
@@ -355,12 +359,17 @@ export default function AdminLayout({
      DETECT SESSION
   ======================================== */
 
+  const isCustomerRulesOnly =
+    localStorage.getItem(
+      "customer_rules_only",
+    ) === "true";
+
   const isCustomer =
     Boolean(
       localStorage.getItem(
         "customer_token",
       ),
-    );
+    ) || isCustomerRulesOnly;
 
   /* =======================================
      CUSTOMER DATA
@@ -395,9 +404,11 @@ export default function AdminLayout({
   ======================================= */
 
   const menuItems =
-    isCustomer
-      ? customerMenuItems
-      : getVisibleAdminMenuItems();
+    isCustomerRulesOnly
+      ? customerRulesOnlyMenuItems
+      : isCustomer
+        ? customerMenuItems
+        : getVisibleAdminMenuItems();
 
   /* =======================================
      AVATAR
@@ -423,6 +434,10 @@ export default function AdminLayout({
 
       localStorage.removeItem(
         "customer_member",
+      );
+
+      localStorage.removeItem(
+        "customer_rules_only",
       );
     }
 

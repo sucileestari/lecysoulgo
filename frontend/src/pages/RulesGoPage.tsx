@@ -47,6 +47,7 @@ type InformationRule = {
   }[];
   manualCoSteps: string[];
   shopeeCoSteps: string[];
+  shippingNotice: string[];
 };
 
 type RulesData = {
@@ -208,6 +209,10 @@ const rules: RulesData = {
       "Klik Tambah Pesanan",
       "Isi semua yang diperlukan",
       "Tunggu sampai barang diproses",
+    ],
+    shippingNotice: [
+      "Setiap minggu dilakukan pengiriman paling banyak 20 paket tergantung dengan kondisi Admin dalam melakukan packing. Packing dilakukan sesuai dengan orderan yang masuk di web bukan di marketplace, sehingga customer dapat memantau langsung kapan paketnya dapat dipacking dan dikirim. Meskipun sudah di packing, paket belum tentu langsung dapat dikirim. Ini bergantung terhadap kondisi kurir yang pickup atau cuaca dan lain-lainnya.",
+      "Mohon untuk selalu bersabar dalam hal packing dan pengiriman, karena Admin hanya bisa melakukan packing dan pengiriman di hari Sabtu dan Minggu. Karena hal itu, Admin tidak menerima hal yang terburu-buru dan tetap melakukan packing dan pengiriman sesuai dengan urutan orderan di web bukan di marketplace.",
     ],
   },
 
@@ -471,6 +476,26 @@ export default function RulesGoPage() {
                             {payment.detail}
                           </p>
                         </div>
+                      ),
+                    )}
+                  </div>
+                </section>
+
+                {/* Pemberitahuan Pengiriman */}
+                <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
+                  <h3 className="text-lg font-semibold text-[#10245c]">
+                    Pemberitahuan Pengiriman
+                  </h3>
+
+                  <div className="mt-4 space-y-4">
+                    {rules.information.shippingNotice.map(
+                      (notice, index) => (
+                        <p
+                          key={`shipping-notice-${index}`}
+                          className="text-sm leading-7 text-[#20366f]"
+                        >
+                          {notice}
+                        </p>
                       ),
                     )}
                   </div>

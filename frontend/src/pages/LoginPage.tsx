@@ -225,6 +225,10 @@ export default function LoginPage() {
         "customer_member",
       );
 
+      localStorage.removeItem(
+        "customer_rules_only",
+      );
+
       /* -------------------------------------
          SAVE ADMIN SESSION
       ------------------------------------- */
@@ -338,10 +342,10 @@ export default function LoginPage() {
         /*
          * Customer bukan member.
          *
-         * Tidak membuat session.
-         *
-         * Langsung diarahkan ke
-         * halaman Rules GO.
+         * Tidak membuat customer session,
+         * tetapi tetap membuat session marker
+         * khusus agar customer dapat masuk ke web
+         * dan hanya melihat Rules GO.
          */
 
         localStorage.removeItem(
@@ -350,6 +354,19 @@ export default function LoginPage() {
 
         localStorage.removeItem(
           "customer_member",
+        );
+
+        localStorage.removeItem(
+          "auth_token",
+        );
+
+        localStorage.removeItem(
+          "auth_user",
+        );
+
+        localStorage.setItem(
+          "customer_rules_only",
+          "true",
         );
 
         navigate(
@@ -415,6 +432,10 @@ export default function LoginPage() {
         JSON.stringify(
           member ?? {},
         ),
+      );
+
+      localStorage.removeItem(
+        "customer_rules_only",
       );
 
       /* =====================================

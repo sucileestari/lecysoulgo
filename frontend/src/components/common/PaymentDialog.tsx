@@ -439,10 +439,6 @@ export default function PaymentDialog({
     return;
   }
 
-  if (whatsappStatus === "sent") {
-    return;
-  }
-
   const isBatchNotOrdered =
     !isManualShipment &&
     typeof batchStatus === "string" &&
@@ -1048,8 +1044,7 @@ export default function PaymentDialog({
                 }
                 disabled={
                   isProcessing ||
-                  !buyer?.phone ||
-                  whatsappStatus === "sent"
+                  !buyer?.phone
                 }
                 className="
                   flex
@@ -1075,9 +1070,7 @@ export default function PaymentDialog({
                   size={18}
                 />
 
-                {whatsappStatus === "sent"
-                  ? "Sudah terkirim via WhatsApp"
-                  : "Kirim via WhatsApp"}
+                Kirim via WhatsApp
               </button>
 
               {canGenerateLink && (

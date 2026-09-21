@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
 import {
+  calculateCurrentPaymentAmount,
   createPayment,
   generatePaymentLink,
   type Payment,
@@ -16,8 +17,8 @@ import {
 } from "./hnrService.js";
 
 const JAKARTA_TIME_ZONE = "Asia/Jakarta";
-const PAYMENT_SEND_HOUR = 15;
-const REMINDER_SEND_HOUR = 10;
+const PAYMENT_SEND_HOUR = 22;
+const REMINDER_SEND_HOUR = 22;
 const REMINDER_WINDOW_MINUTES = 60;
 
 type RecapContext = {
@@ -210,11 +211,33 @@ async function getActiveLatePermission(recapId: string, paymentType: PaymentType
   ) ?? null;
 }
 
-async function buildPaymentMessage(recap: RecapContext, payment: Payment, paymentUrl: string): Promise<string> {
-  const buyer = recap.member?.name?.trim() || "Kak";
-  const product = recap.detail_barang?.trim() || "-";
-  const batch = recap.batch?.name?.trim() || "-";
-  const dueDate = payment.due_date ?? (payment.payment_type === "DP" ? recap.batch?.last_payment_dp : recap.batch?.last_payment_pelunasan);
+async function buildPaymentMessage(
+  recap: RecapContext,
+  payment: Payment,
+  paymentUrl: string,
+): Promise<string> {
+  const buyer =
+    recap.member?.name?.trim() ||
+    "Kak";
+  const product =
+    recap.detail_barang?.trim() ||
+    "-";
+  const batch =
+    recap.batch?.name?.trim() ||
+    "-";
+
+  const paymentAmount =
+    await calculateCurrentPaymentAmount(
+      recap.id,
+      payment.payment_type,
+    );
+
+  const dueDate =
+    paymentAmount.dueDate ??
+    (payment.payment_type === "DP"
+      ? recap.batch?.last_payment_dp
+      : recap.batch?.last_payment_pelunasan);
+
   return [
     `Halo Kak ${buyer} 👋`,
     "",
@@ -223,8 +246,10 @@ async function buildPaymentMessage(recap: RecapContext, payment: Payment, paymen
     `🏷️ Batch: ${batch}`,
     `🌏 Negara: ${countryName(recap.batch?.country)}`,
     `💰 Jenis Pembayaran: ${paymentLabel(payment.payment_type)}`,
-    `💰 Total Pembayaran: ${rupiah(Number(payment.amount ?? 0))}`,
+    `💰 Harga Barang: ${rupiah(paymentAmount.baseAmount)}`,
     `📅 Maksimal Pembayaran: ${formatLongDate(dueDate)}`,
+    `💰 Jumlah Denda: ${rupiah(paymentAmount.penaltyAmount)}`,
+    `💰 Total yang Harus Dibayar: ${rupiah(paymentAmount.currentAmount)}`,
     "",
     "Silakan lakukan pembayaran melalui link berikut:",
     paymentUrl,
@@ -235,11 +260,32 @@ async function buildPaymentMessage(recap: RecapContext, payment: Payment, paymen
   ].join("\n");
 }
 
-async function buildReminderMessage(recap: RecapContext, payment: Payment): Promise<string> {
-  const buyer = recap.member?.name?.trim() || "Kak";
-  const product = recap.detail_barang?.trim() || "-";
-  const batch = recap.batch?.name?.trim() || "-";
-  const dueDate = payment.due_date ?? (payment.payment_type === "DP" ? recap.batch?.last_payment_dp : recap.batch?.last_payment_pelunasan);
+async function buildReminderMessage(
+  recap: RecapContext,
+  payment: Payment,
+): Promise<string> {
+  const buyer =
+    recap.member?.name?.trim() ||
+    "Kak";
+  const product =
+    recap.detail_barang?.trim() ||
+    "-";
+  const batch =
+    recap.batch?.name?.trim() ||
+    "-";
+
+  const paymentAmount =
+    await calculateCurrentPaymentAmount(
+      recap.id,
+      payment.payment_type,
+    );
+
+  const dueDate =
+    paymentAmount.dueDate ??
+    (payment.payment_type === "DP"
+      ? recap.batch?.last_payment_dp
+      : recap.batch?.last_payment_pelunasan);
+
   return [
     `Halo Kak ${buyer} 👋`,
     "",
@@ -248,8 +294,10 @@ async function buildReminderMessage(recap: RecapContext, payment: Payment): Prom
     `🏷️ Batch: ${batch}`,
     `🌏 Negara: ${countryName(recap.batch?.country)}`,
     `💰 Jenis Pembayaran: ${paymentLabel(payment.payment_type)}`,
-    `💰 Total Pembayaran: ${rupiah(Number(payment.amount ?? 0))}`,
+    `💰 Harga Barang: ${rupiah(paymentAmount.baseAmount)}`,
     `📅 Maksimal Pembayaran: ${formatLongDate(dueDate)}`,
+    `💰 Jumlah Denda: ${rupiah(paymentAmount.penaltyAmount)}`,
+    `💰 Total yang Harus Dibayar: ${rupiah(paymentAmount.currentAmount)}`,
     "",
     "Pembayaran kamu masih belum kami terima.",
     "Mohon segera lakukan pembayaran melalui link pembayaran yang tersedia.",
@@ -258,23 +306,52 @@ async function buildReminderMessage(recap: RecapContext, payment: Payment): Prom
   ].join("\n");
 }
 
-async function buildOverdueMessage(recap: RecapContext, payment: Payment): Promise<string> {
-  const buyer = recap.member?.name?.trim() || "Kak";
-  const batch = recap.batch?.name?.trim() || "-";
-  const dueDate = payment.due_date ?? (payment.payment_type === "DP" ? recap.batch?.last_payment_dp : recap.batch?.last_payment_pelunasan);
+async function buildOverdueMessage(
+  recap: RecapContext,
+  payment: Payment,
+): Promise<string> {
+  const buyer =
+    recap.member?.name?.trim() ||
+    "Kak";
+  const product =
+    recap.detail_barang?.trim() ||
+    "-";
+  const batch =
+    recap.batch?.name?.trim() ||
+    "-";
+
+  const paymentAmount =
+    await calculateCurrentPaymentAmount(
+      recap.id,
+      payment.payment_type,
+    );
+
+  const dueDate =
+    paymentAmount.dueDate ??
+    (payment.payment_type === "DP"
+      ? recap.batch?.last_payment_dp
+      : recap.batch?.last_payment_pelunasan);
+
   return [
     `Halo Kak ${buyer} 👋`,
     "",
     `Pembayaran ${paymentLabel(payment.payment_type)} untuk Batch ${batch} sudah melewati batas pembayaran dan saat ini sudah masuk keterlambatan.`,
     "",
+    `📦 Product: ${product}`,
+    `🏷️ Batch: ${batch}`,
+    `🌏 Negara: ${countryName(recap.batch?.country)}`,
+    `💰 Jenis Pembayaran: ${paymentLabel(payment.payment_type)}`,
+    `💰 Harga Barang: ${rupiah(paymentAmount.baseAmount)}`,
     `📅 Maksimal Pembayaran: ${formatLongDate(dueDate)}`,
-    `💰 Total pembayaran saat ini: ${rupiah(Number(payment.amount ?? 0))}`,
+    `💰 Jumlah Denda: ${rupiah(paymentAmount.penaltyAmount)}`,
+    `💰 Total yang Harus Dibayar: ${rupiah(paymentAmount.currentAmount)}`,
     "",
     "Mohon segera hubungi admin untuk melakukan pembayaran dan konfirmasi keterlambatan.",
     "",
     "Terima kasih Sudah Belanja di Lecy Soulgo 🙏",
   ].join("\n");
 }
+
 
 async function processPaymentNotification(recap: RecapContext, paymentType: PaymentType, notificationType: NotificationType): Promise<keyof JobResult> {
   if (!recap.member?.id || !recap.member.phone) throw new Error("Member atau nomor WhatsApp tidak tersedia.");
