@@ -68,6 +68,7 @@ export type MarketplaceOrder = {
   member_id: string;
   member_name: string;
   member_phone: string;
+  member_type?: string | null;
   status: MarketplaceOrderStatus;
   created_at: string;
   updated_at: string;
@@ -328,6 +329,85 @@ export async function getMarketplaceOrders(): Promise<
   });
 
   return parseResponse<MarketplaceOrder[]>(
+    response,
+  );
+}
+
+/* =========================================
+   UPDATE MARKETPLACE ORDER STATUS
+========================================= */
+
+export async function updateMarketplaceOrderStatus(
+  orderId: string,
+  status: MarketplaceOrderStatus,
+): Promise<MarketplaceOrder> {
+  if (!orderId.trim()) {
+    throw new Error(
+      "ID pesanan Marketplace wajib diisi.",
+    );
+  }
+
+  if (isCustomerSession()) {
+    throw new Error(
+      "Customer tidak dapat mengubah status pesanan Marketplace.",
+    );
+  }
+
+  const token = getSessionToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/marketplace-orders/${encodeURIComponent(orderId.trim())}/status`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        status,
+      }),
+    },
+  );
+
+  return parseResponse<MarketplaceOrder>(
+    response,
+  );
+}
+
+/* =========================================
+   DELETE MARKETPLACE ORDER
+========================================= */
+
+/* =========================================
+   DELETE MARKETPLACE ORDER
+========================================= */
+
+export async function deleteMarketplaceOrder(
+  orderId: string,
+): Promise<void> {
+  const trimmedOrderId = orderId.trim();
+
+  if (!trimmedOrderId) {
+    throw new Error(
+      "ID pesanan Marketplace wajib diisi.",
+    );
+  }
+
+  const token = getSessionToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/marketplace-orders/${encodeURIComponent(trimmedOrderId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  await parseResponse<void>(
     response,
   );
 }

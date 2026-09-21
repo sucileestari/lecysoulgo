@@ -220,7 +220,8 @@ export async function getCustomerRecaps(
         name,
         image_path,
         last_payment_dp,
-        last_payment_pelunasan
+        last_payment_pelunasan,
+        status
       )
     `)
     .eq(
@@ -245,7 +246,20 @@ export async function getCustomerRecaps(
     );
   }
 
-  if (!recaps || recaps.length === 0) {
+  const visibleRecaps =
+    (recaps ?? []).filter((recap) => {
+      const batch =
+        Array.isArray(recap.batch)
+          ? recap.batch[0] ?? null
+          : recap.batch;
+
+      return (
+        batch?.status !==
+        "Akan di Order"
+      );
+    });
+
+  if (visibleRecaps.length === 0) {
     return [];
   }
 
@@ -254,7 +268,7 @@ export async function getCustomerRecaps(
   ------------------------------------- */
 
   const recapIds =
-    recaps.map(
+    visibleRecaps.map(
       (recap) =>
         recap.id,
     );
@@ -328,7 +342,7 @@ export async function getCustomerRecaps(
   ------------------------------------- */
 
   return Promise.all(
-    recaps.map(
+    visibleRecaps.map(
       async (recap) => {
         const batch =
           Array.isArray(

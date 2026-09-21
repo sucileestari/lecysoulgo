@@ -65,6 +65,7 @@ export type ManualShipmentItem = {
       id: string;
       name: string;
       phone: string;
+      type?: string | null;
     } | null;
   } | null;
 };
@@ -106,6 +107,7 @@ export type ManualShipment = {
     id: string;
     name: string;
     phone: string;
+    type?: string | null;
   } | null;
 
   items: ManualShipmentItem[];
@@ -166,7 +168,7 @@ export type CreateManualShipmentInput = {
 
   expedition: ManualShipmentExpedition;
 
-  due_date: string;
+  due_date?: string | null;
 
   packing_price?: number;
 
@@ -452,12 +454,6 @@ export async function createManualShipment(
     );
   }
 
-  if (!input.due_date?.trim()) {
-    throw new Error(
-      "Tanggal jatuh tempo wajib diisi.",
-    );
-  }
-
   const packingPrice =
     input.packing_price ?? 0;
 
@@ -523,7 +519,7 @@ export async function createManualShipment(
             input.expedition,
 
           due_date:
-            input.due_date.trim(),
+            input.due_date?.trim() || null,
 
           packing_price:
             packingPrice,

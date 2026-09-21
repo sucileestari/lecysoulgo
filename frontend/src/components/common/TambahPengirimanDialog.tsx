@@ -17,11 +17,8 @@ import {
 } from "@tanstack/react-query";
 
 import {
-  CalendarDays,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Search,
   X,
 } from "lucide-react";
@@ -33,6 +30,10 @@ import {
   type ManualShipmentExpedition,
   type ManualShipmentOptionItem,
 } from "@/services/manualShippingService";
+import {
+  getMembers,
+  type Member,
+} from "@/services/memberService";
 
 type FormState = {
   member_id: string;
@@ -97,105 +98,6 @@ function formatBatchCountry(
     countryMap[normalized] ??
     value
   );
-}
-
-/* =========================================
-   DATE PICKER HELPERS
-========================================= */
-
-const MONTH_NAMES = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-];
-
-const DAY_NAMES = [
-  "Mg",
-  "Sn",
-  "Sl",
-  "Rb",
-  "Km",
-  "Jm",
-  "Sb",
-];
-
-function getTodayDate(): string {
-  const date = new Date();
-
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1,
-  ).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-function parseDate(value: string): Date | null {
-  if (!value) {
-    return null;
-  }
-
-  const [year, month, day] = value
-    .split("-")
-    .map(Number);
-
-  if (!year || !month || !day) {
-    return null;
-  }
-
-  const date = new Date(
-    year,
-    month - 1,
-    day,
-  );
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date;
-}
-
-function toDateString(date: Date): string {
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1,
-  ).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-function formatDisplayDate(value: string): string {
-  const date = parseDate(value);
-
-  if (!date) {
-    return "Pilih tanggal";
-  }
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfMonth(year: number, month: number): number {
-  return new Date(year, month, 1).getDay();
 }
 
 type DropdownPosition = {
@@ -282,29 +184,6 @@ export default function TambahPengirimanDialog({
     memberSearch,
     setMemberSearch,
   ] = useState("");
-
-  const [
-    datePickerOpen,
-    setDatePickerOpen,
-  ] = useState(false);
-
-  const [
-    temporaryDate,
-    setTemporaryDate,
-  ] = useState("");
-
-  const [
-    calendarMonth,
-    setCalendarMonth,
-  ] = useState(() => {
-    const now = new Date();
-
-    return new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
-    );
-  });
 
   const memberButtonRef =
     useRef<HTMLButtonElement | null>(null);
@@ -416,24 +295,6 @@ export default function TambahPengirimanDialog({
   ]);
 
   useEffect(() => {
-    if (!datePickerOpen) {
-      return;
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeDatePicker();
-      }
-    }
-
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [datePickerOpen]);
-
-  useEffect(() => {
     if (!open) {
       return;
     }
@@ -454,12 +315,17 @@ export default function TambahPengirimanDialog({
     setIsExpeditionDropdownOpen(false);
     setDropdownPosition(null);
     setMemberSearch("");
-    setDatePickerOpen(false);
-    setTemporaryDate("");
   }, [
     open,
     batchId,
   ]);
+
+  const membersQuery = useQuery<Member[], Error>({
+    queryKey: ["members"],
+    queryFn: () => getMembers(),
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   /*
    * Ambil options tanpa batchId untuk
@@ -667,6 +533,26 @@ export default function TambahPengirimanDialog({
       ],
     );
 
+  const customerMemberId = isCustomer
+    ? JSON.parse(
+        localStorage.getItem("customer_member") ?? "null",
+      )?.id ?? ""
+    : "";
+
+  const currentCustomerMember =
+    membersQuery.data?.find(
+      (member) => member.id === customerMemberId,
+    );
+
+  const selectedMemberFromMembers =
+    membersQuery.data?.find(
+      (member) => member.id === form.member_id,
+    );
+
+  const isHnrCustomer =
+    selectedMemberFromMembers?.type === "hnr";
+
+
 
   if (!open) {
     return null;
@@ -675,6 +561,10 @@ export default function TambahPengirimanDialog({
   function toggleItem(
     recapId: string,
   ) {
+    if (isHnrCustomer) {
+      return;
+    }
+
     setForm(
       (current) => {
         const exists =
@@ -728,7 +618,6 @@ export default function TambahPengirimanDialog({
     setForm((current) => ({
       ...createDefaultForm(),
       member_id: memberId,
-      due_date: current.due_date,
     }));
 
     setFormError("");
@@ -741,91 +630,16 @@ export default function TambahPengirimanDialog({
     setMemberSearch("");
   }
 
-  function openDatePicker() {
-    if (createMutation.isPending) {
-      return;
-    }
-
-    const currentDate = form.due_date || getTodayDate();
-    const date = parseDate(currentDate) ?? new Date();
-
-    setCalendarMonth(
-      new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        1,
-      ),
-    );
-
-    setTemporaryDate(form.due_date);
-    setDatePickerOpen(true);
-    setFormError("");
-  }
-
-  function closeDatePicker() {
-    setTemporaryDate("");
-    setDatePickerOpen(false);
-    setFormError("");
-  }
-
-  function handleSelectCalendarDate(dateString: string) {
-    if (dateString < getTodayDate()) {
-      return;
-    }
-
-    setTemporaryDate(dateString);
-    setFormError("");
-  }
-
-  function handleConfirmDate() {
-    if (!temporaryDate) {
-      setFormError("Silakan pilih tanggal.");
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      due_date: temporaryDate,
-    }));
-
-    setTemporaryDate("");
-    setDatePickerOpen(false);
-    setFormError("");
-  }
-
-  function handleCancelDate() {
-    setTemporaryDate("");
-    setDatePickerOpen(false);
-    setFormError("");
-  }
-
-  function changeCalendarMonth(offset: number) {
-    setCalendarMonth((current) =>
-      new Date(
-        current.getFullYear(),
-        current.getMonth() + offset,
-        1,
-      ),
-    );
-  }
-
-  const calendarYear = calendarMonth.getFullYear();
-  const calendarMonthIndex = calendarMonth.getMonth();
-  const firstDay = getFirstDayOfMonth(
-    calendarYear,
-    calendarMonthIndex,
-  );
-  const daysInMonth = getDaysInMonth(
-    calendarYear,
-    calendarMonthIndex,
-  );
-
   function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
     setFormError("");
+
+    if (isHnrCustomer) {
+      return;
+    }
 
     if (!batchId) {
       setFormError(
@@ -870,12 +684,6 @@ export default function TambahPengirimanDialog({
       return;
     }
 
-    if (!form.due_date) {
-      setFormError(
-        "Tanggal jatuh tempo wajib diisi.",
-      );
-      return;
-    }
 
     createMutation.mutate({
       batch_id:
@@ -1192,6 +1000,7 @@ export default function TambahPengirimanDialog({
                     }
                   }}
                   disabled={
+                    isHnrCustomer ||
                     !form.member_id ||
                     optionsQuery.isLoading ||
                     createMutation.isPending
@@ -1223,7 +1032,8 @@ export default function TambahPengirimanDialog({
                 <DropdownPortal
                   open={
                     isItemDropdownOpen &&
-                    Boolean(form.member_id)
+                    Boolean(form.member_id) &&
+                    !isHnrCustomer
                   }
                   position={dropdownPosition}
                 >
@@ -1243,6 +1053,7 @@ export default function TambahPengirimanDialog({
                           <button
                             key={item.recap_id}
                             type="button"
+                            disabled={isHnrCustomer}
                             onClick={() =>
                               toggleItem(item.recap_id)
                             }
@@ -1313,7 +1124,8 @@ export default function TambahPengirimanDialog({
                               item.recap_id,
                             )
                           }
-                          className="rounded-full hover:bg-white/70"
+                          disabled={isHnrCustomer}
+                          className="rounded-full hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-50"
                           aria-label={`Hapus ${item.detail_barang}`}
                         >
                           <X
@@ -1361,6 +1173,7 @@ export default function TambahPengirimanDialog({
                   )
                 }
                 disabled={
+                  isHnrCustomer ||
                   createMutation.isPending
                 }
                 placeholder="Masukkan alamat lengkap penerima"
@@ -1405,6 +1218,7 @@ export default function TambahPengirimanDialog({
                     }
                   }}
                   disabled={
+                    isHnrCustomer ||
                     createMutation.isPending
                   }
                   className="flex min-h-12 w-full items-center justify-between rounded-lg border border-[#d9e0ef] bg-white px-4 py-3 text-left text-sm text-[#20366f] outline-none transition hover:border-slate-300 focus:border-[#1457ff] disabled:cursor-not-allowed disabled:bg-[#f7f9fc]"
@@ -1426,7 +1240,10 @@ export default function TambahPengirimanDialog({
                 </button>
 
                 <DropdownPortal
-                  open={isExpeditionDropdownOpen}
+                  open={
+                    isExpeditionDropdownOpen &&
+                    !isHnrCustomer
+                  }
                   position={dropdownPosition}
                 >
                   <div className="overflow-hidden rounded-xl border border-[#d9e0ef] bg-white p-2 shadow-xl">
@@ -1438,7 +1255,12 @@ export default function TambahPengirimanDialog({
                         <button
                           key={expedition}
                           type="button"
+                          disabled={isHnrCustomer}
                           onClick={() => {
+                            if (isHnrCustomer) {
+                              return;
+                            }
+
                             setForm((current) => ({
                               ...current,
                               expedition,
@@ -1464,39 +1286,6 @@ export default function TambahPengirimanDialog({
                   </div>
                 </DropdownPortal>
               </div>
-            </div>
-
-            {/* TANGGAL JATUH TEMPO */}
-
-            <div className="mt-5">
-              <label
-                htmlFor="manual-shipment-due-date"
-                className="mb-2 block text-sm font-medium text-[#405274]"
-              >
-                Tanggal Jatuh Tempo
-                <span className="ml-1 text-red-500">
-                  *
-                </span>
-              </label>
-
-              <button
-                id="manual-shipment-due-date"
-                type="button"
-                onClick={openDatePicker}
-                disabled={createMutation.isPending}
-                className="flex h-12 w-full items-center justify-between rounded-lg border border-[#d9e0ef] bg-white px-4 text-left text-sm text-[#20366f] outline-none transition hover:border-slate-300 focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:cursor-not-allowed disabled:bg-[#f7f9fc]"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <CalendarDays
-                    size={18}
-                    className="shrink-0 text-slate-400"
-                  />
-
-                  <span className="truncate text-sm text-slate-700">
-                    {formatDisplayDate(form.due_date)}
-                  </span>
-                </div>
-              </button>
             </div>
 
             {selectedMember && (
@@ -1530,6 +1319,7 @@ export default function TambahPengirimanDialog({
             <button
               type="submit"
               disabled={
+                isHnrCustomer ||
                 createMutation.isPending
               }
               className="rounded-lg bg-[#1457ff] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:opacity-50"
@@ -1542,144 +1332,6 @@ export default function TambahPengirimanDialog({
         </form>
       </div>
 
-      {datePickerOpen && (
-        <div
-          className="fixed inset-0 z-[2147483647] flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
-          onMouseDown={() => closeDatePicker()}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="manual-shipment-date-picker-title"
-        >
-          <div
-            className="w-full max-w-md rounded-3xl bg-white shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <h3
-                  id="manual-shipment-date-picker-title"
-                  className="text-base font-semibold text-slate-800"
-                >
-                  Pilih Tanggal Jatuh Tempo
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Pilih tanggal jatuh tempo pembayaran.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeDatePicker}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Tutup kalender"
-              >
-                <X size={19} />
-              </button>
-            </div>
-
-            <div className="px-5 py-5">
-              <div className="mb-5 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => changeCalendarMonth(-1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
-                  aria-label="Bulan sebelumnya"
-                >
-                  <ChevronLeft size={19} />
-                </button>
-
-                <p className="text-base font-semibold capitalize text-slate-800">
-                  {MONTH_NAMES[calendarMonthIndex]} {calendarYear}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => changeCalendarMonth(1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
-                  aria-label="Bulan berikutnya"
-                >
-                  <ChevronRight size={19} />
-                </button>
-              </div>
-
-              <div className="mb-2 grid grid-cols-7 gap-1">
-                {DAY_NAMES.map((day) => (
-                  <div
-                    key={day}
-                    className="flex h-9 items-center justify-center text-xs font-medium text-slate-400"
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: firstDay }).map((_, index) => (
-                  <div
-                    key={`empty-${index}`}
-                    className="h-11"
-                  />
-                ))}
-
-                {Array.from({ length: daysInMonth }).map((_, index) => {
-                  const day = index + 1;
-                  const date = new Date(
-                    calendarYear,
-                    calendarMonthIndex,
-                    day,
-                  );
-                  const dateString = toDateString(date);
-                  const isBeforeMinimum =
-                    dateString < getTodayDate();
-                  const isSelected =
-                    temporaryDate === dateString;
-
-                  return (
-                    <button
-                      key={dateString}
-                      type="button"
-                      disabled={isBeforeMinimum}
-                      onClick={() =>
-                        handleSelectCalendarDate(dateString)
-                      }
-                      className={[
-                        "flex h-11 w-full items-center justify-center rounded-xl text-sm transition",
-                        isBeforeMinimum
-                          ? "cursor-not-allowed text-slate-300"
-                          : "text-slate-700 hover:bg-blue-50",
-                        isSelected
-                          ? "bg-[#1457ff] font-semibold text-white hover:bg-[#1457ff]"
-                          : "",
-                      ].join(" ")}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex gap-3 border-t border-slate-200 px-5 py-4">
-              <button
-                type="button"
-                onClick={handleCancelDate}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={handleConfirmDate}
-                disabled={!temporaryDate}
-                className="flex-1 rounded-xl bg-[#1457ff] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Pilih
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>,
     document.body,
   );

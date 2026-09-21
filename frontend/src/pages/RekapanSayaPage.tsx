@@ -145,6 +145,42 @@ function formatDueDate(
   ).format(date);
 }
 
+function formatMaxTimbun(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setDate(
+    date.getDate() + 60,
+  );
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  ).format(date);
+}
+
+function isRecapPaid(
+  recap: CustomerRecap,
+): boolean {
+  return (
+    recap.down_payment.status === "paid" &&
+    recap.pelunasan.status === "paid"
+  );
+}
+
 function getCountryInfo(
   country: string | null | undefined,
 ): {
@@ -318,12 +354,14 @@ function CountryDisplay({
 function ProductImage({
   recap,
   onPreview,
+  disabled = false,
 }: {
   recap: CustomerRecap;
   onPreview: (
     image: string,
     title: string,
   ) => void;
+  disabled?: boolean;
 }) {
   if (!recap.product_image) {
     return (
@@ -338,6 +376,7 @@ function ProductImage({
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={() =>
         onPreview(
           recap.product_image!,
@@ -345,7 +384,12 @@ function ProductImage({
             "Produk",
         )
       }
-      className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100"
+      className={[
+        "group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100 transition",
+        disabled
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer",
+      ].join(" ")}
     >
       <img
         src={recap.product_image}
@@ -371,6 +415,13 @@ export default function RekapanSaya() {
     selectedCountry,
     setSelectedCountry,
   ] = useState("all");
+
+  const [
+    paymentFilter,
+    setPaymentFilter,
+  ] = useState<"all" | "paid" | "unpaid">(
+    "all",
+  );
 
   const [
     isCountryDropdownOpen,
@@ -401,6 +452,13 @@ export default function RekapanSaya() {
     queryFn:
       getCustomerRecaps,
   });
+
+  const isHnr =
+    recaps.some(
+      (recap) =>
+        recap.member_type ===
+        "hnr",
+    );
 
   /* -------------------------------------
      FILTER
@@ -435,12 +493,27 @@ export default function RekapanSaya() {
               ?.toLowerCase() ===
               selectedCountry;
 
+          const recapIsPaid =
+            isRecapPaid(recap);
+
+          const matchesPaymentStatus =
+            paymentFilter === "all" ||
+            (paymentFilter === "paid" &&
+              recapIsPaid) ||
+            (paymentFilter === "unpaid" &&
+              !recapIsPaid);
+
           return (
             matchesSearch &&
-            matchesCountry
+            matchesCountry &&
+            matchesPaymentStatus
           );
         },
       );
+
+      if (paymentFilter !== "unpaid") {
+        return filtered;
+      }
 
       return filtered.sort(
         (a, b) => {
@@ -482,66 +555,41 @@ export default function RekapanSaya() {
               payment.dueDate,
           );
 
-          const aHasUnpaid =
-            aPendingPayments.length >
-            0;
-          const bHasUnpaid =
-            bPendingPayments.length >
-            0;
+          const aNearestDueDate =
+            aPendingPayments.length > 0
+              ? Math.min(
+                  ...aPendingPayments.map(
+                    (payment) =>
+                      new Date(
+                        payment.dueDate!,
+                      ).getTime(),
+                  ),
+                )
+              : Number.POSITIVE_INFINITY;
 
-          // Rekapan yang masih memiliki
-          // pembayaran belum paid berada di atas.
-          if (
-            aHasUnpaid !==
-            bHasUnpaid
-          ) {
-            return aHasUnpaid
-              ? -1
-              : 1;
-          }
+          const bNearestDueDate =
+            bPendingPayments.length > 0
+              ? Math.min(
+                  ...bPendingPayments.map(
+                    (payment) =>
+                      new Date(
+                        payment.dueDate!,
+                      ).getTime(),
+                  ),
+                )
+              : Number.POSITIVE_INFINITY;
 
-          // Untuk masing-masing rekapan,
-          // gunakan tanggal maksimal payment
-          // yang belum dibayar dan paling dekat.
-          if (
-            aHasUnpaid &&
-            bHasUnpaid
-          ) {
-            const aNearestDueDate =
-              Math.min(
-                ...aPendingPayments.map(
-                  (payment) =>
-                    new Date(
-                      payment.dueDate!,
-                    ).getTime(),
-                ),
-              );
-
-            const bNearestDueDate =
-              Math.min(
-                ...bPendingPayments.map(
-                  (payment) =>
-                    new Date(
-                      payment.dueDate!,
-                    ).getTime(),
-                ),
-              );
-
-            return (
-              aNearestDueDate -
-              bNearestDueDate
-            );
-          }
-
-          // Jika keduanya sudah paid,
-          // pertahankan urutan dari API.
-          return 0;
+          return (
+            aNearestDueDate -
+            bNearestDueDate
+          );
         },
       );
     }, [
       recaps,
       search,
       selectedCountry,
+      paymentFilter,
     ]);
 
   /* -------------------------------------
@@ -660,6 +708,12 @@ export default function RekapanSaya() {
             Berikut adalah seluruh
             rekapan pembelian kamu.
           </p>
+
+          {isHnr && (
+            <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+              Status Member: HNR
+            </div>
+          )}
         </div>
 
         {/* FILTER */}
@@ -837,6 +891,27 @@ export default function RekapanSaya() {
               </div>
             )}
           </div>
+
+          {/* PAYMENT STATUS */}
+
+          <div className="w-full md:w-[180px]">
+            <select
+              value={paymentFilter}
+              onChange={(event) =>
+                setPaymentFilter(
+                  event.target.value as
+                    | "all"
+                    | "paid"
+                    | "unpaid",
+                )
+              }
+              className="h-11 w-full rounded-lg border border-[#d8dfec] bg-white px-3 text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
+            >
+              <option value="all">Semua Pembayaran</option>
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+            </select>
+          </div>
         </div>
 
         {/* EMPTY */}
@@ -918,6 +993,10 @@ export default function RekapanSaya() {
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Maksimal Timbun
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Sudah CO?
                   </th>
 
@@ -932,7 +1011,12 @@ export default function RekapanSaya() {
                         key={
                           recap.id
                         }
-                        className="border-b border-gray-100 last:border-b-0"
+                        className={[
+                          "border-b border-gray-100 last:border-b-0 transition",
+                          recap.member_type === "hnr"
+                            ? "bg-gray-50 opacity-60"
+                            : "bg-white",
+                        ].join(" ")}
                       >
 
                         {/* COUNTRY */}
@@ -950,10 +1034,18 @@ export default function RekapanSaya() {
                         <td className="px-5 py-5">
                           <div className="max-w-[180px]">
 
-                            <div className="font-semibold text-gray-900">
-                              {
-                                recap.batch_name
-                              }
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-gray-900">
+                                {
+                                  recap.batch_name
+                                }
+                              </div>
+
+                              {recap.member_type === "hnr" && (
+                                <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                  HNR
+                                </span>
+                              )}
                             </div>
 
                             <div className="mt-1 text-xs text-gray-500">
@@ -971,6 +1063,10 @@ export default function RekapanSaya() {
                           <ProductImage
                             recap={
                               recap
+                            }
+                            disabled={
+                              recap.member_type ===
+                              "hnr"
                             }
                             onPreview={(
                               image,
@@ -1038,6 +1134,16 @@ export default function RekapanSaya() {
                           />
                         </td>
 
+                        {/* MAKSIMAL TIMBUN */}
+
+                        <td className="px-5 py-5">
+                          <div className="text-sm font-medium text-gray-800">
+                            {formatMaxTimbun(
+                              recap.pelunasan.due_date,
+                            ) ?? "—"}
+                          </div>
+                        </td>
+
                         {/* CHECKOUT */}
 
                         <td className="px-5 py-5">
@@ -1071,7 +1177,12 @@ export default function RekapanSaya() {
                     key={
                       recap.id
                     }
-                    className="rounded-xl border border-gray-200 bg-white p-4"
+                    className={[
+                      "rounded-xl border border-gray-200 p-4 transition",
+                      recap.member_type === "hnr"
+                        ? "bg-gray-50 opacity-60"
+                        : "bg-white",
+                    ].join(" ")}
                   >
 
                     {/* COUNTRY */}
@@ -1100,6 +1211,10 @@ export default function RekapanSaya() {
                         recap={
                           recap
                         }
+                        disabled={
+                          recap.member_type ===
+                          "hnr"
+                        }
                         onPreview={(
                           image,
                           title,
@@ -1115,11 +1230,19 @@ export default function RekapanSaya() {
 
                       <div className="min-w-0">
 
-                        <h3 className="font-semibold text-gray-900">
-                          {
-                            recap.batch_name
-                          }
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900">
+                            {
+                              recap.batch_name
+                            }
+                          </h3>
+
+                          {recap.member_type === "hnr" && (
+                            <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                              HNR
+                            </span>
+                          )}
+                        </div>
 
                         <p className="mt-1 text-sm text-gray-500">
                           {
@@ -1176,6 +1299,20 @@ export default function RekapanSaya() {
                             recap.pelunasan
                           }
                         />
+
+                      </div>
+
+                      <div>
+
+                        <div className="mb-1 text-xs font-medium text-gray-500">
+                          Maksimal Timbun
+                        </div>
+
+                        <div className="text-sm font-medium text-gray-800">
+                          {formatMaxTimbun(
+                            recap.pelunasan.due_date,
+                          ) ?? "—"}
+                        </div>
 
                       </div>
 

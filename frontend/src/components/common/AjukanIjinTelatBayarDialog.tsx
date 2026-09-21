@@ -23,6 +23,11 @@ import {
   type LatePaymentRecapOption,
 } from "@/services/latePaymentPermissionService";
 
+import {
+  getMembers,
+  type Member,
+} from "@/services/memberService";
+
 /* =========================================
    PROPS
 ========================================= */
@@ -31,6 +36,7 @@ type AjukanIjinTelatBayarDialogProps = {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  isCustomer?: boolean;
 };
 
 /* =========================================
@@ -41,6 +47,7 @@ type MemberOption = {
   id: string;
   name: string;
   phone: string;
+  type: Member["type"];
 };
 
 type SelectedItem = {
@@ -219,7 +226,13 @@ export default function AjukanIjinTelatBayarDialog({
   open,
   onClose,
   onSuccess,
+  isCustomer,
 }: AjukanIjinTelatBayarDialogProps) {
+  const resolvedIsCustomer =
+    isCustomer ??
+    Boolean(
+      localStorage.getItem("customer_member"),
+    );
   /* =======================================
      DATA
   ======================================= */
@@ -397,13 +410,22 @@ export default function AjukanIjinTelatBayarDialog({
          * Permission dipakai untuk menentukan
          * member mana yang sedang blocked.
          */
+        const customerMember = resolvedIsCustomer
+          ? JSON.parse(
+              localStorage.getItem("customer_member") ??
+                "null",
+            )
+          : null;
+
         const [
           recapOptions,
           permissions,
+          allMembers,
         ] =
           await Promise.all([
             getLatePaymentRecapOptions(),
             getLatePaymentPermissions(),
+            getMembers(),
           ]);
 
         if (
@@ -416,13 +438,73 @@ export default function AjukanIjinTelatBayarDialog({
            MEMBERS
         ----------------------------------- */
 
-        setMembers(
+        const recapMembers =
           Array.isArray(
             recapOptions.members,
           )
-            ? recapOptions.members
-            : [],
+            ? recapOptions.members.map(
+                (member) => {
+                  const memberData =
+                    allMembers.find(
+                      (item) =>
+                        item.id ===
+                        member.id,
+                    );
+
+                  return {
+                    ...member,
+                    type:
+                      memberData?.type ??
+                      "customer",
+                  };
+                },
+              )
+            : [];
+
+        const customerMemberData =
+          resolvedIsCustomer &&
+          customerMember?.id
+            ? allMembers.find(
+                (member) =>
+                  member.id ===
+                  customerMember.id,
+              )
+            : null;
+
+        const normalizedMembers =
+          customerMemberData &&
+          !recapMembers.some(
+            (member) =>
+              member.id ===
+              customerMemberData.id,
+          )
+            ? [
+                ...recapMembers,
+                {
+                  id:
+                    customerMemberData.id,
+                  name:
+                    customerMemberData.name,
+                  phone:
+                    customerMemberData.phone,
+                  type:
+                    customerMemberData.type,
+                },
+              ]
+            : recapMembers;
+
+        setMembers(
+          normalizedMembers,
         );
+
+        if (
+          resolvedIsCustomer &&
+          customerMember?.id
+        ) {
+          setSelectedMemberId(
+            customerMember.id,
+          );
+        }
 
         /* -----------------------------------
            ITEMS
@@ -479,7 +561,8 @@ export default function AjukanIjinTelatBayarDialog({
           selectedMemberId &&
           unpaidMemberIds.has(
             selectedMemberId,
-          )
+          ) &&
+          !resolvedIsCustomer
         ) {
           setSelectedMemberId(
             "",
@@ -547,6 +630,7 @@ export default function AjukanIjinTelatBayarDialog({
   }, [
     open,
     selectedMemberId,
+    resolvedIsCustomer,
   ]);
 
   /* =======================================
@@ -712,6 +796,9 @@ export default function AjukanIjinTelatBayarDialog({
         selectedMemberId,
     ) ?? null;
 
+  const isHnrMember =
+    selectedMember?.type === "hnr";
+
   /* =======================================
      MEMBER ITEMS
   ======================================= */
@@ -872,6 +959,10 @@ export default function AjukanIjinTelatBayarDialog({
   function toggleItem(
     item: LatePaymentRecapOption,
   ) {
+    if (isHnrMember) {
+      return;
+    }
+
     const alreadySelected =
       isItemSelected(
         item,
@@ -952,6 +1043,10 @@ export default function AjukanIjinTelatBayarDialog({
   function handleSelectMember(
     memberId: string,
   ) {
+    if (resolvedIsCustomer) {
+      return;
+    }
+
     /*
      * Jangan pernah izinkan member
      * yang sedang blocked dipilih.
@@ -1011,6 +1106,7 @@ export default function AjukanIjinTelatBayarDialog({
 
   function openPaymentDatePicker() {
     if (
+      isHnrMember ||
       !selectedMemberId ||
       selectedItems.length ===
         0 ||
@@ -1072,6 +1168,10 @@ export default function AjukanIjinTelatBayarDialog({
   function handleSelectCalendarDate(
     dateString: string,
   ) {
+    if (isHnrMember) {
+      return;
+    }
+
     /*
      * Minimal H+1.
      */
@@ -1106,6 +1206,10 @@ export default function AjukanIjinTelatBayarDialog({
   ======================================= */
 
   function handleConfirmPaymentDate() {
+    if (isHnrMember) {
+      return;
+    }
+
     if (
       !temporaryPaymentDate
     ) {
@@ -1201,6 +1305,10 @@ export default function AjukanIjinTelatBayarDialog({
     event.preventDefault();
 
     setError("");
+
+    if (isHnrMember) {
+      return;
+    }
 
     /* -------------------------------------
        MEMBER
@@ -1580,6 +1688,7 @@ export default function AjukanIjinTelatBayarDialog({
                     );
                   }}
                   disabled={
+                    resolvedIsCustomer ||
                     isLoadingOptions ||
                     isSubmitting
                   }
@@ -1622,6 +1731,7 @@ export default function AjukanIjinTelatBayarDialog({
                 {/* MEMBER DROPDOWN */}
 
                 {isMemberDropdownOpen &&
+                  !resolvedIsCustomer &&
                   !isLoadingOptions && (
                     <div className="absolute left-0 right-0 z-40 mt-2 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
 
@@ -1764,6 +1874,7 @@ export default function AjukanIjinTelatBayarDialog({
                   type="button"
                   onClick={() => {
                     if (
+                      isHnrMember ||
                       !selectedMemberId ||
                       blockedMemberIds.has(
                         selectedMemberId,
@@ -1791,6 +1902,7 @@ export default function AjukanIjinTelatBayarDialog({
                     );
                   }}
                   disabled={
+                    isHnrMember ||
                     !selectedMemberId ||
                     blockedMemberIds.has(
                       selectedMemberId,
@@ -1831,6 +1943,7 @@ export default function AjukanIjinTelatBayarDialog({
                 {/* DROPDOWN */}
 
                 {isItemDropdownOpen &&
+                  !isHnrMember &&
                   selectedMemberId &&
                   !blockedMemberIds.has(
                     selectedMemberId,
@@ -1865,6 +1978,7 @@ export default function AjukanIjinTelatBayarDialog({
                                   )
                                 }
                                 disabled={
+                                  isHnrMember ||
                                   isSubmitting
                                 }
                                 className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
@@ -1955,6 +2069,7 @@ export default function AjukanIjinTelatBayarDialog({
                   openPaymentDatePicker
                 }
                 disabled={
+                  isHnrMember ||
                   !selectedMemberId ||
                   blockedMemberIds.has(
                     selectedMemberId,
@@ -2080,6 +2195,7 @@ export default function AjukanIjinTelatBayarDialog({
                 }
                 rows={4}
                 disabled={
+                  isHnrMember ||
                   isSubmitting
                 }
                 placeholder="Masukkan alasan keterlambatan pembayaran..."
@@ -2112,6 +2228,7 @@ export default function AjukanIjinTelatBayarDialog({
             <button
               type="submit"
               disabled={
+                isHnrMember ||
                 isSubmitting ||
                 !selectedMemberId ||
                 blockedMemberIds.has(
@@ -2344,6 +2461,7 @@ export default function AjukanIjinTelatBayarDialog({
                       );
 
                     const isDisabled =
+                      isHnrMember ||
                       isBeforeMinimum ||
                       isAfterMaximum;
 

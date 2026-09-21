@@ -18,6 +18,11 @@ import {
   getMarketplaceMemberOptions,
 } from "@/services/marketplaceOrderService";
 
+import {
+  getMembers,
+  type Member,
+} from "@/services/memberService";
+
 type MarketplaceAvailableItem = {
   recap_id: string;
   member_id?: string;
@@ -202,6 +207,11 @@ export default function TambahPesananMarketplaceDialog({
   ] = useState<CustomerMember[]>([]);
 
   const [
+    members,
+    setMembers,
+  ] = useState<Member[]>([]);
+
+  const [
     isItemDropdownOpen,
     setIsItemDropdownOpen,
   ] = useState(false);
@@ -256,6 +266,39 @@ export default function TambahPesananMarketplaceDialog({
     } else {
       setMemberOptions([]);
     }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  /* =========================================
+     LOAD MEMBERS
+  ========================================= */
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMembers() {
+      try {
+        const data =
+          await getMembers();
+
+        if (!cancelled) {
+          setMembers(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setMembers([]);
+        }
+      }
+    }
+
+    void loadMembers();
 
     return () => {
       cancelled = true;
@@ -358,6 +401,26 @@ export default function TambahPesananMarketplaceDialog({
       ],
     );
 
+  const selectedMemberIsHnr =
+    useMemo(() => {
+      const member =
+        members.find(
+          (item) =>
+            item.id ===
+            selectedMemberId,
+        );
+
+      return (
+        member?.type
+          ?.trim()
+          .toLowerCase() ===
+        "hnr"
+      );
+    }, [
+      members,
+      selectedMemberId,
+    ]);
+
   const selectableItems =
     useMemo(
       () =>
@@ -387,6 +450,7 @@ export default function TambahPesananMarketplaceDialog({
     setFormError("");
     setSelectedMemberId("");
     setMemberOptions([]);
+    setMembers([]);
     setIsMemberDropdownOpen(false);
     setIsItemDropdownOpen(
       false,
@@ -644,9 +708,10 @@ export default function TambahPesananMarketplaceDialog({
                 }
                 placeholder="Contoh: 240908ABC123"
                 disabled={
+                  selectedMemberIsHnr ||
                   isSubmitting
                 }
-                className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#a0abc0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f5f7fb]"
+                className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#a0abc0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:cursor-not-allowed disabled:bg-[#f5f7fb]"
               />
 
             </div>
@@ -809,6 +874,7 @@ export default function TambahPesananMarketplaceDialog({
                   }
                   disabled={
                     !selectedMemberId ||
+                    selectedMemberIsHnr ||
                     isLoadingItems ||
                     isSubmitting
                   }
@@ -841,7 +907,8 @@ export default function TambahPesananMarketplaceDialog({
                 </button>
 
                 {isItemDropdownOpen &&
-                  selectedMemberId && (
+                  selectedMemberId &&
+                  !selectedMemberIsHnr && (
 
                     <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-xl border border-[#d9e0ef] bg-white p-2 shadow-xl">
 

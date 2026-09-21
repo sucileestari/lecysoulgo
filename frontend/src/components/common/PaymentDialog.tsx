@@ -43,7 +43,15 @@ type PaymentDialogProps = {
   isManualShipment?: boolean;
 
   manualShipmentId?: string;
+
+  batchStatus?: string;
 };
+
+type WhatsAppStatus =
+  | "sent"
+  | "failed"
+  | "scheduled"
+  | null;
 
 /* =========================================
    API
@@ -165,6 +173,7 @@ export default function PaymentDialog({
   onClose,
   onPaymentSuccess,
   isManualShipment = false,
+  batchStatus,
 }: PaymentDialogProps) {
   const [
     isProcessing,
@@ -183,6 +192,11 @@ export default function PaymentDialog({
     Payment | null
   >(payment);
 
+  const [
+    whatsappStatus,
+    setWhatsappStatus,
+  ] = useState<WhatsAppStatus>(null);
+
   /* =======================================
      SYNC PAYMENT
   ======================================== */
@@ -195,9 +209,73 @@ export default function PaymentDialog({
     setError("");
 
     setIsProcessing(false);
+    setWhatsappStatus(null);
   }, [
     payment,
     open,
+  ]);
+
+  /* =======================================
+     REFRESH WHATSAPP STATUS
+  ======================================== */
+
+  useEffect(() => {
+    if (
+      !open ||
+      !currentPayment?.id
+    ) {
+      setWhatsappStatus(null);
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadWhatsAppStatus() {
+      try {
+        const response =
+          await fetch(
+            buildApiUrl(
+              `/whatsapp/status/${currentPayment.id}`,
+            ),
+          );
+
+        const result =
+          (await response.json()) as {
+            success?: boolean;
+            data?: {
+              status?: WhatsAppStatus;
+            };
+          };
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          return;
+        }
+
+        if (isActive) {
+          setWhatsappStatus(
+            result.data?.status ??
+              null,
+          );
+        }
+      } catch (statusError) {
+        console.error(
+          "load WhatsApp status error:",
+          statusError,
+        );
+      }
+    }
+
+    void loadWhatsAppStatus();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    open,
+    currentPayment?.id,
   ]);
 
 
@@ -357,157 +435,206 @@ export default function PaymentDialog({
   ======================================== */
 
   async function handleSendWhatsApp() {
-    if (!currentPayment) {
-      return;
-    }
-
-    if (!buyer?.phone) {
-      setError(
-        "Nomor WhatsApp pembeli belum tersedia.",
-      );
-
-      return;
-    }
-
-    setIsProcessing(true);
-    setError("");
-
-    try {
-      /*
-       * Jika Payment Link sebelumnya masih aktif,
-       * jangan generate link baru dan jangan kirim
-       * WhatsApp lagi.
-       *
-       * User diminta menggunakan link yang sudah ada.
-       */
-      const existingPaymentLinkIsActive =
-        Boolean(
-          currentPayment.payment_url &&
-            currentPayment.expires_at &&
-            new Date(
-              currentPayment.expires_at,
-            ).getTime() >
-              Date.now(),
-        );
-
-      if (existingPaymentLinkIsActive) {
-        setError(
-          "Payment Link sebelumnya masih belum expired, silakan gunakan link tersebut.",
-        );
-
-        return;
-      }
-
-      let paymentToSend =
-        currentPayment;
-
-      /*
-       * Generate Payment Link langsung di sini supaya
-       * proses generate + kirim WhatsApp selesai dalam
-       * satu klik. Tidak memanggil handleGeneratePaymentLink()
-       * agar isProcessing tidak selesai di tengah proses.
-       */
-      if (!paymentToSend.payment_url) {
-        const generatedResult =
-          await generatePaymentLink(
-            paymentToSend.id,
-          );
-
-        const generatedPayment =
-          generatedResult.payment;
-
-        if (!generatedPayment) {
-          throw new Error(
-            "Gagal membuat Payment Link.",
-          );
-        }
-
-        paymentToSend =
-          generatedPayment;
-
-        setCurrentPayment(
-          generatedPayment,
-        );
-
-        await onPaymentSuccess(
-          generatedPayment,
-        );
-      }
-
-      if (!paymentToSend.payment_url) {
-        setError(
-          "Payment Link belum tersedia.",
-        );
-
-        return;
-      }
-
-      const whatsappNumber =
-        normalizeWhatsAppNumber(
-          buyer.phone,
-        );
-
-      if (!whatsappNumber) {
-        setError(
-          "Nomor WhatsApp pembeli tidak valid.",
-        );
-
-        return;
-      }
-
-      const response = await fetch(
-        buildApiUrl("/whatsapp/send"),
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            target:
-              whatsappNumber,
-
-            payment_id:
-              paymentToSend.id,
-          }),
-        },
-      );
-
-      const result =
-        (await response.json()) as {
-          success?: boolean;
-
-          message?: string;
-
-          data?: unknown;
-        };
-
-      if (
-        !response.ok ||
-        !result.success
-      ) {
-        throw new Error(
-          result.message ??
-            "Gagal mengirim WhatsApp.",
-        );
-      }
-    } catch (sendError) {
-      console.error(
-        "send WhatsApp error:",
-        sendError,
-      );
-
-      setError(
-        sendError instanceof Error
-          ? sendError.message
-          : "Gagal mengirim WhatsApp.",
-      );
-    } finally {
-      setIsProcessing(false);
-    }
+  if (!currentPayment) {
+    return;
   }
+
+  if (whatsappStatus === "sent") {
+    return;
+  }
+
+  const isBatchNotOrdered =
+    !isManualShipment &&
+    typeof batchStatus === "string" &&
+    batchStatus.trim().toLowerCase() ===
+      "akan di order";
+
+  if (isBatchNotOrdered) {
+    setError(
+      "Barang ini belum di order, mohon untuk mengirim Link Payment ketika barang sudah di Order",
+    );
+
+    return;
+  }
+
+  if (!buyer?.phone) {
+    setError(
+      "Nomor WhatsApp pembeli belum tersedia.",
+    );
+
+    return;
+  }
+
+  setIsProcessing(true);
+  setError("");
+
+  let whatsappSendAttempted = false;
+
+  try {
+    let paymentToSend =
+      currentPayment;
+
+    /*
+     * Cek apakah link sudah expired.
+     *
+     * Kalau expired, meskipun payment_url
+     * masih ada, tetap generate Payment Link baru.
+     */
+    const paymentLinkIsExpired =
+      Boolean(
+        paymentToSend.payment_url &&
+          paymentToSend.expires_at &&
+          new Date(
+            paymentToSend.expires_at,
+          ).getTime() <=
+            Date.now(),
+      );
+
+    /*
+     * Generate Payment Link jika:
+     * - belum punya payment_url
+     * ATAU
+     * - payment link sebelumnya sudah expired.
+     *
+     * Backend akan membuat payment record
+     * baru jika payment lama sudah expired.
+     */
+    if (
+      !paymentToSend.payment_url ||
+      paymentLinkIsExpired
+    ) {
+      const generatedResult =
+        await generatePaymentLink(
+          paymentToSend.id,
+        );
+
+      const generatedPayment =
+        generatedResult.payment;
+
+      if (!generatedPayment) {
+        throw new Error(
+          "Gagal membuat Payment Link.",
+        );
+      }
+
+      /*
+       * Penting:
+       * generatedPayment bisa mempunyai
+       * ID payment BARU jika payment lama
+       * sudah expired.
+       */
+      paymentToSend =
+        generatedPayment;
+
+      setCurrentPayment(
+        generatedPayment,
+      );
+
+      await onPaymentSuccess(
+        generatedPayment,
+      );
+    }
+
+    /*
+     * Pastikan link tersedia sebelum
+     * mengirim WhatsApp.
+     */
+    if (!paymentToSend.payment_url) {
+      setError(
+        "Payment Link belum tersedia.",
+      );
+
+      return;
+    }
+
+    const whatsappNumber =
+      normalizeWhatsAppNumber(
+        buyer.phone,
+      );
+
+    if (!whatsappNumber) {
+      setError(
+        "Nomor WhatsApp pembeli tidak valid.",
+      );
+
+      return;
+    }
+
+    /*
+     * Kirim payment_id yang paling baru.
+     *
+     * Kalau payment lama expired,
+     * paymentToSend.id = ID payment baru.
+     */
+    whatsappSendAttempted = true;
+
+    const response = await fetch(
+      buildApiUrl("/whatsapp/send"),
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          target:
+            whatsappNumber,
+
+          payment_id:
+            paymentToSend.id,
+        }),
+      },
+    );
+
+    const result =
+      (await response.json()) as {
+        success?: boolean;
+
+        message?: string;
+
+        data?: unknown;
+      };
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+      throw new Error(
+        result.message ??
+          "Gagal mengirim WhatsApp.",
+      );
+    }
+
+    setWhatsappStatus("sent");
+  } catch (sendError) {
+    console.error(
+      "send WhatsApp error:",
+      sendError,
+    );
+
+    if (whatsappSendAttempted) {
+      if (
+        sendError instanceof Error &&
+        sendError.message ===
+          "WhatsApp untuk Payment Link ini sudah dikirim."
+      ) {
+        setWhatsappStatus("sent");
+      } else {
+        setWhatsappStatus("failed");
+      }
+    }
+
+    setError(
+      sendError instanceof Error
+        ? sendError.message
+        : "Gagal mengirim WhatsApp.",
+    );
+  } finally {
+    setIsProcessing(false);
+  }
+}
 
   /* =======================================
      GUARD
@@ -921,7 +1048,8 @@ export default function PaymentDialog({
                 }
                 disabled={
                   isProcessing ||
-                  !buyer?.phone
+                  !buyer?.phone ||
+                  whatsappStatus === "sent"
                 }
                 className="
                   flex
@@ -947,7 +1075,9 @@ export default function PaymentDialog({
                   size={18}
                 />
 
-                Kirim via WhatsApp
+                {whatsappStatus === "sent"
+                  ? "Sudah terkirim via WhatsApp"
+                  : "Kirim via WhatsApp"}
               </button>
 
               {canGenerateLink && (

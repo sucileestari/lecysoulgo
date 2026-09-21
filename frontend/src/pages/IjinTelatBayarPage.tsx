@@ -498,12 +498,23 @@ export default function IjinTelatBayarPage() {
                         item.payment_status ===
                         "paid";
 
+                      const isHnr =
+                        item.member?.type === "hnr";
+
                       return (
                         <tr
                           key={
                             item.id
                           }
-                          className="border-b border-[#eef1f6] last:border-b-0 hover:bg-[#fbfcff]"
+                          aria-disabled={
+                            isHnr
+                          }
+                          className={[
+                            "border-b border-[#eef1f6] last:border-b-0",
+                            isHnr
+                              ? "pointer-events-none bg-[#f7f9fc]"
+                              : "hover:bg-[#fbfcff]",
+                          ].join(" ")}
                         >
 
                           {/* ======================
@@ -514,11 +525,19 @@ export default function IjinTelatBayarPage() {
 
                             <div>
 
-                              <p className="text-base font-medium text-[#20366f]">
-                                {item.member
-                                  ?.name ??
-                                  "-"}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-base font-medium text-[#20366f]">
+                                  {item.member
+                                    ?.name ??
+                                    "-"}
+                                </p>
+
+                                {isHnr && (
+                                  <span className="inline-flex rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                                    HNR
+                                  </span>
+                                )}
+                              </div>
 
                               {item.member
                                 ?.phone && (

@@ -123,7 +123,12 @@ export default function AddRecapDialog({
             await getMembers("");
 
           if (!cancelled) {
-            setMembers(data);
+            setMembers(
+              data.filter(
+                (member) =>
+                  member.type !== "hnr",
+              ),
+            );
           }
         } catch (error) {
           console.error(
@@ -362,6 +367,7 @@ export default function AddRecapDialog({
       setError(
         "Batch tidak ditemukan.",
       );
+
       return;
     }
 
@@ -376,6 +382,7 @@ export default function AddRecapDialog({
       setError(
         "Minimal pilih satu pembeli.",
       );
+
       return;
     }
 
@@ -385,6 +392,7 @@ export default function AddRecapDialog({
       setError(
         "Detail barang wajib diisi.",
       );
+
       return;
     }
 
@@ -397,6 +405,7 @@ export default function AddRecapDialog({
       setError(
         "Qty harus lebih besar dari 0.",
       );
+
       return;
     }
 
@@ -409,6 +418,7 @@ export default function AddRecapDialog({
       setError(
         "Harga barang tidak valid.",
       );
+
       return;
     }
 
@@ -422,6 +432,7 @@ export default function AddRecapDialog({
       setError(
         "Persentase DP harus antara 0 sampai 100.",
       );
+
       return;
     }
 
@@ -478,7 +489,6 @@ export default function AddRecapDialog({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
-
       <div className="flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
         {/* ===================================
@@ -486,7 +496,6 @@ export default function AddRecapDialog({
         ==================================== */}
 
         <div className="flex shrink-0 items-start justify-between border-b border-[#e7ebf3] px-6 py-5">
-
           <div>
             <h2 className="text-xl font-bold text-[#10245c]">
               Tambah Rekapan
@@ -508,7 +517,6 @@ export default function AddRecapDialog({
           >
             <X className="h-5 w-5" />
           </button>
-
         </div>
 
         {/* ===================================
@@ -519,7 +527,6 @@ export default function AddRecapDialog({
           onSubmit={handleSubmit}
           className="overflow-y-auto"
         >
-
           <div className="space-y-5 px-6 py-6">
 
             {/* =================================
@@ -527,7 +534,6 @@ export default function AddRecapDialog({
             ================================== */}
 
             <div ref={dropdownRef}>
-
               <label className="mb-2 block text-sm font-medium text-[#20366f]">
                 Nama Pembeli{" "}
                 <span className="text-[#ff2348]">
@@ -545,9 +551,7 @@ export default function AddRecapDialog({
                 }
                 className="flex min-h-[48px] w-full items-center justify-between rounded-lg border border-[#d9e0ef] bg-white px-3 text-left text-sm outline-none transition hover:border-[#bfc9dc] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10"
               >
-
                 <div className="flex flex-1 flex-wrap gap-2">
-
                   {selectedMembers.length >
                   0 ? (
                     selectedMembers.map(
@@ -600,7 +604,6 @@ export default function AddRecapDialog({
                       Pilih nama pembeli...
                     </span>
                   )}
-
                 </div>
 
                 <ChevronDown
@@ -610,18 +613,15 @@ export default function AddRecapDialog({
                       : ""
                   }`}
                 />
-
               </button>
 
               {/* Dropdown */}
               {isMemberDropdownOpen && (
                 <div className="relative z-20">
-
                   <div className="absolute left-0 right-0 top-2 overflow-hidden rounded-lg border border-[#d9e0ef] bg-white shadow-lg">
 
                     {/* Search */}
                     <div className="border-b border-[#e8ecf4] p-3">
-
                       <input
                         type="text"
                         value={
@@ -631,20 +631,17 @@ export default function AddRecapDialog({
                           event,
                         ) =>
                           setMemberSearch(
-                            event
-                              .target
+                            event.target
                               .value,
                           )
                         }
                         placeholder="Cari anggota..."
                         className="h-10 w-full rounded-lg border border-[#d9e0ef] px-3 text-sm text-[#20366f] outline-none focus:border-[#1457ff]"
                       />
-
                     </div>
 
                     {/* Members */}
                     <div className="max-h-[220px] overflow-y-auto">
-
                       {isLoadingMembers ? (
                         <div className="px-4 py-8 text-center text-xs text-[#7a89ad]">
                           Memuat anggota...
@@ -677,7 +674,6 @@ export default function AddRecapDialog({
                                 }
                                 className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#f7f9fd]"
                               >
-
                                 <div>
                                   <p className="text-sm font-medium text-[#20366f]">
                                     {
@@ -695,17 +691,13 @@ export default function AddRecapDialog({
                                 {selected && (
                                   <Check className="h-4 w-4 text-[#1457ff]" />
                                 )}
-
                               </button>
                             );
                           },
                         )
                       )}
-
                     </div>
-
                   </div>
-
                 </div>
               )}
 
@@ -713,7 +705,6 @@ export default function AddRecapDialog({
                 Bisa memilih lebih dari satu
                 pembeli.
               </p>
-
             </div>
 
             {/* =================================
@@ -721,7 +712,6 @@ export default function AddRecapDialog({
             ================================== */}
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-[#20366f]">
                 Detail Barang{" "}
                 <span className="text-[#ff2348]">
@@ -743,7 +733,6 @@ export default function AddRecapDialog({
                 placeholder="Contoh: Photocard Album"
                 className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10"
               />
-
             </div>
 
             {/* =================================
@@ -754,7 +743,6 @@ export default function AddRecapDialog({
 
               {/* Qty */}
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-[#20366f]">
                   Qty{" "}
                   <span className="text-[#ff2348]">
@@ -778,12 +766,10 @@ export default function AddRecapDialog({
                   placeholder="0"
                   className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10"
                 />
-
               </div>
 
               {/* Harga */}
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-[#20366f]">
                   Harga Barang{" "}
                   <span className="text-[#ff2348]">
@@ -807,9 +793,7 @@ export default function AddRecapDialog({
                   placeholder="0"
                   className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10"
                 />
-
               </div>
-
             </div>
 
             {/* =================================
@@ -817,7 +801,6 @@ export default function AddRecapDialog({
             ================================== */}
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-[#20366f]">
                 Total Harga
               </label>
@@ -836,7 +819,6 @@ export default function AddRecapDialog({
                 Otomatis dihitung dari
                 Qty × Harga Barang.
               </p>
-
             </div>
 
             {/* =================================
@@ -847,7 +829,6 @@ export default function AddRecapDialog({
 
               {/* Persentase */}
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-[#20366f]">
                   Persentase DP
                 </label>
@@ -887,12 +868,10 @@ export default function AddRecapDialog({
                     100%
                   </option>
                 </select>
-
               </div>
 
               {/* Total DP */}
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-[#20366f]">
                   Total DP
                 </label>
@@ -906,9 +885,7 @@ export default function AddRecapDialog({
                   readOnly
                   className="h-11 w-full cursor-not-allowed rounded-lg border border-[#dfe4ed] bg-[#f5f7fa] px-3 text-sm font-semibold text-[#6d7890]"
                 />
-
               </div>
-
             </div>
 
             {/* =================================
@@ -916,7 +893,6 @@ export default function AddRecapDialog({
             ================================== */}
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-[#20366f]">
                 Sisa Pelunasan
               </label>
@@ -935,7 +911,6 @@ export default function AddRecapDialog({
                 Otomatis dihitung dari Total
                 Harga − Total DP.
               </p>
-
             </div>
 
             {/* =================================
@@ -947,7 +922,6 @@ export default function AddRecapDialog({
                 {error}
               </div>
             )}
-
           </div>
 
           {/* ===================================
@@ -955,7 +929,6 @@ export default function AddRecapDialog({
           ==================================== */}
 
           <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e7ebf3] px-6 py-5">
-
             <button
               type="button"
               onClick={handleClose}
@@ -970,7 +943,6 @@ export default function AddRecapDialog({
               disabled={isSaving}
               className="flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
             >
-
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
@@ -978,15 +950,10 @@ export default function AddRecapDialog({
               {isSaving
                 ? "Menyimpan..."
                 : "Simpan"}
-
             </button>
-
           </div>
-
         </form>
-
       </div>
-
     </div>
   );
 }

@@ -107,6 +107,55 @@ export async function verifyPassword(
     return false;
   }
 
+  /* =========================================
+     SUPPORT LEGACY SHA-256 HASH
+     Format:
+     64 karakter hexadecimal
+  ========================================= */
+
+  const isSha256Hash =
+    /^[a-f0-9]{64}$/i.test(
+      storedHash,
+    );
+
+  if (isSha256Hash) {
+    const calculatedHash =
+      crypto
+        .createHash("sha256")
+        .update(password)
+        .digest("hex");
+
+    const calculatedBuffer =
+      Buffer.from(
+        calculatedHash,
+        "hex",
+      );
+
+    const storedBuffer =
+      Buffer.from(
+        storedHash,
+        "hex",
+      );
+
+    if (
+      calculatedBuffer.length !==
+      storedBuffer.length
+    ) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(
+      calculatedBuffer,
+      storedBuffer,
+    );
+  }
+
+  /* =========================================
+     SCRYPT HASH
+     Format:
+     scrypt:salt:hash
+  ========================================= */
+
   const parts =
     storedHash.split(":");
 

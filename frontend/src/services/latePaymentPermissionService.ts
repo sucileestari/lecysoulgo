@@ -40,6 +40,12 @@ export type LatePaymentPermissionItem = {
     detail_barang: string;
 
     member_id: string;
+
+    batch?: {
+      name: string;
+
+      country: string;
+    } | null;
   } | null;
 };
 
@@ -70,6 +76,8 @@ export type LatePaymentPermission = {
     name: string;
 
     phone: string;
+
+    type?: string | null;
   } | null;
 
   items: LatePaymentPermissionItem[];
@@ -132,6 +140,8 @@ export type LatePaymentRecapOptionsResponse = {
     name: string;
 
     phone: string;
+
+    type?: string | null;
   }[];
 
   items: LatePaymentRecapOption[];

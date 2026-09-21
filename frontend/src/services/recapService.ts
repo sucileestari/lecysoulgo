@@ -35,12 +35,6 @@ export type Recap = {
 
   sisa_pelunasan: number;
 
-  /*
-   * Status Checkout (CO).
-   *
-   * false = Belum
-   * true  = Sudah
-   */
   sudah_co: boolean;
 
   created_at: string;
@@ -53,6 +47,8 @@ export type Recap = {
     name: string;
 
     phone: string;
+
+    type: "customer" | "employee" | "hnr";
   } | null;
 };
 

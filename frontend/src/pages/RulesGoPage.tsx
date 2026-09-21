@@ -45,6 +45,8 @@ type InformationRule = {
     method: string;
     detail: string;
   }[];
+  manualCoSteps: string[];
+  shopeeCoSteps: string[];
 };
 
 type RulesData = {
@@ -192,6 +194,20 @@ const rules: RulesData = {
         detail:
           "005786054201 atas nama Suci Lestari",
       },
+    ],
+    manualCoSteps: [
+      "Buka menu Pengiriman Manual",
+      "Pilih batch yang saat ini sedang berjalan",
+      "Klik Tambah Pengiriman",
+      "Isi semua yang diperlukan",
+      "Tunggu sampai barang diproses dan akan ada tagihan yang masuk ke WA",
+    ],
+    shopeeCoSteps: [
+      "CO Shopee melalui link yang diberikan (tidak perlu isi notes pesanan atau chat dari shopee)",
+      "Buka menu Pesanan Marketplace",
+      "Klik Tambah Pesanan",
+      "Isi semua yang diperlukan",
+      "Tunggu sampai barang diproses",
     ],
   },
 
@@ -459,6 +475,54 @@ export default function RulesGoPage() {
                     )}
                   </div>
                 </section>
+
+                {/* Cara CO Manual */}
+                <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
+                  <h3 className="text-lg font-semibold text-[#10245c]">
+                    Cara CO Manual
+                  </h3>
+
+                  <ol className="mt-4 space-y-3">
+                    {rules.information.manualCoSteps.map(
+                      (step, index) => (
+                        <li
+                          key={`manual-co-${index}`}
+                          className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-xs font-semibold text-[#1457ff]">
+                            {index + 1}
+                          </span>
+
+                          <span className="pt-0.5">{step}</span>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+                </section>
+
+                {/* Cara CO Shopee */}
+                <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
+                  <h3 className="text-lg font-semibold text-[#10245c]">
+                    Cara CO Shopee
+                  </h3>
+
+                  <ol className="mt-4 space-y-3">
+                    {rules.information.shopeeCoSteps.map(
+                      (step, index) => (
+                        <li
+                          key={`shopee-co-${index}`}
+                          className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-xs font-semibold text-[#1457ff]">
+                            {index + 1}
+                          </span>
+
+                          <span className="pt-0.5">{step}</span>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+                </section>
               </div>
             </>
           ) : null}
@@ -516,6 +580,10 @@ export default function RulesGoPage() {
                           </p>
 
                           <p className="mt-0.5 text-xs text-[#7a89ad]">
+                            {member.phone}
+                          </p>
+
+                          <p className="mt-0.5 text-[11px] text-[#9aa6bf]">
                             HNR
                           </p>
                         </div>

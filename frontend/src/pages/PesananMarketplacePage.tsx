@@ -1,5 +1,5 @@
 import {
-  Pencil,
+  ChevronDown,
   Plus,
   Search,
   Trash2,
@@ -15,53 +15,54 @@ import {
 } from "@tanstack/react-query";
 
 import TambahPesananMarketplaceDialog from "../components/common/TambahPesananMarketplaceDialog";
+import HapusPesananMarketplaceDialog from "../components/common/HapusPesananMarketplaceDialog";
 
 import {
+  deleteMarketplaceOrder,
   getMarketplaceOrders,
+  updateMarketplaceOrderStatus,
   type MarketplaceOrder,
 } from "../services/marketplaceOrderService";
 
+import {
+  getMembers,
+  type Member,
+} from "../services/memberService";
+
 /* =========================================
-   STATUS LABEL
+   STATUS PENGIRIMAN
 ========================================= */
 
-function getStatusLabel(
+type MarketplaceShippingStatus =
+  | "Sedang dikemas"
+  | "Dalam proses pick up";
+
+function getShippingStatusValue(
   status: MarketplaceOrder["status"],
-) {
+): MarketplaceShippingStatus {
   switch (status) {
-    case "waiting":
-      return "Menunggu Diproses";
-
     case "processing":
-      return "Sedang Diproses";
-
     case "processed":
-      return "Sudah Diproses";
+      return "Dalam proses pick up";
 
+    case "waiting":
     default:
-      return status;
+      return "Sedang dikemas";
   }
 }
 
-/* =========================================
-   STATUS STYLE
-========================================= */
-
-function getStatusClassName(
-  status: MarketplaceOrder["status"],
+function getShippingStatusLabel(
+  status: MarketplaceShippingStatus,
 ) {
   switch (status) {
-    case "waiting":
-      return "bg-amber-50 text-amber-700";
+    case "Sedang dikemas":
+      return "Sudah di packing";
 
-    case "processing":
-      return "bg-blue-50 text-blue-700";
-
-    case "processed":
-      return "bg-emerald-50 text-emerald-700";
+    case "Dalam proses pick up":
+      return "Sudah di pick up";
 
     default:
-      return "bg-slate-50 text-slate-600";
+      return status;
   }
 }
 
@@ -115,6 +116,7 @@ type MarketplaceItemWithDetail =
   MarketplaceOrder["items"][number] & {
     recap?: {
       detail_barang?: string | null;
+      qty?: number | null;
       batch?: {
         name?: string | null;
         country?: string | null;
@@ -128,6 +130,8 @@ type MarketplaceItemWithDetail =
     batch_name?: string | null;
 
     batch_country?: string | null;
+
+    qty?: number | null;
   };
 
 /* =========================================
@@ -147,6 +151,11 @@ function getMarketplaceItemDetail(
     marketplaceItem.product_name ||
     "-";
 
+  const qty =
+    marketplaceItem.recap?.qty ??
+    marketplaceItem.qty ??
+    0;
+
   const batchName =
     marketplaceItem.recap
       ?.batch?.name ||
@@ -161,9 +170,20 @@ function getMarketplaceItemDetail(
 
   return {
     productName,
+    qty,
     batchName,
     batchCountry,
   };
+}
+
+/* =========================================
+   CUSTOMER SESSION
+========================================= */
+
+function isCustomerSession(): boolean {
+  return Boolean(
+    localStorage.getItem("customer_token"),
+  );
 }
 
 /* =========================================
@@ -185,6 +205,21 @@ export default function PesananMarketplacePage() {
     setIsAddModalOpen,
   ] = useState(false);
 
+  const [
+    shippingStatusOverrides,
+    setShippingStatusOverrides,
+  ] = useState<Record<string, string>>({});
+
+  const [
+    deletingOrder,
+    setDeletingOrder,
+  ] = useState<MarketplaceOrder | null>(null);
+
+  const [
+    isDeletingOrder,
+    setIsDeletingOrder,
+  ] = useState(false);
+
   /* =======================================
      QUERY
   ======================================== */
@@ -196,7 +231,7 @@ export default function PesananMarketplacePage() {
     error,
     refetch,
   } = useQuery<
-    MarketplaceOrderWithMember[],
+    MarketplaceOrder[],
     Error
   >({
     queryKey: [
@@ -209,6 +244,43 @@ export default function PesananMarketplacePage() {
     staleTime:
       30_000,
   });
+
+  const {
+    data: members = [],
+  } = useQuery<
+    Member[],
+    Error
+  >({
+    queryKey: [
+      "members",
+    ],
+
+    queryFn: () =>
+      getMembers(),
+
+    staleTime:
+      5 * 60 * 1000,
+  });
+
+  const memberTypeMap =
+    useMemo(() => {
+      const map =
+        new Map<
+          string,
+          Member["type"]
+        >();
+
+      members.forEach(
+        (member) => {
+          map.set(
+            member.id,
+            member.type,
+          );
+        },
+      );
+
+      return map;
+    }, [members]);
 
   /* =======================================
      FILTER
@@ -236,8 +308,13 @@ export default function PesananMarketplacePage() {
           order.member_phone
             .toLowerCase()
             .includes(keyword) ||
-          getStatusLabel(
-            order.status,
+          getShippingStatusLabel(
+            shippingStatusOverrides[
+              order.id
+            ] ??
+              getShippingStatusValue(
+                order.status,
+              ),
           )
             .toLowerCase()
             .includes(keyword),
@@ -245,7 +322,99 @@ export default function PesananMarketplacePage() {
     }, [
       orders,
       search,
+      shippingStatusOverrides,
     ]);
+
+  /* =======================================
+     UPDATE SHIPPING STATUS
+  ======================================== */
+
+  const handleShippingStatusChange = async (
+    order: MarketplaceOrder,
+    nextStatus: MarketplaceShippingStatus,
+  ) => {
+    const memberType =
+      memberTypeMap.get(
+        order.member_id,
+      ) ??
+      order.member_type;
+
+    if (
+      isCustomerSession() ||
+      memberType === "hnr"
+    ) {
+      return;
+    }
+
+    const previousStatus =
+      shippingStatusOverrides[
+        order.id
+      ];
+
+    setShippingStatusOverrides(
+      (current) => ({
+        ...current,
+        [order.id]: nextStatus,
+      }),
+    );
+
+    try {
+      const nextOrderStatus =
+        nextStatus ===
+        "Dalam proses pick up"
+          ? "processed"
+          : "waiting";
+
+      await updateMarketplaceOrderStatus(
+        order.id,
+        nextOrderStatus,
+      );
+
+      setShippingStatusOverrides(
+        (current) => {
+          const updated = {
+            ...current,
+          };
+
+          delete updated[
+            order.id
+          ];
+
+          return updated;
+        },
+      );
+
+      await refetch();
+    } catch (error) {
+      setShippingStatusOverrides(
+        (current) => {
+          const updated = {
+            ...current,
+          };
+
+          if (
+            previousStatus !==
+            undefined
+          ) {
+            updated[
+              order.id
+            ] = previousStatus;
+          } else {
+            delete updated[
+              order.id
+            ];
+          }
+
+          return updated;
+        },
+      );
+
+      console.error(
+        "handleShippingStatusChange error:",
+        error,
+      );
+    }
+  };
 
   /* =======================================
      ADD
@@ -262,38 +431,66 @@ export default function PesananMarketplacePage() {
     };
 
   /* =======================================
-     EDIT
-  ======================================== */
-
-  const handleEditOrder = (
-    order: MarketplaceOrderWithMember,
-  ) => {
-    /*
-     * Dialog edit akan dibuat
-     * pada langkah berikutnya.
-     */
-    console.log(
-      "Edit pesanan Marketplace:",
-      order.id,
-    );
-  };
-
-  /* =======================================
      DELETE
   ======================================== */
 
   const handleDeleteOrder = (
-    order: MarketplaceOrderWithMember,
+    order: MarketplaceOrder,
   ) => {
-    /*
-     * Dialog konfirmasi delete
-     * akan dibuat pada langkah berikutnya.
-     */
-    console.log(
-      "Delete pesanan Marketplace:",
-      order.id,
-    );
+    const memberType =
+      memberTypeMap.get(
+        order.member_id,
+      ) ??
+      order.member_type;
+
+    if (
+      memberType === "hnr"
+    ) {
+      return;
+    }
+
+    setDeletingOrder(order);
   };
+
+  const handleConfirmDeleteOrder =
+    async () => {
+      if (!deletingOrder) {
+        return;
+      }
+
+      setIsDeletingOrder(true);
+
+      try {
+        await deleteMarketplaceOrder(
+          deletingOrder.id,
+        );
+
+        setShippingStatusOverrides(
+          (current) => {
+            const updated = {
+              ...current,
+            };
+
+            delete updated[
+              deletingOrder.id
+            ];
+
+            return updated;
+          },
+        );
+
+        setDeletingOrder(null);
+
+        await refetch();
+      } catch (error) {
+        console.error(
+          "handleConfirmDeleteOrder error:",
+          error,
+        );
+      } finally {
+        setIsDeletingOrder(false);
+      }
+    };
 
   /* =======================================
      RENDER
@@ -306,55 +503,52 @@ export default function PesananMarketplacePage() {
           HEADER
       ================================== */}
 
-      <div className="mb-6 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#10245c]">
             Pesanan Marketplace
           </h1>
 
-          <p className="mt-2 text-sm text-[#5d6f9f]">
+          <p className="mt-1 text-sm text-[#5d6f9f]">
             Kelola pesanan barang dari
             Marketplace.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={
+            handleAddOrder
+          }
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-semibold text-white transition hover:bg-[#0f49d8] focus:outline-none focus:ring-2 focus:ring-[#1457ff]/30"
+        >
+          <Plus className="h-5 w-5" />
 
-          {/* SEARCH */}
+          Tambah Pesanan
+        </button>
 
-          <div className="relative">
+      </div>
 
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7a89ad]" />
+      {/* =================================
+          SEARCH
+      ================================== */}
 
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value,
-                )
-              }
-              placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
-              className="h-12 w-full rounded-lg border border-[#d9e0ef] bg-white pl-11 pr-4 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 sm:w-[250px]"
-            />
+      <div className="mb-5 flex w-full max-w-md items-center rounded-lg border border-[#d9e0ef] bg-white px-3 focus-within:border-[#1457ff] focus-within:ring-2 focus-within:ring-[#1457ff]/10">
 
-          </div>
+        <Search className="h-5 w-5 shrink-0 text-[#7a89ad]" />
 
-          {/* TAMBAH PESANAN */}
-
-          <button
-            type="button"
-            onClick={
-              handleAddOrder
-            }
-            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0]"
-          >
-            <Plus className="h-5 w-5" />
-            Tambah Pesanan
-          </button>
-
-        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(event) =>
+            setSearch(
+              event.target.value,
+            )
+          }
+          placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
+          className="h-12 w-full border-0 bg-transparent px-3 text-sm text-[#20366f] outline-none placeholder:text-[#a0abc0]"
+        />
 
       </div>
 
@@ -392,7 +586,7 @@ export default function PesananMarketplacePage() {
                 </th>
 
                 <th className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wider text-[#17285d]">
-                  Status
+                  Status Pengiriman
                 </th>
 
                 <th className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wider text-[#17285d]">
@@ -483,180 +677,254 @@ export default function PesananMarketplacePage() {
               {!isLoading &&
                 !isError &&
                 filteredOrders.map(
-                  (order) => (
-                    <tr
-                      key={
+                  (order) => {
+                    const memberType =
+                      memberTypeMap.get(
+                        order.member_id,
+                      ) ??
+                      order.member_type;
+
+                    const isHnr =
+                      memberType
+                        ?.trim()
+                        .toLowerCase() ===
+                      "hnr";
+
+                    const currentShippingStatus =
+                      shippingStatusOverrides[
                         order.id
-                      }
-                      className="border-b border-[#edf0f6] last:border-b-0 hover:bg-[#fafbfe]"
-                    >
+                      ] ??
+                      getShippingStatusValue(
+                        order.status,
+                      );
 
-                      {/* NOMOR PESANAN */}
-
-                      <td className="px-5 py-4 text-center text-sm font-medium text-[#20366f]">
-                        {
-                          order.order_number
+                    return (
+                      <tr
+                        key={
+                          order.id
                         }
-                      </td>
+                        className={[
+                          "border-b border-[#edf0f6] last:border-b-0",
+                          isHnr
+                            ? "bg-gray-50"
+                            : "hover:bg-[#fafbfe]",
+                        ].join(" ")}
+                        title={
+                          isHnr
+                            ? "Pesanan member HNR tidak dapat diubah atau dihapus."
+                            : undefined
+                        }
+                      >
 
-                      {/* NAMA PEMBELI */}
+                        {/* NOMOR PESANAN */}
 
-                      <td className="px-5 py-4 align-top text-center">
+                        <td className="px-5 py-4 text-center text-sm font-medium text-[#20366f]">
+                          {
+                            order.order_number
+                          }
+                        </td>
 
-                        <div className="space-y-1">
+                        {/* NAMA PEMBELI */}
 
-                          <p className="text-sm font-semibold text-[#20366f]">
-                            {
-                              order.member_name
-                            }
-                          </p>
+                        <td className="px-5 py-4 align-top text-center">
 
-                          <p className="text-xs text-[#7a89ad]">
-                            {formatPhone(
-                              order.member_phone,
-                            )}
-                          </p>
+                          <div className="space-y-1">
 
-                        </div>
+                            <div className="flex items-center justify-center gap-2">
 
-                      </td>
+                              <p className="text-sm font-semibold text-[#20366f]">
+                                {
+                                  order.member_name
+                                }
+                              </p>
 
-                      {/* DETAIL BARANG */}
+                              {isHnr && (
+                                <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600">
+                                  HNR
+                                </span>
+                              )}
 
-                      <td className="px-5 py-4 align-top text-left">
+                            </div>
 
-                        <div className="space-y-3">
+                            <p className="text-xs text-[#7a89ad]">
+                              {formatPhone(
+                                order.member_phone,
+                              )}
+                            </p>
 
-                          {order.items.length >
-                          0 ? (
-                            order.items.map(
-                              (item) => {
-                                const {
-                                  productName,
-                                  batchName,
-                                  batchCountry,
-                                } =
-                                  getMarketplaceItemDetail(
-                                    item,
-                                  );
+                          </div>
 
-                                return (
-                                  <div
-                                    key={
-                                      item.id
-                                    }
-                                    className="flex items-start gap-2"
-                                  >
+                        </td>
 
-                                    <span className="mt-1 shrink-0 text-sm text-[#7a89ad]">
-                                      •
-                                    </span>
+                        {/* DETAIL BARANG */}
 
-                                    <div className="min-w-0">
+                        <td className="px-5 py-4 align-top text-left">
+
+                          <div className="space-y-3">
+
+                            {order.items.length >
+                            0 ? (
+                              order.items.map(
+                                (item) => {
+                                  const {
+                                    productName,
+                                    qty,
+                                    batchName,
+                                    batchCountry,
+                                  } =
+                                    getMarketplaceItemDetail(
+                                      item,
+                                    );
+
+                                  return (
+                                    <div
+                                      key={
+                                        item.id
+                                      }
+                                      className="min-w-0"
+                                    >
 
                                       <p className="text-sm font-semibold text-[#20366f]">
-                                        {
-                                          productName
-                                        }
+                                        • {productName}{" "}
+                                        <span className="font-normal text-[#7a89ad]">
+                                          x{qty}
+                                        </span>
                                       </p>
 
                                       <p className="mt-1 text-xs text-[#7a89ad]">
-                                        Batch:{" "}
-                                        {
-                                          batchName
-                                        }
-                                      </p>
-
-                                      <p className="text-xs text-[#7a89ad]">
-                                        Negara:{" "}
-                                        {
-                                          batchCountry
-                                        }
+                                        {batchName} - {batchCountry}
                                       </p>
 
                                     </div>
+                                  );
+                                },
+                              )
+                            ) : (
+                              <p className="text-sm text-[#7a89ad]">
+                                -
+                              </p>
+                            )}
 
-                                  </div>
-                                );
-                              },
-                            )
-                          ) : (
-                            <p className="text-sm text-[#7a89ad]">
+                          </div>
+
+                        </td>
+
+                        {/* TANGGAL INPUT */}
+
+                        <td className="px-5 py-4 text-center text-sm text-[#50628e]">
+                          {formatDate(
+                            order.created_at,
+                          )}
+                        </td>
+
+                        {/* STATUS PENGIRIMAN */}
+
+                        <td className="px-5 py-4 text-center align-top">
+
+                          <div className="relative mx-auto inline-block w-[170px]">
+
+                            <select
+                              value={
+                                currentShippingStatus
+                              }
+                              onChange={(event) =>
+                                void handleShippingStatusChange(
+                                  order,
+                                  event.target.value as MarketplaceShippingStatus,
+                                )
+                              }
+                              disabled={
+                                isHnr ||
+                                isCustomerSession() ||
+                                currentShippingStatus ===
+                                  "Dalam proses pick up"
+                              }
+                              style={{
+                                appearance:
+                                  "none",
+                                WebkitAppearance:
+                                  "none",
+                                MozAppearance:
+                                  "none",
+                                paddingRight:
+                                  "44px",
+                                color: "#000000",
+                              }}
+                              className={[
+                                "h-10 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10",
+                                isHnr
+                                  ? "cursor-not-allowed bg-[#f5f6fa] !text-black disabled:!text-black disabled:opacity-100"
+                                  : isCustomerSession() ||
+                                      currentShippingStatus ===
+                                        "Dalam proses pick up"
+                                    ? "cursor-not-allowed bg-[#f5f6fa] text-[#9aa4bb]"
+                                    : "",
+                              ].join(" ")}
+                            >
+
+                              <option value="Sedang dikemas">
+                                Sudah di packing
+                              </option>
+
+                              <option value="Dalam proses pick up">
+                                Sudah di pick up
+                              </option>
+
+                            </select>
+
+                            <ChevronDown
+                              className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[#536795]"
+                              style={{
+                                right: "20px",
+                              }}
+                            />
+
+                          </div>
+
+                        </td>
+
+                        {/* AKSI */}
+
+                        <td className="px-5 py-5 text-center align-top">
+
+                          {isHnr ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg text-[#9aa4bb] opacity-60"
+                              title="Pesanan HNR tidak dapat dihapus"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : currentShippingStatus ===
+                            "Dalam proses pick up" ? (
+                            <span className="text-sm text-[#7a89ad]">
                               -
-                            </p>
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteOrder(
+                                    order,
+                                  )
+                                }
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#5d6f9f] transition hover:bg-red-50 hover:text-red-600"
+                                title="Hapus"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+
+                            </div>
                           )}
 
-                        </div>
+                        </td>
 
-                      </td>
-
-                      {/* TANGGAL INPUT */}
-
-                      <td className="px-5 py-4 text-center text-sm text-[#50628e]">
-                        {formatDate(
-                          order.created_at,
-                        )}
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td className="px-5 py-4 text-center">
-
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
-                            getStatusClassName(
-                              order.status,
-                            ),
-                          ].join(
-                            " ",
-                          )}
-                        >
-                          {getStatusLabel(
-                            order.status,
-                          )}
-                        </span>
-
-                      </td>
-
-                      {/* AKSI */}
-
-                      <td className="px-5 py-4">
-
-                        <div className="flex items-center justify-center gap-2">
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleEditOrder(
-                                order,
-                              )
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#5d6f9f] transition hover:bg-[#edf3ff] hover:text-[#1457ff]"
-                            title="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteOrder(
-                                order,
-                              )
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#5d6f9f] transition hover:bg-red-50 hover:text-red-600"
-                            title="Hapus"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-                  ),
+                      </tr>
+                    );
+                  },
                 )}
 
             </tbody>
@@ -672,7 +940,20 @@ export default function PesananMarketplacePage() {
         onClose={() =>
           setIsAddModalOpen(false)
         }
-        onSuccess={handleMarketplaceOrderCreated}
+        onSuccess={
+          handleMarketplaceOrderCreated
+        }
+      />
+
+      <HapusPesananMarketplaceDialog
+        order={deletingOrder}
+        isDeleting={isDeletingOrder}
+        onCancel={() =>
+          setDeletingOrder(null)
+        }
+        onConfirm={
+          handleConfirmDeleteOrder
+        }
       />
 
     </div>

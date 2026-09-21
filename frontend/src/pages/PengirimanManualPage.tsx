@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
   Loader2,
+  X,
 } from "lucide-react";
 
 import {
@@ -48,7 +49,6 @@ import {
   updateManualShipment,
   type ManualShipment,
 } from "@/services/manualShippingService";
-
 
 /* =========================================
    CONSTANTS
@@ -152,6 +152,165 @@ function formatDate(
       year: "numeric",
     },
   ).format(date);
+}
+
+/* =========================================
+   DATE PICKER HELPERS
+========================================= */
+
+const MONTH_NAMES = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+const DAY_NAMES = [
+  "Mg",
+  "Sn",
+  "Sl",
+  "Rb",
+  "Km",
+  "Jm",
+  "Sb",
+];
+
+function getTodayDate(): string {
+  const date = new Date();
+
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1,
+  ).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function parseDate(
+  value: string | null | undefined,
+): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value
+    .split("-")
+    .map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+  );
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function toDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1,
+  ).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function getDaysInMonth(
+  year: number,
+  month: number,
+): number {
+  return new Date(
+    year,
+    month + 1,
+    0,
+  ).getDate();
+}
+
+function getFirstDayOfMonth(
+  year: number,
+  month: number,
+): number {
+  return new Date(
+    year,
+    month,
+    1,
+  ).getDay();
+}
+
+function formatPickupDate(
+  value: string | null | undefined,
+): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    },
+  ).format(date);
+}
+
+function hasBatchEnded(
+  endDate: string | null | undefined,
+): boolean {
+  if (!endDate) {
+    return false;
+  }
+
+  const today = new Date();
+
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+
+  const batchEndDate = new Date(
+    `${endDate}T00:00:00`,
+  );
+
+  if (
+    Number.isNaN(
+      batchEndDate.getTime(),
+    )
+  ) {
+    return false;
+  }
+
+  return todayStart > batchEndDate;
 }
 
 function getPaymentDate(
@@ -340,6 +499,38 @@ export default function PengirimanManualPage({
   ] = useState("");
 
   /* =======================================
+     INLINE DUE DATE EDITING
+  ======================================== */
+
+  const [
+    editingDueDateShipment,
+    setEditingDueDateShipment,
+  ] = useState<ManualShipment | null>(null);
+
+  const [
+    temporaryDueDate,
+    setTemporaryDueDate,
+  ] = useState("");
+
+  const [
+    calendarMonth,
+    setCalendarMonth,
+  ] = useState(() => {
+    const now = new Date();
+
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+    );
+  });
+
+  const [
+    updatingDueDateShipmentId,
+    setUpdatingDueDateShipmentId,
+  ] = useState<string | null>(null);
+
+  /* =======================================
      SHIPPING STATUS OVERRIDE
   ======================================== */
 
@@ -349,6 +540,19 @@ export default function PengirimanManualPage({
   ] = useState<
     Record<string, string>
   >({});
+
+  const [
+    openShipmentStatusId,
+    setOpenShipmentStatusId,
+  ] = useState<string | null>(null);
+
+  const [
+    shipmentStatusDropdownPosition,
+    setShipmentStatusDropdownPosition,
+  ] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   /* =======================================
      GET BATCHES
@@ -504,6 +708,11 @@ export default function PengirimanManualPage({
       batches,
     ]);
 
+  const isBatchExpired =
+    hasBatchEnded(
+      selectedBatch?.end_date,
+    );
+
   /* =======================================
      GET SHIPMENTS BY SELECTED BATCH
   ======================================== */
@@ -527,7 +736,9 @@ export default function PengirimanManualPage({
       ),
     enabled:
       Boolean(selectedBatch?.id),
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
   });
 
   /* =======================================
@@ -1055,6 +1266,176 @@ export default function PengirimanManualPage({
   }
 
   /* =======================================
+     DUE DATE PICKER
+  ======================================== */
+
+  function openDueDatePicker(
+    shipment: ManualShipment,
+  ) {
+    if (
+      isCustomer ||
+      shipment.member?.type === "hnr" ||
+      updatingDueDateShipmentId === shipment.id
+    ) {
+      return;
+    }
+
+    const currentDate =
+      shipment.due_date ??
+      getTodayDate();
+
+    const date =
+      parseDate(currentDate) ??
+      new Date();
+
+    setCalendarMonth(
+      new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        1,
+      ),
+    );
+
+    setTemporaryDueDate(
+      shipment.due_date ?? "",
+    );
+    setEditingDueDateShipment(
+      shipment,
+    );
+  }
+
+  function closeDueDatePicker() {
+    if (updatingDueDateShipmentId) {
+      return;
+    }
+
+    setTemporaryDueDate("");
+    setEditingDueDateShipment(null);
+  }
+
+  function handleSelectDueDate(
+    dateString: string,
+  ) {
+    if (
+      dateString < getTodayDate() ||
+      updatingDueDateShipmentId
+    ) {
+      return;
+    }
+
+    setTemporaryDueDate(dateString);
+  }
+
+  function changeCalendarMonth(
+    offset: number,
+  ) {
+    setCalendarMonth((current) =>
+      new Date(
+        current.getFullYear(),
+        current.getMonth() + offset,
+        1,
+      ),
+    );
+  }
+
+  async function handleDueDateSave() {
+    if (
+      !editingDueDateShipment ||
+      !temporaryDueDate ||
+      updatingDueDateShipmentId
+    ) {
+      return;
+    }
+
+    const shipment =
+      editingDueDateShipment;
+
+    setUpdatingDueDateShipmentId(
+      shipment.id,
+    );
+
+    try {
+      const updatedShipment =
+        await updateManualShipment(
+          shipment.id,
+          {
+            due_date:
+              temporaryDueDate,
+          },
+        );
+
+      queryClient.setQueryData<ManualShipment[]>(
+        [
+          "manual-shipments",
+          shipment.batch_id,
+        ],
+        (current = []) =>
+          current.map((item) =>
+            item.id === shipment.id
+              ? updatedShipment
+              : item,
+          ),
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "manual-shipment-payment-summaries",
+          shipment.batch_id,
+        ],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "manual-shipments",
+          shipment.batch_id,
+        ],
+      });
+
+      setTemporaryDueDate("");
+      setEditingDueDateShipment(null);
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Gagal memperbarui tanggal jatuh tempo.",
+      );
+    } finally {
+      setUpdatingDueDateShipmentId(
+        null,
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (!editingDueDateShipment) {
+      return;
+    }
+
+    function handleEscape(
+      event: KeyboardEvent,
+    ) {
+      if (event.key === "Escape") {
+        closeDueDatePicker();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleEscape,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
+    };
+  }, [
+    editingDueDateShipment,
+    updatingDueDateShipmentId,
+  ]);
+
+  /* =======================================
      UPDATE SHIPPING STATUS
 
      Simpan status ke database.
@@ -1576,7 +1957,7 @@ export default function PengirimanManualPage({
                                       batch,
                                     );
                                   }}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff] disabled:cursor-not-allowed disabled:opacity-40"
                                   aria-label="Edit batch"
                                   title="Edit batch"
                                 >
@@ -1592,7 +1973,7 @@ export default function PengirimanManualPage({
                                       batch,
                                     );
                                   }}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                                   aria-label="Hapus batch"
                                   title="Hapus batch"
                                 >
@@ -1802,6 +2183,7 @@ export default function PengirimanManualPage({
                           }
                         className={`inline-flex h-11 items-center justify-center rounded-lg border border-[#d9e0ef] bg-white px-5 text-lg font-medium text-[#20366f] transition hover:bg-[#f8faff] ${
                           isCustomer ||
+                          isBatchExpired ||
                           selectedBatch.status === "Selesai" ||
                           selectedBatch.status === "Dibatalkan"
                             ? "invisible pointer-events-none"
@@ -1818,6 +2200,7 @@ export default function PengirimanManualPage({
                           openAddShipment
                         }
                         className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] ${
+                          isBatchExpired ||
                           selectedBatch.status === "Selesai" ||
                           selectedBatch.status === "Dibatalkan"
                             ? "invisible pointer-events-none"
@@ -1938,20 +2321,38 @@ export default function PengirimanManualPage({
                       {!isShipmentsLoading &&
                         !isShipmentsError &&
                         shipments.map(
-                          (shipment) => (
-                            <tr
-                              key={shipment.id}
-                              className="border-b border-[#eef1f6] last:border-b-0"
-                            >
-                              <td className="px-6 py-6 text-center align-top">
-                                <p className="text-sm font-semibold text-[#20366f]">
-                                  {shipment.member?.name ?? "-"}
-                                </p>
+                          (shipment) => {
+                            const isHnr =
+                              shipment.member?.type === "hnr";
 
-                                <p className="mt-1 text-xs text-[#7a89ad]">
-                                  {shipment.member?.phone ?? "-"}
-                                </p>
-                              </td>
+                            return (
+                              <tr
+                                key={shipment.id}
+                                aria-disabled={isHnr}
+                                className={[
+                                  "border-b border-[#eef1f6] last:border-b-0",
+                                  isHnr
+                                    ? "bg-[#f5f6fa]"
+                                    : "",
+                                ].join(" ")}
+                              >
+                                <td className="px-6 py-6 text-center align-top">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <p className="text-sm font-semibold text-[#20366f]">
+                                      {shipment.member?.name ?? "-"}
+                                    </p>
+
+                                    {isHnr && (
+                                      <span className="inline-flex rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                                        HNR
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className="mt-1 text-xs text-[#7a89ad]">
+                                    {shipment.member?.phone ?? "-"}
+                                  </p>
+                                </td>
 
                               <td className="px-6 py-6 align-top">
                                 <div className="space-y-3">
@@ -2046,6 +2447,7 @@ export default function PengirimanManualPage({
                                 ) : !isCustomer ? (
                                   <button
                                     type="button"
+                                    disabled={isHnr}
                                     onClick={() => {
                                       setEditingPrice({
                                         shipmentId: shipment.id,
@@ -2055,7 +2457,7 @@ export default function PengirimanManualPage({
                                         String(shipment.shipping_price ?? 0),
                                       );
                                     }}
-                                    className="text-sm text-[#20366f] hover:text-[#1457ff]"
+                                    className="text-sm text-[#20366f] hover:text-[#1457ff] disabled:cursor-not-allowed disabled:opacity-100"
                                   >
                                     {formatCurrency(
                                       shipment.shipping_price,
@@ -2107,6 +2509,7 @@ export default function PengirimanManualPage({
                                 ) : !isCustomer ? (
                                   <button
                                     type="button"
+                                    disabled={isHnr}
                                     onClick={() => {
                                       setEditingPrice({
                                         shipmentId: shipment.id,
@@ -2116,7 +2519,7 @@ export default function PengirimanManualPage({
                                         String(shipment.packing_price ?? 0),
                                       );
                                     }}
-                                    className="text-sm text-[#20366f] hover:text-[#1457ff]"
+                                    className="text-sm text-[#20366f] hover:text-[#1457ff] disabled:cursor-not-allowed disabled:opacity-100"
                                   >
                                     {formatCurrency(
                                       shipment.packing_price,
@@ -2172,32 +2575,35 @@ export default function PengirimanManualPage({
 
                                       return (
                                         <div className="flex flex-col items-center">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              openShipmentPayment(
-                                                shipment,
-                                              )
-                                            }
-                                            disabled={
-                                              processingShipmentPaymentId ===
-                                              shipment.id
-                                            }
-                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {processingShipmentPaymentId ===
-                                            shipment.id ? (
-                                              <>
-                                                <Loader2
-                                                  size={14}
-                                                  className="animate-spin"
-                                                />
-                                                Memproses...
-                                              </>
-                                            ) : (
-                                              "Pembayaran"
-                                            )}
-                                          </button>
+                                          {!isCustomer && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                openShipmentPayment(
+                                                  shipment,
+                                                )
+                                              }
+                                              disabled={
+                                                isHnr ||
+                                                processingShipmentPaymentId ===
+                                                  shipment.id
+                                              }
+                                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-100"
+                                            >
+                                              {processingShipmentPaymentId ===
+                                              shipment.id ? (
+                                                <>
+                                                  <Loader2
+                                                    size={14}
+                                                    className="animate-spin"
+                                                  />
+                                                  Memproses...
+                                                </>
+                                              ) : (
+                                                "Pembayaran"
+                                              )}
+                                            </button>
+                                          )}
 
                                           {Number(
                                             summary?.penalty_days ??
@@ -2228,33 +2634,100 @@ export default function PengirimanManualPage({
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">
-                                <p className="text-sm font-semibold text-[#20366f]">
-                                  {formatDate(
-                                    shipmentPaymentSummaryMap.get(
-                                      shipment.id,
-                                    )?.due_date,
-                                  )}
-                                </p>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    isCustomer ||
+                                    isHnr ||
+                                    updatingDueDateShipmentId ===
+                                      shipment.id
+                                  }
+                                  onClick={() =>
+                                    openDueDatePicker(
+                                      shipment,
+                                    )
+                                  }
+                                  className="text-sm font-semibold text-[#20366f] transition hover:text-[#1457ff] disabled:cursor-not-allowed disabled:text-[#9aa4bb]"
+                                >
+                                  {updatingDueDateShipmentId ===
+                                  shipment.id
+                                    ? "Menyimpan..."
+                                    : shipment.due_date
+                                      ? formatDate(
+                                          shipment.due_date,
+                                        )
+                                      : "Pilih tanggal"}
+                                </button>
                               </td>
 
                               <td className="px-6 py-6 text-center align-top">
                                 <div className="relative inline-block w-[170px]">
-                                  <select
-                                    value={
-                                      shippingStatusOverrides[
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      if (
+                                        isHnr ||
+                                        isCustomer ||
+                                        getShippingStatusValue(
+                                          shippingStatusOverrides[
+                                            shipment.id
+                                          ] ??
+                                            shipment.shipping_status,
+                                        ) ===
+                                          "Dalam proses pick up"
+                                      ) {
+                                        return;
+                                      }
+
+                                      if (
+                                        openShipmentStatusId ===
                                         shipment.id
-                                      ] ??
-                                      getShippingStatusValue(
-                                        shipment.shipping_status,
-                                      )
-                                    }
-                                    onChange={(event) =>
-                                      handleShippingStatusChange(
-                                        shipment,
-                                        event.target.value as ManualShipment["shipping_status"],
-                                      )
-                                    }
+                                      ) {
+                                        setOpenShipmentStatusId(null);
+                                        setShipmentStatusDropdownPosition(null);
+                                        return;
+                                      }
+
+                                      const rect =
+                                        event.currentTarget.getBoundingClientRect();
+                                      const menuWidth = 170;
+                                      const menuHeight = 104;
+                                      const gap = 8;
+                                      const horizontalPadding = 8;
+                                      const centeredLeft =
+                                        rect.left +
+                                        rect.width / 2 -
+                                        menuWidth / 2;
+                                      const left = Math.min(
+                                        Math.max(
+                                          centeredLeft,
+                                          horizontalPadding,
+                                        ),
+                                        window.innerWidth -
+                                          menuWidth -
+                                          horizontalPadding,
+                                      );
+                                      const hasSpaceBelow =
+                                        rect.bottom +
+                                          gap +
+                                          menuHeight <=
+                                        window.innerHeight -
+                                          horizontalPadding;
+
+                                      setOpenShipmentStatusId(
+                                        shipment.id,
+                                      );
+                                      setShipmentStatusDropdownPosition({
+                                        top: hasSpaceBelow
+                                          ? rect.bottom + gap
+                                          : rect.top -
+                                            gap -
+                                            menuHeight,
+                                        left,
+                                      });
+                                    }}
                                     disabled={
+                                      isHnr ||
                                       isCustomer ||
                                       getShippingStatusValue(
                                         shippingStatusOverrides[
@@ -2264,14 +2737,8 @@ export default function PengirimanManualPage({
                                       ) ===
                                         "Dalam proses pick up"
                                     }
-                                    style={{
-                                      appearance: "none",
-                                      WebkitAppearance: "none",
-                                      MozAppearance: "none",
-                                      paddingRight: "44px",
-                                    }}
                                     className={[
-                                      "h-10 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10",
+                                      "inline-flex h-10 w-[170px] items-center justify-between gap-2 rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10",
                                       getShippingStatusValue(
                                         shippingStatusOverrides[
                                           shipment.id
@@ -2280,23 +2747,111 @@ export default function PengirimanManualPage({
                                       ) ===
                                         "Dalam proses pick up"
                                         ? "cursor-not-allowed bg-[#f5f6fa] text-[#9aa4bb]"
-                                        : "",
+                                        : "cursor-pointer",
                                     ].join(" ")}
                                   >
-                                    <option value="Sedang dikemas">
-                                      Sudah di packing
-                                    </option>
-                                    <option value="Dalam proses pick up">
-                                      Sudah di pick up
-                                    </option>
-                                  </select>
+                                    <span className="truncate">
+                                      {getShippingStatusValue(
+                                        shippingStatusOverrides[
+                                          shipment.id
+                                        ] ??
+                                          shipment.shipping_status,
+                                      ) ===
+                                        "Dalam proses pick up"
+                                        ? "Sudah di pick up"
+                                        : "Sudah di packing"}
+                                    </span>
 
-                                  <ChevronDown
-                                    className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[#536795]"
-                                    style={{
-                                      right: "20px",
-                                    }}
-                                  />
+                                    <ChevronDown
+                                      className={[
+                                        "shrink-0 text-[#536795] transition-transform",
+                                        openShipmentStatusId === shipment.id
+                                          ? "rotate-180"
+                                          : "",
+                                      ].join(" ")}
+                                      size={16}
+                                    />
+                                  </button>
+
+                                  {openShipmentStatusId ===
+                                    shipment.id &&
+                                    shipmentStatusDropdownPosition &&
+                                    createPortal(
+                                      <div
+                                        className="fixed z-[9999] w-[170px] overflow-hidden rounded-xl border border-[#d9e0ef] bg-white p-2 text-left shadow-xl"
+                                        style={{
+                                          top:
+                                            shipmentStatusDropdownPosition.top,
+                                          left:
+                                            shipmentStatusDropdownPosition.left,
+                                        }}
+                                        onClick={(event) =>
+                                          event.stopPropagation()
+                                        }
+                                      >
+                                        {(
+                                          [
+                                            "Sedang dikemas",
+                                            "Dalam proses pick up",
+                                          ] as ManualShipment["shipping_status"][]
+                                        ).map((status) => {
+                                          const selected =
+                                            getShippingStatusValue(
+                                              shippingStatusOverrides[
+                                                shipment.id
+                                              ] ??
+                                                shipment.shipping_status,
+                                            ) === status;
+
+                                          return (
+                                            <button
+                                              key={status}
+                                              type="button"
+                                              onClick={() => {
+                                                setOpenShipmentStatusId(null);
+                                                setShipmentStatusDropdownPosition(
+                                                  null,
+                                                );
+
+                                                void handleShippingStatusChange(
+                                                  shipment,
+                                                  status,
+                                                );
+                                              }}
+                                              className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-[#20366f] transition hover:bg-[#f7f9ff]"
+                                            >
+                                              <span>
+                                                {status === "Sedang dikemas"
+                                                  ? "Sudah di packing"
+                                                  : "Sudah di pick up"}
+                                              </span>
+
+                                              {selected && (
+                                                <Check
+                                                  size={16}
+                                                  className="shrink-0 text-[#1457ff]"
+                                                />
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>,
+                                      document.body,
+                                    )}
+
+                                  {getShippingStatusValue(
+                                    shippingStatusOverrides[
+                                      shipment.id
+                                    ] ??
+                                      shipment.shipping_status,
+                                  ) ===
+                                    "Dalam proses pick up" && (
+                                    <p className="mt-1 text-xs text-[#7a89ad]">
+                                      {formatPickupDate(
+                                        shipment.updated_at,
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
                               </td>
 
@@ -2316,6 +2871,7 @@ export default function PengirimanManualPage({
                                     {selectedBatch.status !== "Selesai" && (
                                       <button
                                         type="button"
+                                        disabled={isHnr}
                                         onClick={() =>
                                           openEditShipment(
                                             shipment,
@@ -2332,6 +2888,7 @@ export default function PengirimanManualPage({
                                     {selectedBatch.status !== "Selesai" && (
                                       <button
                                         type="button"
+                                        disabled={isHnr}
                                         onClick={() =>
                                           openDeleteShipment(
                                             shipment,
@@ -2346,9 +2903,10 @@ export default function PengirimanManualPage({
                                     )}
                                   </div>
                                 )}
-                              </td>
-                            </tr>
-                          ),
+                                </td>
+                              </tr>
+                            );
+                          },
                         )}
                     </tbody>
                   </table>
@@ -2499,6 +3057,219 @@ export default function PengirimanManualPage({
           isCustomer
         }
       />
+
+      {editingDueDateShipment && (
+        <div
+          className="fixed inset-0 z-[2147483647] flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
+          onMouseDown={() =>
+            closeDueDatePicker()
+          }
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="manual-shipment-due-date-picker-title"
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white shadow-2xl"
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3
+                  id="manual-shipment-due-date-picker-title"
+                  className="text-base font-semibold text-slate-800"
+                >
+                  Pilih Tanggal Jatuh Tempo
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Pilih tanggal jatuh tempo pembayaran.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDueDatePicker}
+                disabled={
+                  Boolean(
+                    updatingDueDateShipmentId,
+                  )
+                }
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Tutup kalender"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="mb-5 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeCalendarMonth(-1)
+                  }
+                  disabled={
+                    Boolean(
+                      updatingDueDateShipmentId,
+                    )
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Bulan sebelumnya"
+                >
+                  <ChevronLeft size={19} />
+                </button>
+
+                <p className="text-base font-semibold capitalize text-slate-800">
+                  {MONTH_NAMES[
+                    calendarMonth.getMonth()
+                  ]}{" "}
+                  {calendarMonth.getFullYear()}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeCalendarMonth(1)
+                  }
+                  disabled={
+                    Boolean(
+                      updatingDueDateShipmentId,
+                    )
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Bulan berikutnya"
+                >
+                  <ChevronRight size={19} />
+                </button>
+              </div>
+
+              <div className="mb-2 grid grid-cols-7 gap-1">
+                {DAY_NAMES.map(
+                  (day) => (
+                    <div
+                      key={day}
+                      className="flex h-9 items-center justify-center text-xs font-medium text-slate-400"
+                    >
+                      {day}
+                    </div>
+                  ),
+                )}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({
+                  length: getFirstDayOfMonth(
+                    calendarMonth.getFullYear(),
+                    calendarMonth.getMonth(),
+                  ),
+                }).map(
+                  (_, index) => (
+                    <div
+                      key={`empty-${index}`}
+                      className="h-11"
+                    />
+                  ),
+                )}
+
+                {Array.from({
+                  length: getDaysInMonth(
+                    calendarMonth.getFullYear(),
+                    calendarMonth.getMonth(),
+                  ),
+                }).map(
+                  (_, index) => {
+                    const day =
+                      index + 1;
+
+                    const date =
+                      new Date(
+                        calendarMonth.getFullYear(),
+                        calendarMonth.getMonth(),
+                        day,
+                      );
+
+                    const dateString =
+                      toDateString(
+                        date,
+                      );
+
+                    const isBeforeMinimum =
+                      dateString <
+                      getTodayDate();
+
+                    const isSelected =
+                      temporaryDueDate ===
+                      dateString;
+
+                    return (
+                      <button
+                        key={dateString}
+                        type="button"
+                        disabled={
+                          isBeforeMinimum ||
+                          Boolean(
+                            updatingDueDateShipmentId,
+                          )
+                        }
+                        onClick={() =>
+                          handleSelectDueDate(
+                            dateString,
+                          )
+                        }
+                        className={[
+                          "flex h-11 w-full items-center justify-center rounded-xl text-sm transition",
+                          isBeforeMinimum
+                            ? "cursor-not-allowed text-slate-300"
+                            : "text-slate-700 hover:bg-blue-50",
+                          isSelected
+                            ? "bg-[#1457ff] font-semibold text-white hover:bg-[#1457ff]"
+                            : "",
+                        ].join(" ")}
+                      >
+                        {day}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeDueDatePicker}
+                disabled={
+                  Boolean(
+                    updatingDueDateShipmentId,
+                  )
+                }
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void handleDueDateSave()
+                }
+                disabled={
+                  !temporaryDueDate ||
+                  Boolean(
+                    updatingDueDateShipmentId,
+                  )
+                }
+                className="flex-1 rounded-xl bg-[#1457ff] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {updatingDueDateShipmentId
+                  ? "Menyimpan..."
+                  : "Pilih"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

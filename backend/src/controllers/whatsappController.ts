@@ -1,5 +1,11 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
+import {
+  calculateCurrentPaymentAmount,
+  createPayment,
+  generatePaymentLink,
+  getManualShipmentPaymentSummary,
+} from "../services/paymentService.js";
 import { sendWhatsApp } from "../services/whatsappService.js";
 
 /* =========================================
@@ -81,10 +87,16 @@ export async function sendWhatsAppHandler(
   req: Request,
   res: Response,
 ) {
+  let sendSucceeded = false;
+  let activePaymentId = "";
+
   try {
     const {
       target,
       payment_id,
+      recap_id,
+      manual_shipment_id,
+      payment_type,
     } = req.body;
 
     if (!target) {
@@ -95,54 +107,162 @@ export async function sendWhatsAppHandler(
       });
     }
 
-    if (
-      typeof payment_id !== "string" ||
-      !payment_id.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "ID pembayaran wajib diisi.",
-      });
+    /* -------------------------------------
+       Payment ID aktif
+    ------------------------------------- */
+
+    activePaymentId =
+      typeof payment_id === "string"
+        ? payment_id.trim()
+        : "";
+
+    type WhatsAppPayment = {
+      id: string;
+      recap_id: string | null;
+      manual_shipment_id: string | null;
+      payment_type: string;
+      amount: number | null;
+      penalty_amount?: number | null;
+      payment_url: string | null;
+    };
+
+    let payment: WhatsAppPayment | null =
+      null;
+
+    /* -------------------------------------
+       Get payment jika ID tersedia
+    ------------------------------------- */
+
+    if (activePaymentId) {
+      const {
+        data: existingPayment,
+        error: paymentError,
+      } = await supabase
+        .from("payments")
+        .select(`
+          id,
+          recap_id,
+          manual_shipment_id,
+          payment_type,
+          amount,
+          payment_url
+        `)
+        .eq(
+          "id",
+          activePaymentId,
+        )
+        .maybeSingle();
+
+      if (paymentError) {
+        throw new Error(
+          `Gagal mengambil data pembayaran: ${paymentError.message}`,
+        );
+      }
+
+      if (existingPayment) {
+        payment =
+          existingPayment as WhatsAppPayment;
+      }
     }
 
     /* -------------------------------------
-       Get payment
+       Payment tidak ditemukan
+       → buat / ambil payment baru
     ------------------------------------- */
 
-    const {
-      data: payment,
-      error: paymentError,
-    } = await supabase
-      .from("payments")
-      .select(`
-        id,
-        recap_id,
-        manual_shipment_id,
-        payment_type,
-        amount,
-        payment_url
-      `)
-      .eq(
-        "id",
-        payment_id.trim(),
-      )
-      .single();
+    if (!payment) {
+      const normalizedRecapId =
+        typeof recap_id === "string"
+          ? recap_id.trim()
+          : "";
 
-    if (
-      paymentError ||
-      !payment
-    ) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Data pembayaran tidak ditemukan.",
-      });
+      const normalizedManualShipmentId =
+        typeof manual_shipment_id === "string"
+          ? manual_shipment_id.trim()
+          : "";
+
+      const normalizedPaymentType =
+        typeof payment_type === "string"
+          ? payment_type.trim().toUpperCase()
+          : "";
+
+      if (
+        normalizedPaymentType !== "DP" &&
+        normalizedPaymentType !== "PELUNASAN"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Tipe pembayaran wajib diisi dan harus DP atau PELUNASAN.",
+        });
+      }
+
+      if (
+        normalizedRecapId &&
+        normalizedManualShipmentId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "ID rekapan dan ID manual shipment tidak boleh diisi bersamaan.",
+        });
+      }
+
+      if (
+        !normalizedRecapId &&
+        !normalizedManualShipmentId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Data pembayaran tidak ditemukan. ID rekapan atau ID manual shipment wajib diisi untuk membuat pembayaran baru.",
+        });
+      }
+
+      const createdPayment =
+        await createPayment({
+          ...(normalizedRecapId
+            ? {
+                recap_id:
+                  normalizedRecapId,
+              }
+            : {}),
+          ...(normalizedManualShipmentId
+            ? {
+                manual_shipment_id:
+                  normalizedManualShipmentId,
+              }
+            : {}),
+          payment_type:
+            normalizedPaymentType as
+              "DP" | "PELUNASAN",
+        });
+
+      payment =
+        createdPayment as WhatsAppPayment;
+
+      activePaymentId =
+        createdPayment.id;
     }
 
     /* -------------------------------------
-       Validate payment link
+       Generate payment link untuk payment baru
+       / payment yang belum memiliki link
     ------------------------------------- */
+
+    if (!payment.payment_url) {
+      const generatedPayment =
+        await generatePaymentLink(
+          payment.id,
+        );
+
+      payment =
+        generatedPayment.payment as
+          WhatsAppPayment;
+
+      activePaymentId =
+        generatedPayment.payment.id;
+    }
 
     if (!payment.payment_url) {
       return res.status(400).json({
@@ -509,6 +629,46 @@ export async function sendWhatsAppHandler(
         paymentAmount,
       );
 
+    let paymentPenalty =
+      Number(
+        payment.penalty_amount ?? 0,
+      );
+
+    /* -------------------------------------
+       Payment Penalty
+
+       penalty_amount bukan kolom database.
+       Untuk payment existing, hitung ulang
+       dari sumber pembayaran.
+    ------------------------------------- */
+
+    if (payment.recap_id) {
+      const penaltyResult =
+        await calculateCurrentPaymentAmount(
+          payment.recap_id,
+          payment.payment_type as
+            "DP" | "PELUNASAN",
+        );
+
+      paymentPenalty =
+        penaltyResult.penaltyAmount;
+    } else if (
+      payment.manual_shipment_id
+    ) {
+      const manualPaymentSummary =
+        await getManualShipmentPaymentSummary(
+          payment.manual_shipment_id,
+        );
+
+      paymentPenalty =
+        manualPaymentSummary.penalty_amount;
+    }
+
+    const formattedPenalty =
+      formatRupiah(
+        paymentPenalty,
+      );
+
     /* -------------------------------------
        Payment Due Date
     ------------------------------------- */
@@ -530,7 +690,8 @@ export async function sendWhatsAppHandler(
       `🏷️ Batch: ${batchName}`,
       `🌏 Negara: ${countryName}`,
       `💰 Jenis Pembayaran: ${paymentLabel}`,
-      `💰 Total Pembayaran: ${formattedAmount}`,
+      `💰 Jumlah Denda: ${formattedPenalty}`,
+      `💰 Total yang Harus Dibayar: ${formattedAmount}`,
       `📅 Maksimal Pembayaran: ${formattedDueDate}`,
       "",
       "Silakan lakukan pembayaran melalui link berikut:",
@@ -542,6 +703,171 @@ export async function sendWhatsAppHandler(
     ].join("\n");
 
     /* -------------------------------------
+       CHECK WHATSAPP SEND STATUS
+    ------------------------------------- */
+
+    const notificationType =
+      "RECAP_PAYMENT";
+
+    const {
+      data: existingNotificationLog,
+      error: notificationLogError,
+    } = await supabase
+      .from("notification_logs")
+      .select(`
+        id,
+        status,
+        attempt_count
+      `)
+      .eq(
+        "payment_id",
+        payment.id,
+      )
+      .eq(
+        "notification_type",
+        notificationType,
+      )
+      .maybeSingle();
+
+    if (notificationLogError) {
+      throw new Error(
+        `Gagal mengecek status pengiriman WhatsApp: ${notificationLogError.message}`,
+      );
+    }
+
+    if (
+      existingNotificationLog?.status ===
+      "sent"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "WhatsApp untuk Payment Link ini sudah dikirim.",
+      });
+    }
+
+    if (
+      existingNotificationLog?.status ===
+      "scheduled"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Pengiriman WhatsApp untuk Payment Link ini sedang diproses.",
+      });
+    }
+
+    /* -------------------------------------
+       CREATE / PREPARE NOTIFICATION LOG
+    ------------------------------------- */
+
+    const memberId =
+      payment.recap_id
+        ? (
+            await supabase
+              .from("recaps")
+              .select("member_id")
+              .eq(
+                "id",
+                payment.recap_id,
+              )
+              .single()
+          ).data?.member_id ??
+          null
+        : payment.manual_shipment_id
+          ? (
+              await supabase
+                .from("manual_shipments")
+                .select("member_id")
+                .eq(
+                  "id",
+                  payment.manual_shipment_id,
+                )
+                .single()
+            ).data?.member_id ??
+            null
+          : null;
+
+    if (!memberId) {
+      throw new Error(
+        "Member pembayaran tidak ditemukan.",
+      );
+    }
+
+    const attemptCount =
+      Number(
+        existingNotificationLog?.attempt_count ??
+          0,
+      ) + 1;
+
+    let notificationLogId =
+      existingNotificationLog?.id ??
+      null;
+
+    if (existingNotificationLog) {
+      const {
+        error: updateNotificationLogError,
+      } = await supabase
+        .from("notification_logs")
+        .update({
+          status: "scheduled",
+          attempt_count:
+            attemptCount,
+          last_attempt_at:
+            new Date().toISOString(),
+          error_message: null,
+          skip_reason: null,
+        })
+        .eq(
+          "id",
+          existingNotificationLog.id,
+        );
+
+      if (updateNotificationLogError) {
+        throw new Error(
+          `Gagal menyiapkan log pengiriman WhatsApp: ${updateNotificationLogError.message}`,
+        );
+      }
+    } else {
+      const {
+        data: newNotificationLog,
+        error: createNotificationLogError,
+      } = await supabase
+        .from("notification_logs")
+        .insert({
+          member_id: memberId,
+          recap_id:
+            payment.recap_id ?? null,
+          payment_id: payment.id,
+          notification_type:
+            notificationType,
+          scheduled_at:
+            new Date().toISOString(),
+          status: "scheduled",
+          attempt_count: 1,
+          last_attempt_at:
+            new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (
+        createNotificationLogError ||
+        !newNotificationLog
+      ) {
+        throw new Error(
+          `Gagal membuat log pengiriman WhatsApp: ${
+            createNotificationLogError?.message ??
+            "Unknown error"
+          }`,
+        );
+      }
+
+      notificationLogId =
+        newNotificationLog.id;
+    }
+
+    /* -------------------------------------
        Send WhatsApp
     ------------------------------------- */
 
@@ -550,6 +876,43 @@ export async function sendWhatsAppHandler(
         target,
         message: finalMessage,
       });
+
+    sendSucceeded = true;
+
+    const providerMessageId =
+      Array.isArray(result?.id) &&
+      result.id.length > 0
+        ? result.id[0]
+        : null;
+
+    /* -------------------------------------
+       MARK AS SENT
+    ------------------------------------- */
+
+    const {
+      error: markSentError,
+    } = await supabase
+      .from("notification_logs")
+      .update({
+        status: "sent",
+        sent_at:
+          new Date().toISOString(),
+        provider_message_id:
+          providerMessageId,
+        error_message: null,
+        last_attempt_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        notificationLogId,
+      );
+
+    if (markSentError) {
+      throw new Error(
+        `WhatsApp berhasil dikirim tetapi status log gagal diperbarui: ${markSentError.message}`,
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -563,6 +926,46 @@ export async function sendWhatsAppHandler(
       error,
     );
 
+    if (!sendSucceeded) {
+      /*
+       * Fonnte gagal / menolak pengiriman.
+       * Tandai failed agar PaymentDialog
+       * tetap boleh melakukan retry.
+       */
+      const paymentId =
+        activePaymentId ||
+        (typeof req.body?.payment_id ===
+        "string"
+          ? req.body.payment_id.trim()
+          : "");
+
+      if (paymentId) {
+        await supabase
+          .from("notification_logs")
+          .update({
+            status: "failed",
+            error_message:
+              error instanceof Error
+                ? error.message
+                : "Gagal mengirim WhatsApp.",
+            last_attempt_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "payment_id",
+            paymentId,
+          )
+          .eq(
+            "notification_type",
+            "RECAP_PAYMENT",
+          )
+          .in("status", [
+            "scheduled",
+            "failed",
+          ]);
+      }
+    }
+
     return res.status(500).json({
       success: false,
       message:
@@ -572,3 +975,85 @@ export async function sendWhatsAppHandler(
     });
   }
 }
+
+/* =========================================
+   GET WHATSAPP PAYMENT STATUS
+========================================= */
+
+export async function getWhatsAppPaymentStatusHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const paymentId =
+      typeof req.params.payment_id ===
+      "string"
+        ? req.params.payment_id.trim()
+        : "";
+
+    if (!paymentId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pembayaran wajib diisi.",
+      });
+    }
+
+    const {
+      data: notificationLog,
+      error,
+    } = await supabase
+      .from("notification_logs")
+      .select(`
+        status,
+        sent_at,
+        error_message
+      `)
+      .eq(
+        "payment_id",
+        paymentId,
+      )
+      .eq(
+        "notification_type",
+        "RECAP_PAYMENT",
+      )
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          `Gagal mengambil status WhatsApp: ${error.message}`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        status:
+          notificationLog?.status ??
+          null,
+        sent_at:
+          notificationLog?.sent_at ??
+          null,
+        error_message:
+          notificationLog?.error_message ??
+          null,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "GET WHATSAPP STATUS ERROR:",
+      error,
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil status WhatsApp.",
+    });
+  }
+}
+

@@ -17,29 +17,50 @@ function buildApiUrl(path: string): string {
 
 export type CustomerPayment = {
   amount: number;
+
   status: string;
+
   paid_at: string | null;
+
   due_date: string | null;
+
   penalty_days: number;
+
   penalty_amount: number;
 };
 
 export type CustomerRecap = {
   id: string;
+
   country: string | null;
+
   batch_name: string | null;
+
   product_image: string | null;
+
   detail_barang: string;
+
   qty: number;
+
   total_harga: number;
+
   sudah_co: boolean;
+
+  member_type:
+    | "customer"
+    | "employee"
+    | "hnr";
+
   down_payment: CustomerPayment;
+
   pelunasan: CustomerPayment;
 };
 
 export type CustomerRecapsResponse = {
   success: boolean;
+
   message: string;
+
   data: {
     recaps: CustomerRecap[];
   };
@@ -70,9 +91,11 @@ export async function getCustomerRecaps(): Promise<
       ),
       {
         method: "GET",
+
         headers: {
           Authorization:
             `Bearer ${token}`,
+
           "Content-Type":
             "application/json",
         },
@@ -84,6 +107,7 @@ export async function getCustomerRecaps(): Promise<
       | CustomerRecapsResponse
       | {
           success: false;
+
           message: string;
         };
 

@@ -328,45 +328,74 @@ function getEndOfDayJakarta(
  *
  * RULE:
  *
- * 1. Jika hari ini belum melewati
- *    tanggal jatuh tempo:
+ * 1. Generate pertama:
+ *    - jika due date belum lewat,
+ *      expiry = due date 23:59:59 WIB.
+ *    - jika due date sudah lewat,
+ *      expiry = besok 23:59:59 WIB.
  *
- *    expiry = tanggal jatuh tempo
- *             23:59:59 WIB
+ * 2. Renewal setelah link lama expired:
+ *    expiry = hari ini 23:59:59 WIB.
  *
- * 2. Jika hari ini sudah melewati
- *    tanggal jatuh tempo:
- *
- *    expiry = hari ini
- *             23:59:59 WIB
- *
- * Dengan aturan ini:
- *
- * Sebelum jatuh tempo:
- * link berlaku sampai due date.
- *
- * Setelah jatuh tempo:
- * setiap link baru hanya berlaku
- * sampai hari itu saja.
+ * Payment Link yang masih aktif
+ * tidak boleh di-renew. Logic pengecekan
+ * link aktif dilakukan di generatePaymentLink().
  */
 function getPaymentLinkExpiry(
-  hasPenalty: boolean,
+  dueDate: string | null,
+  isRenewal: boolean,
 ): Date {
-  const expiresAt = new Date();
-  const durationDays = hasPenalty ? 1 : 7;
+  const today =
+    getTodayDateOnly();
+
+  /* -------------------------------------
+     Renewal setelah link lama expired
+  ------------------------------------- */
+  if (isRenewal) {
+    return getEndOfDayJakarta(
+      today,
+    );
+  }
+
+  /* -------------------------------------
+     Tidak ada due date
+  ------------------------------------- */
+  if (!dueDate) {
+    return getEndOfDayJakarta(
+      today,
+    );
+  }
+
+  const dueDateObject =
+    parseDateOnly(
+      dueDate,
+    );
+
+  /* -------------------------------------
+     Due date belum lewat
+  ------------------------------------- */
+  if (
+    today <=
+    dueDateObject
+  ) {
+    return getEndOfDayJakarta(
+      dueDateObject,
+    );
+  }
+
+  /* -------------------------------------
+     Due date sudah lewat
+  ------------------------------------- */
+  const expiresAt =
+    new Date(today);
 
   expiresAt.setDate(
-    expiresAt.getDate() + durationDays,
+    expiresAt.getDate() + 1,
   );
 
-  expiresAt.setHours(
-    23,
-    59,
-    59,
-    999,
+  return getEndOfDayJakarta(
+    expiresAt,
   );
-
-  return expiresAt;
 }
 /**
  * Menghitung selisih hari.
@@ -2490,7 +2519,6 @@ export async function generatePaymentLink(
       dueDate,
       permission: null,
     };
-
   } else {
     throw new Error(
       "Payment tidak memiliki sumber pembayaran yang valid.",
@@ -2498,17 +2526,63 @@ export async function generatePaymentLink(
   }
 
   /* -------------------------------------
-     Update amount if needed
+     Determine current time
+  ------------------------------------- */
+
+  const now =
+    new Date();
+
+  /* -------------------------------------
+     Check existing Midtrans link
+  ------------------------------------- */
+
+  const hasExistingMidtransLink =
+    payment.provider ===
+      "midtrans" &&
+    Boolean(
+      payment.provider_order_id,
+    );
+
+  const existingLinkExpiresAt =
+    payment.expires_at
+      ? new Date(
+          payment.expires_at,
+        )
+      : null;
+
+  const oldPaymentLinkExpired =
+    hasExistingMidtransLink &&
+    (
+      !existingLinkExpiresAt ||
+      Number.isNaN(
+        existingLinkExpiresAt.getTime(),
+      ) ||
+      existingLinkExpiresAt.getTime() <=
+        now.getTime()
+    );
+
+  /* -------------------------------------
+     Prepare payment data
   ------------------------------------- */
 
   let paymentData =
     payment;
 
+  /*
+   * Jangan ubah nominal payment lama
+   * jika link Midtrans-nya sudah expired.
+   *
+   * Payment lama harus tetap menjadi
+   * history dengan nominal aslinya.
+   */
   const amountChanged =
     Number(payment.amount) !==
     currentAmount;
 
-  if (amountChanged) {
+  if (
+    amountChanged &&
+    !oldPaymentLinkExpired
+  ) {
     const {
       data,
       error,
@@ -2546,17 +2620,15 @@ export async function generatePaymentLink(
 
   const expiresAt =
     getPaymentLinkExpiry(
-      penalty.penaltyAmount > 0,
+      penalty.dueDate,
+      oldPaymentLinkExpired,
     );
-
-  const now =
-    new Date();
 
   /* -------------------------------------
      Reuse existing active link
   ------------------------------------- */
 
-  const existingLinkExpiresAt =
+  const paymentDataExpiresAt =
     paymentData.expires_at
       ? new Date(
           paymentData.expires_at,
@@ -2564,12 +2636,12 @@ export async function generatePaymentLink(
       : null;
 
   const hasValidExistingExpiry =
-    existingLinkExpiresAt !==
+    paymentDataExpiresAt !==
       null &&
     !Number.isNaN(
-      existingLinkExpiresAt.getTime(),
+      paymentDataExpiresAt.getTime(),
     ) &&
-    existingLinkExpiresAt.getTime() >
+    paymentDataExpiresAt.getTime() >
       now.getTime();
 
   const hasReusableLink =
@@ -2607,17 +2679,111 @@ export async function generatePaymentLink(
   }
 
   /* -------------------------------------
+     Create new payment if old link expired
+  ------------------------------------- */
+
+  if (oldPaymentLinkExpired) {
+    /* -------------------------------------
+       Mark payment lama as expired
+
+       Payment lama tetap disimpan sebagai
+       history, tetapi statusnya harus berubah
+       dari pending menjadi expired sebelum
+       payment baru dibuat.
+
+       Ini diperlukan karena database memiliki
+       unique constraint untuk payment aktif.
+    ------------------------------------- */
+
+    if (payment.status === "pending") {
+      const {
+        error: expireOldPaymentError,
+      } = await supabase
+        .from("payments")
+        .update({
+          status:
+            "expired",
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          payment.id,
+        )
+        .eq(
+          "status",
+          "pending",
+        );
+
+      if (expireOldPaymentError) {
+        throw new Error(
+          `Gagal menandai pembayaran lama sebagai expired: ${
+            expireOldPaymentError.message
+          }`,
+        );
+      }
+    }
+
+    const {
+      data: newPayment,
+      error: newPaymentError,
+    } = await supabase
+      .from("payments")
+      .insert({
+        recap_id:
+          paymentData.recap_id ??
+          null,
+
+        manual_shipment_id:
+          paymentData.manual_shipment_id ??
+          null,
+
+        payment_type:
+          paymentData.payment_type,
+
+        amount:
+          currentAmount,
+
+        status:
+          "pending",
+
+        provider:
+          "simulation",
+      })
+      .select("*")
+      .single();
+
+    if (
+      newPaymentError ||
+      !newPayment
+    ) {
+      throw new Error(
+        `Gagal membuat pembayaran baru: ${
+          newPaymentError?.message ??
+          "Unknown error"
+        }`,
+      );
+    }
+
+    paymentData =
+      newPayment as Payment;
+  }
+
+  /* -------------------------------------
      Disable old active link if necessary
   ------------------------------------- */
 
-  const hasExistingMidtransLink =
+  const currentPaymentHasExistingMidtransLink =
     paymentData.provider ===
       "midtrans" &&
     Boolean(
       paymentData.provider_order_id,
     );
 
-  if (hasExistingMidtransLink) {
+  if (
+    currentPaymentHasExistingMidtransLink
+  ) {
     const oldExpiresAt =
       paymentData.expires_at
         ? new Date(
@@ -2789,7 +2955,7 @@ export async function generatePaymentLink(
       amount:
         currentAmount,
       paymentType:
-        payment.payment_type,
+        paymentData.payment_type,
       expiresAt,
       customer: {
         name: buyerName,

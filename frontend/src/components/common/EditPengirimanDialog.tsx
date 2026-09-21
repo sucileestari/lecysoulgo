@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -24,8 +24,6 @@ type FormState = {
   recap_ids: string[];
   address: string;
   expedition: ManualShipmentExpedition | "";
-  packing_price: string;
-  shipping_price: string;
 };
 
 const EXPEDITIONS: ManualShipmentExpedition[] = [
@@ -59,13 +57,6 @@ function getShippingStatusValue(value: string): string {
   return "Sedang dikemas";
 }
 
-function currency(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(value || 0);
-}
 
 export default function EditPengirimanDialog({
   open,
@@ -80,6 +71,12 @@ export default function EditPengirimanDialog({
   const [memberOpen, setMemberOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [expeditionOpen, setExpeditionOpen] = useState(false);
+  const [expeditionDropdownPosition, setExpeditionDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const expeditionButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open || !shipment) return;
@@ -89,8 +86,6 @@ export default function EditPengirimanDialog({
       recap_ids: shipment.items?.map((item) => item.recap_id) ?? [],
       address: shipment.address ?? "",
       expedition: shipment.expedition ?? "",
-      packing_price: String(shipment.packing_price ?? 0),
-      shipping_price: String(shipment.shipping_price ?? 0),
     });
     setError("");
     setMemberOpen(false);
@@ -116,8 +111,6 @@ export default function EditPengirimanDialog({
         recap_ids: form.recap_ids,
         address: form.address.trim(),
         expedition: form.expedition as ManualShipmentExpedition,
-        packing_price: Number(form.packing_price || "0"),
-        shipping_price: Number(form.shipping_price || "0"),
       });
     },
     onSuccess: async (updated) => {
@@ -154,15 +147,51 @@ export default function EditPengirimanDialog({
       .filter((item): item is (typeof allItems)[number] => Boolean(item));
   }, [allItems, form]);
 
+  useEffect(() => {
+    if (!expeditionOpen) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const button = expeditionButtonRef.current;
+
+      if (!button) {
+        return;
+      }
+
+      const rect = button.getBoundingClientRect();
+      const menuHeight = EXPEDITIONS.length * 48 + 16;
+      const gap = 8;
+      const viewportPadding = 12;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const shouldOpenAbove =
+        availableBelow < menuHeight && availableAbove > availableBelow;
+
+      setExpeditionDropdownPosition({
+        top: shouldOpenAbove
+          ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+          : rect.bottom + gap,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [expeditionOpen]);
+
   if (!open || !shipment || !form) return null;
 
   const isPickup =
     getShippingStatusValue(shipment.shipping_status) ===
     "Dalam proses pick up";
-  const total =
-    Number(form.packing_price || "0") +
-    Number(form.shipping_price || "0");
-
   function toggleItem(id: string) {
     setForm((current) => {
       if (!current) return current;
@@ -174,6 +203,39 @@ export default function EditPengirimanDialog({
       };
     });
     setError("");
+  }
+
+  function openExpeditionDropdown() {
+    const button = expeditionButtonRef.current;
+
+    if (!button || mutation.isPending) {
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const menuHeight = EXPEDITIONS.length * 48 + 16;
+    const gap = 8;
+    const viewportPadding = 12;
+    const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const availableAbove = rect.top - viewportPadding;
+    const shouldOpenAbove =
+      availableBelow < menuHeight && availableAbove > availableBelow;
+
+    const top = shouldOpenAbove
+      ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+      : rect.bottom + gap;
+
+    setExpeditionDropdownPosition({
+      top,
+      left: rect.left,
+      width: rect.width,
+    });
+    setExpeditionOpen(true);
+  }
+
+  function closeExpeditionDropdown() {
+    setExpeditionOpen(false);
+    setExpeditionDropdownPosition(null);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -415,103 +477,62 @@ export default function EditPengirimanDialog({
               </label>
               <div className="relative z-20">
                 <button
+                  ref={expeditionButtonRef}
                   type="button"
-                  onClick={() => setExpeditionOpen((v) => !v)}
+                  onClick={() =>
+                    expeditionOpen
+                      ? closeExpeditionDropdown()
+                      : openExpeditionDropdown()
+                  }
                   disabled={mutation.isPending}
                   className="flex min-h-12 w-full items-center justify-between rounded-lg border border-[#d9e0ef] bg-white px-4 py-3 text-left text-sm text-[#20366f]"
                 >
                   <span>{form.expedition || "Pilih ekspedisi"}</span>
-                  <ChevronDown size={18} />
+                  <ChevronDown
+                    size={18}
+                    className={[
+                      "transition-transform",
+                      expeditionOpen ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
                 </button>
-                {expeditionOpen && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-xl border border-[#d9e0ef] bg-white p-2 shadow-xl">
-                    {EXPEDITIONS.map((expedition) => (
-                      <button
-                        key={expedition}
-                        type="button"
-                        onClick={() => {
-                          setForm((current) =>
-                            current ? { ...current, expedition } : current,
-                          );
-                          setExpeditionOpen(false);
-                          setError("");
-                        }}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-[#20366f] hover:bg-[#f7f9ff]"
-                      >
-                        {expedition}
-                        {form.expedition === expedition && (
-                          <Check size={16} className="text-[#1457ff]" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-[#405274]">
-                  Harga Packing
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.packing_price}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            packing_price: e.target.value.replace(/[^\d]/g, ""),
-                          }
-                        : current,
-                    )
-                  }
-                  disabled={mutation.isPending || isCustomer}
-                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] disabled:bg-[#f7f9fc]"
-                />
-              </div>
+            {expeditionOpen && expeditionDropdownPosition &&
+              createPortal(
+                <div
+                  className="fixed z-[2147483647] overflow-hidden rounded-xl border border-[#d9e0ef] bg-white p-2 shadow-xl"
+                  style={{
+                    top: expeditionDropdownPosition.top,
+                    left: expeditionDropdownPosition.left,
+                    width: expeditionDropdownPosition.width,
+                  }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  {EXPEDITIONS.map((expedition) => (
+                    <button
+                      key={expedition}
+                      type="button"
+                      onClick={() => {
+                        setForm((current) =>
+                          current ? { ...current, expedition } : current,
+                        );
+                        closeExpeditionDropdown();
+                        setError("");
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-[#20366f] hover:bg-[#f7f9ff]"
+                    >
+                      {expedition}
+                      {form.expedition === expedition && (
+                        <Check size={16} className="text-[#1457ff]" />
+                      )}
+                    </button>
+                  ))}
+                </div>,
+                document.body,
+              )}
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-[#405274]">
-                  Harga Ongkos Kirim
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.shipping_price}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            shipping_price: e.target.value.replace(/[^\d]/g, ""),
-                          }
-                        : current,
-                    )
-                  }
-                  disabled={mutation.isPending || isCustomer}
-                  className="h-12 w-full rounded-lg border border-[#d9e0ef] px-4 text-sm text-[#20366f] disabled:bg-[#f7f9fc]"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-[#d9e0ef] bg-[#f8faff] px-5 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-[#5d6f9f]">Total Bayar</p>
-                  <p className="mt-1 text-xs text-[#8b97b0]">
-                    Harga Packing + Harga Ongkos Kirim
-                  </p>
-                </div>
-                <p className="text-lg font-bold text-[#1457ff]">
-                  {currency(total)}
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="flex shrink-0 justify-end gap-3 border-t border-[#e5eaf4] px-6 py-4">

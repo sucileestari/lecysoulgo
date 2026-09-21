@@ -6,7 +6,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import DeleteMemberDialog from "../components/common/DeleteMemberDialog";
 import EditMemberDialog from "../components/common/EditMemberDialog";
@@ -18,6 +18,8 @@ import {
 } from "../services/memberService";
 
 export default function MembersPage() {
+  const queryClient = useQueryClient();
+
   // ==============================
   // State
   // ==============================
@@ -308,10 +310,10 @@ export default function MembersPage() {
                       {/* Tipe Anggota */}
                       <td className="px-6 py-6 text-base text-[#20366f]">
                         {member.type === "employee"
-                        ? "Karyawan"
-                        : member.type === "hnr"
-                        ? "HNR"
-                        : "Customer"}
+                          ? "Karyawan"
+                          : member.type === "hnr"
+                            ? "HNR"
+                            : "Customer"}
                       </td>
 
                       {/* Last Update */}
@@ -324,31 +326,35 @@ export default function MembersPage() {
                       {/* Aksi */}
                       <td className="px-6 py-6 pr-12">
                         <div className="flex items-center justify-center gap-2">
-                          {/* Edit */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleEditMember(member)
-                            }
-                            aria-label={`Edit ${member.name}`}
-                            title="Edit anggota"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
+                          {member.type !== "hnr" && (
+                            <>
+                              {/* Edit */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleEditMember(member)
+                                }
+                                aria-label={`Edit ${member.name}`}
+                                title="Edit anggota"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
 
-                          {/* Delete */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteMember(member)
-                            }
-                            aria-label={`Hapus ${member.name}`}
-                            title="Hapus anggota"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteMember(member)
+                                }
+                                aria-label={`Hapus ${member.name}`}
+                                title="Hapus anggota"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -390,6 +396,30 @@ export default function MembersPage() {
         member={selectedEditMember}
         onClose={handleCloseEditDialog}
         onSuccess={async () => {
+          await queryClient.invalidateQueries({
+            queryKey: ["members"],
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: ["recaps"],
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: [
+              "customer",
+              "recaps",
+              "member-type",
+            ],
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: ["manual-shipment-buyers"],
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: ["manual-shipment-options"],
+          });
+
           await refetch();
         }}
       />

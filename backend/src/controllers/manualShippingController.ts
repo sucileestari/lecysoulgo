@@ -306,8 +306,8 @@ export async function createManualShipmentHandler(
 
     const normalizedDueDate =
       typeof due_date === "string"
-        ? due_date.trim() || null
-        : null;
+        ? due_date.trim()
+        : "";
 
     const input: CreateManualShipmentInput =
       {

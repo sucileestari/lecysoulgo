@@ -54,13 +54,25 @@ import {
   type Member,
 } from "@/services/memberService";
 
+import {
+  CN,
+  ID,
+  JP,
+  KR,
+  TH,
+} from "country-flag-icons/react/3x2";
+
+import type {
+  FlagComponent,
+} from "country-flag-icons/react/3x2";
+
 /* =========================================
    TYPES
 ========================================= */
 
 type CountryConfig = {
   name: string;
-  flag: string;
+  flag: FlagComponent;
 };
 
 type RekapPageProps = {
@@ -85,27 +97,27 @@ const countryConfig: Record<
 > = {
   china: {
     name: "China",
-    flag: "🇨🇳",
+    flag: CN,
   },
 
   indonesia: {
     name: "Indonesia",
-    flag: "🇮🇩",
+    flag: ID,
   },
 
   jepang: {
     name: "Jepang",
-    flag: "🇯🇵",
+    flag: JP,
   },
 
   korea: {
     name: "Korea",
-    flag: "🇰🇷",
+    flag: KR,
   },
 
   thailand: {
     name: "Thailand",
-    flag: "🇹🇭",
+    flag: TH,
   },
 };
 
@@ -131,6 +143,35 @@ function formatDate(
   ) {
     return "—";
   }
+
+  return date.toLocaleDateString(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    },
+  );
+}
+
+function formatMaxTimbun(
+  pelunasanDate: string | null,
+): string {
+  if (!pelunasanDate) {
+    return "-";
+  }
+
+  const date = new Date(
+    `${pelunasanDate}T00:00:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  date.setDate(
+    date.getDate() + 60,
+  );
 
   return date.toLocaleDateString(
     "id-ID",
@@ -1225,9 +1266,10 @@ const handlePaymentSuccess =
 
             <div className="flex items-center gap-3">
 
-              <span className="text-2xl leading-none">
-                {config.flag}
-              </span>
+              <config.flag
+                title={config.name}
+                className="h-7 w-10 shrink-0"
+              />
 
               <h1 className="text-3xl font-bold tracking-tight text-[#10245c]">
                 Rekapan -{" "}
@@ -1831,7 +1873,7 @@ const handlePaymentSuccess =
 
                   {/* Header Batch */}
 
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
                     {/* Image */}
 
@@ -1893,6 +1935,42 @@ const handlePaymentSuccess =
                       </span>
 
                     </div>
+
+                    {/* Actions */}
+
+                    {activeBatch.status !== "Sudah sampai di Admin" && (
+                      <div className="flex shrink-0 items-center justify-end gap-3">
+
+                        <button
+                          type="button"
+                          onClick={
+                            handleEditBatch
+                          }
+                          className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
+                        >
+
+                          <Pencil className="h-4 w-4" />
+
+                          Edit Batch
+
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={
+                            handleAddRecap
+                          }
+                          className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
+                        >
+
+                          <Plus className="h-4 w-4" />
+
+                          Tambah Rekapan
+
+                        </button>
+
+                      </div>
+                    )}
 
                   </div>
 
@@ -1972,41 +2050,6 @@ const handlePaymentSuccess =
 
                   </div>
 
-                  {/* Actions */}
-
-                  {activeBatch.status !== "Sudah sampai di Admin" && (
-                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#edf0f6] pt-6">
-
-                      <button
-                        type="button"
-                        onClick={
-                          handleEditBatch
-                        }
-                        className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
-                      >
-
-                        <Pencil className="h-4 w-4" />
-
-                        Edit Batch
-
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={
-                          handleAddRecap
-                        }
-                        className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
-                      >
-
-                        <Plus className="h-4 w-4" />
-
-                        Tambah Rekapan
-
-                      </button>
-
-                    </div>
-                  )}
 
                 </div>
 
@@ -2103,6 +2146,10 @@ const handlePaymentSuccess =
                           Pelunasan
                         </th>
 
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
+                          Maksimal Timbun
+                        </th>
+
                         <th className="w-[140px] px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Sudah CO?
                         </th>
@@ -2124,7 +2171,7 @@ const handlePaymentSuccess =
                         <tr>
 
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="px-6 py-20 text-center"
                           >
 
@@ -2147,7 +2194,7 @@ const handlePaymentSuccess =
                           <tr>
 
                             <td
-                              colSpan={9}
+                              colSpan={10}
                               className="px-6 py-20 text-center"
                             >
 
@@ -2180,7 +2227,7 @@ const handlePaymentSuccess =
                           <tr>
 
                             <td
-                              colSpan={9}
+                              colSpan={10}
                               className="px-6 py-20 text-center"
                             >
 
@@ -2250,6 +2297,9 @@ const handlePaymentSuccess =
                               dpPaid &&
                               pelunasanPaid;
 
+                            const isHnr =
+                              item.member?.type === "hnr";
+
                             /* =================================
                                PAYMENT LINK PROTECTION
                             ================================== */
@@ -2311,23 +2361,38 @@ const handlePaymentSuccess =
                                 key={
                                   item.id
                                 }
-                                className="border-b border-[#eef1f6] last:border-b-0 hover:bg-[#fbfcff]"
+                                className={[
+                                  "border-b border-[#eef1f6] last:border-b-0",
+                                  isHnr
+                                    ? "bg-gray-50"
+                                    : "hover:bg-[#fbfcff]",
+                                ].join(" ")}
                               >
 
                                 {/* Pembeli */}
 
                                 <td className="px-6 py-6">
 
-                                  <p className="text-base font-medium text-[#20366f]">
+                                  <div className="flex items-center gap-2">
 
-                                    {
-                                      item
-                                        .member
-                                        ?.name ??
-                                      "-"
-                                    }
+                                    <p className="text-base font-medium text-[#20366f]">
 
-                                  </p>
+                                      {
+                                        item
+                                          .member
+                                          ?.name ??
+                                        "-"
+                                      }
+
+                                    </p>
+
+                                    {isHnr && (
+                                      <span className="inline-flex rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                                        HNR
+                                      </span>
+                                    )}
+
+                                  </div>
 
                                   <p className="mt-1 text-sm text-[#7a89ad]">
 
@@ -2717,18 +2782,37 @@ const handlePaymentSuccess =
 
                                 </td>
 
+                                {/* Maksimal Timbun */}
+
+                                <td className="px-6 py-6 text-center text-base text-[#20366f]">
+
+                                  {formatMaxTimbun(
+                                    activeBatch.last_payment_pelunasan,
+                                  )}
+
+                                </td>
+
                                 {/* Sudah CO? */}
 
                                 <td className="px-6 py-6 text-center">
 
                                   {!isFullyPaid ? (
-                                    <span className="text-base text-[#7a89ad]">
-                                      -
+                                    <span className="text-base text-[#20366f]">
+                                      Belum
                                     </span>
                                   ) : item.sudah_co ? (
                                     <span className="text-base font-medium text-[#20366f]">
                                       Sudah
                                     </span>
+                                  ) : isHnr ? (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="rounded-md bg-[#e9eef8] px-3 py-1.5 text-xs font-medium text-[#7a89ad] disabled:cursor-not-allowed"
+                                      title="Member HNR tidak dapat melakukan CO"
+                                    >
+                                      Belum
+                                    </button>
                                   ) : (
                                     <button
                                       type="button"
@@ -2754,7 +2838,17 @@ const handlePaymentSuccess =
 
                                   <div className="flex items-center justify-center">
 
-                                    {!isRecapDeleteDisabled ? (
+                                    {isHnr ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
+                                        title="Member HNR tidak dapat menghapus rekapan"
+                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#9aa5bf] disabled:cursor-not-allowed"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    ) : !isRecapDeleteDisabled ? (
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -2999,6 +3093,9 @@ const handlePaymentSuccess =
           }
           onPaymentSuccess={
             handlePaymentSuccess
+          }
+          batchStatus={
+            activeBatch?.status
           }
         />
 
