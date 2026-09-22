@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ExternalLink,
   MessageCircle,
-  Loader2,
 } from "lucide-react";
 
 import {
@@ -193,7 +192,7 @@ export default function PaymentDialog({
   >(payment);
 
   const [
-    whatsappStatus,
+    ,
     setWhatsappStatus,
   ] = useState<WhatsAppStatus>(null);
 
@@ -229,13 +228,14 @@ export default function PaymentDialog({
     }
 
     let isActive = true;
+    const paymentId = currentPayment.id;
 
     async function loadWhatsAppStatus() {
       try {
         const response =
           await fetch(
             buildApiUrl(
-              `/whatsapp/status/${currentPayment.id}`,
+              `/whatsapp/status/${paymentId}`,
             ),
           );
 

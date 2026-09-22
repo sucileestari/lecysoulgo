@@ -8,7 +8,7 @@ import {
 
 import type {
   MarketplaceOrder,
-} from "../services/marketplaceOrderService";
+} from "../../services/marketplaceOrderService";
 
 export type HapusPesananMarketplaceDialogProps = {
   order: MarketplaceOrder | null;

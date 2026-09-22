@@ -516,24 +516,6 @@ export default function TambahPesananMarketplaceDialog({
   }
 
   /* =========================================
-     REMOVE ITEM
-  ========================================= */
-
-  function removeItem(
-    recapId: string,
-  ) {
-    setSelectedRecapIds(
-      (current) =>
-        current.filter(
-          (id) =>
-            id !== recapId,
-        ),
-    );
-
-    setFormError("");
-  }
-
-  /* =========================================
      SUBMIT
   ========================================= */
 

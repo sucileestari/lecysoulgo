@@ -63,7 +63,6 @@ export default function EditPengirimanDialog({
   shipment,
   onClose,
   onSaved,
-  isCustomer = false,
 }: Props) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState | null>(null);

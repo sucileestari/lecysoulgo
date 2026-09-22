@@ -533,17 +533,6 @@ export default function TambahPengirimanDialog({
       ],
     );
 
-  const customerMemberId = isCustomer
-    ? JSON.parse(
-        localStorage.getItem("customer_member") ?? "null",
-      )?.id ?? ""
-    : "";
-
-  const currentCustomerMember =
-    membersQuery.data?.find(
-      (member) => member.id === customerMemberId,
-    );
-
   const selectedMemberFromMembers =
     membersQuery.data?.find(
       (member) => member.id === form.member_id,
@@ -615,10 +604,10 @@ export default function TambahPengirimanDialog({
           ),
       },
     );
-    setForm((current) => ({
+    setForm({
       ...createDefaultForm(),
       member_id: memberId,
-    }));
+    });
 
     setFormError("");
     setIsItemDropdownOpen(

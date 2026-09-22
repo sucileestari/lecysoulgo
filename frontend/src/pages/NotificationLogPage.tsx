@@ -251,11 +251,6 @@ export default function NotificationLogPage() {
   const monthInputRef =
     useRef<HTMLInputElement | null>(null);
 
-  const today = useMemo(
-    () => todayJakarta(),
-    [],
-  );
-
   const initialFilters: NotificationLogFilters =
     {
       dateFrom:
@@ -920,7 +915,6 @@ export default function NotificationLogPage() {
                     rows.map(
                       (
                         item,
-                        index,
                       ) => {
                         const dateTime =
                           formatDateTime(

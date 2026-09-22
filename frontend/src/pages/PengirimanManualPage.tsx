@@ -96,7 +96,7 @@ function formatCurrency(
 //       return "Sudah di packing";
 //     case "Sudah di pick up":
 //     case "dalam_proses_pick_up":
-//     case "Dalam proses pick up":
+//     case "dalam_proses_pick_up":
 //       return "Sudah di pick up";
 //     default:
 //       return value;
@@ -108,13 +108,13 @@ function getShippingStatusValue(
 ): string {
   if (
     value === "Sudah di pick up" ||
-    value === "Dalam proses pick up" ||
+    value === "dalam_proses_pick_up" ||
     value === "dalam_proses_pick_up"
   ) {
-    return "Dalam proses pick up";
+    return "dalam_proses_pick_up";
   }
 
-  return "Sedang dikemas";
+  return "sedang_dikemas";
 }
 
 // function formatPaymentStatus(
@@ -574,7 +574,6 @@ export default function PengirimanManualPage({
 
       queryFn:
         getManualShippingBatches,
-  updateManualShippingBatch,
 
       staleTime: 30_000,
     });
@@ -2674,7 +2673,7 @@ export default function PengirimanManualPage({
                                           ] ??
                                             shipment.shipping_status,
                                         ) ===
-                                          "Dalam proses pick up"
+                                          "dalam_proses_pick_up"
                                       ) {
                                         return;
                                       }
@@ -2735,7 +2734,7 @@ export default function PengirimanManualPage({
                                         ] ??
                                           shipment.shipping_status,
                                       ) ===
-                                        "Dalam proses pick up"
+                                        "dalam_proses_pick_up"
                                     }
                                     className={[
                                       "inline-flex h-10 w-[170px] items-center justify-between gap-2 rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10",
@@ -2745,7 +2744,7 @@ export default function PengirimanManualPage({
                                         ] ??
                                           shipment.shipping_status,
                                       ) ===
-                                        "Dalam proses pick up"
+                                        "dalam_proses_pick_up"
                                         ? "cursor-not-allowed bg-[#f5f6fa] text-[#9aa4bb]"
                                         : "cursor-pointer",
                                     ].join(" ")}
@@ -2757,7 +2756,7 @@ export default function PengirimanManualPage({
                                         ] ??
                                           shipment.shipping_status,
                                       ) ===
-                                        "Dalam proses pick up"
+                                        "dalam_proses_pick_up"
                                         ? "Sudah di pick up"
                                         : "Sudah di packing"}
                                     </span>
@@ -2791,8 +2790,8 @@ export default function PengirimanManualPage({
                                       >
                                         {(
                                           [
-                                            "Sedang dikemas",
-                                            "Dalam proses pick up",
+                                            "sedang_dikemas",
+                                            "dalam_proses_pick_up",
                                           ] as ManualShipment["shipping_status"][]
                                         ).map((status) => {
                                           const selected =
@@ -2821,7 +2820,7 @@ export default function PengirimanManualPage({
                                               className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-[#20366f] transition hover:bg-[#f7f9ff]"
                                             >
                                               <span>
-                                                {status === "Sedang dikemas"
+                                                {status === "sedang_dikemas"
                                                   ? "Sudah di packing"
                                                   : "Sudah di pick up"}
                                               </span>
@@ -2845,7 +2844,7 @@ export default function PengirimanManualPage({
                                     ] ??
                                       shipment.shipping_status,
                                   ) ===
-                                    "Dalam proses pick up" && (
+                                    "dalam_proses_pick_up" && (
                                     <p className="mt-1 text-xs text-[#7a89ad]">
                                       {formatPickupDate(
                                         shipment.updated_at,
@@ -2862,7 +2861,7 @@ export default function PengirimanManualPage({
                                   ] ??
                                     shipment.shipping_status,
                                 ) ===
-                                  "Dalam proses pick up" ? (
+                                  "dalam_proses_pick_up" ? (
                                   <span className="text-sm text-[#7a89ad]">
                                     -
                                   </span>

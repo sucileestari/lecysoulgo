@@ -41,6 +41,7 @@ import {
 ========================================= */
 
 type PermissionItem = Permission & {
+  code?: string;
   module: string;
   action: string;
 };
@@ -349,58 +350,6 @@ function parsePermissionName(
     module: getModuleLabel(name),
     action: "",
   };
-}
-
-/* =========================================
-   FORMAT ACTION
-========================================= */
-
-function formatAction(
-  action: string
-): string {
-  return (
-    ACTION_LABELS[action] ??
-    action
-  );
-}
-
-/* =========================================
-   PERMISSION DESCRIPTION
-========================================= */
-
-function getPermissionDescription(
-  permission: PermissionItem
-): string {
-  const code = String(
-    permission.code ??
-      ""
-  )
-    .trim()
-    .toLowerCase();
-
-  const recapCountryLabels: Record<
-    string,
-    string
-  > = {
-    china: "China",
-    indonesia: "Indonesia",
-    jepang: "Jepang",
-    korea: "Korea",
-    thailand: "Thailand",
-  };
-
-  for (const [countryCode, countryLabel] of Object.entries(
-    recapCountryLabels
-  )) {
-    if (
-      code ===
-      `recaps.${countryCode}.view`
-    ) {
-      return `Lihat Rekapan ${countryLabel}`;
-    }
-  }
-
-  return permission.name;
 }
 
 /* =========================================
@@ -860,9 +809,15 @@ export default function RolesPermissionPage() {
              * sehingga "View Rekapan China" terbaca
              * sebagai module "Rekapan China".
              */
+            const permissionCode = (
+              permission as Permission & {
+                code?: string;
+              }
+            ).code;
+
             const parsed =
               parsePermissionName(
-                permission.code ||
+                permissionCode ||
                   permission.name
               );
 

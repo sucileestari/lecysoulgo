@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
   createManualShippingBatch,
   updateManualShippingBatch,
   type ManualShippingBatch,
+  type ManualShippingBatchStatus,
 } from "@/services/manualShippingBatchService";
 
 /* =========================================
@@ -21,6 +22,7 @@ type BatchForm = {
   event_name: string;
   start_date: string;
   end_date: string;
+  status: ManualShippingBatchStatus;
 };
 
 type DatePickerType =
@@ -69,6 +71,7 @@ function createDefaultForm(): BatchForm {
     event_name: "",
     start_date: today,
     end_date: today,
+    status: "Aktif",
   };
 }
 
@@ -200,35 +203,6 @@ function getFirstDayOfMonth(
     month,
     1,
   ).getDay();
-}
-
-function isSameDate(
-  first: Date,
-  second: Date,
-): boolean {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth() &&
-    first.getDate() === second.getDate()
-  );
-}
-
-function isBeforeDate(
-  first: Date,
-  second: Date,
-): boolean {
-  return (
-    new Date(
-      first.getFullYear(),
-      first.getMonth(),
-      first.getDate(),
-    ).getTime() <
-    new Date(
-      second.getFullYear(),
-      second.getMonth(),
-      second.getDate(),
-    ).getTime()
-  );
 }
 
 /* =========================================

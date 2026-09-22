@@ -160,8 +160,6 @@ export type CreateManualShipmentInput = {
 
   member_id: string;
 
-  no_resi: string | null;
-
   recap_ids: string[];
 
   address: string;

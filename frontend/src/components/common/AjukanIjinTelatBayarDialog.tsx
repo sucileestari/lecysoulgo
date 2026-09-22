@@ -19,7 +19,6 @@ import {
   createLatePaymentPermission,
   getLatePaymentPermissions,
   getLatePaymentRecapOptions,
-  type LatePaymentPermission,
   type LatePaymentRecapOption,
 } from "@/services/latePaymentPermissionService";
 

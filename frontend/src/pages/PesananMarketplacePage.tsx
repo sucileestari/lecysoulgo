@@ -208,7 +208,7 @@ export default function PesananMarketplacePage() {
   const [
     shippingStatusOverrides,
     setShippingStatusOverrides,
-  ] = useState<Record<string, string>>({});
+  ] = useState<Record<string, MarketplaceShippingStatus>>({});
 
   const [
     deletingOrder,

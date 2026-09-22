@@ -452,30 +452,32 @@ export default function TambahTransaksiDialog({
     try {
       setIsSubmitting(true);
 
-      await createFinanceTransaction({
-        transaction_date: transactionDate,
-        type: transactionType,
-        description: description.trim(),
-        amount: numericAmount,
-        from_bank_account_id:
-          transactionType === "income"
-            ? null
-            : fromBankAccountId || null,
-        to_bank_account_id:
-          transactionType === "expense"
-            ? null
-            : toBankAccountId || null,
-        from_member_id:
-          transactionType === "income"
-            ? fromMemberId || null
-            : null,
-        to_member_id:
-          transactionType === "expense"
-            ? toMemberId && toMemberId !== "seller"
-              ? toMemberId
-              : null
-            : null,
-      });
+      await createFinanceTransaction(
+        {
+          transaction_date: transactionDate,
+          type: transactionType,
+          description: description.trim(),
+          amount: numericAmount,
+          from_bank_account_id:
+            transactionType === "income"
+              ? null
+              : fromBankAccountId || null,
+          to_bank_account_id:
+            transactionType === "expense"
+              ? null
+              : toBankAccountId || null,
+          from_member_id:
+            transactionType === "income"
+              ? fromMemberId || null
+              : null,
+          to_member_id:
+            transactionType === "expense"
+              ? toMemberId && toMemberId !== "seller"
+                ? toMemberId
+                : null
+              : null,
+        } as Parameters<typeof createFinanceTransaction>[0],
+      );
 
       await onSuccess();
       resetTransactionForm();
