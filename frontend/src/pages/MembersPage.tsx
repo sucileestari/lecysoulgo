@@ -17,6 +17,10 @@ import {
   type Member,
 } from "../services/memberService";
 
+import {
+  hasPermission,
+} from "../utils/permissions";
+
 export default function MembersPage() {
   const queryClient = useQueryClient();
 
@@ -152,14 +156,16 @@ export default function MembersPage() {
             </div>
 
             {/* Add Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddDialogOpen(true)}
-              className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
-            >
-              <Plus className="h-5 w-5" />
-              Tambah Anggota
-            </button>
+            {hasPermission("members.create") && (
+              <button
+                type="button"
+                onClick={() => setIsAddDialogOpen(true)}
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
+              >
+                <Plus className="h-5 w-5" />
+                Tambah Anggota
+              </button>
+            )}
           </div>
         </div>
 
@@ -329,30 +335,34 @@ export default function MembersPage() {
                           {member.type !== "hnr" && (
                             <>
                               {/* Edit */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleEditMember(member)
-                                }
-                                aria-label={`Edit ${member.name}`}
-                                title="Edit anggota"
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
+                              {hasPermission("members.edit") && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleEditMember(member)
+                                  }
+                                  aria-label={`Edit ${member.name}`}
+                                  title="Edit anggota"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              )}
 
                               {/* Delete */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDeleteMember(member)
-                                }
-                                aria-label={`Hapus ${member.name}`}
-                                title="Hapus anggota"
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {hasPermission("members.delete") && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteMember(member)
+                                  }
+                                  aria-label={`Hapus ${member.name}`}
+                                  title="Hapus anggota"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

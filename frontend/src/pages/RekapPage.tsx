@@ -55,6 +55,10 @@ import {
 } from "@/services/memberService";
 
 import {
+  hasPermission,
+} from "../utils/permissions";
+
+import {
   CN,
   ID,
   JP,
@@ -1323,21 +1327,23 @@ const handlePaymentSuccess =
 
             {/* Tambah Batch */}
 
-            <button
-              type="button"
-              onClick={() =>
-                setIsAddBatchDialogOpen(
-                  true,
-                )
-              }
-              className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
-            >
+            {hasPermission("batches.create") && (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsAddBatchDialogOpen(
+                    true,
+                  )
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
+              >
 
-              <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5" />
 
-              Tambah Batch
+                Tambah Batch
 
-            </button>
+              </button>
+            )}
 
           </div>
 
@@ -1737,47 +1743,51 @@ const handlePaymentSuccess =
 
                               {batch.status !== "Sudah sampai di Admin" && (
                                 <>
-                                  <button
-                                    type="button"
-                                    onClick={(
-                                      event,
-                                    ) => {
+                                  {hasPermission("batches.edit") && (
+                                    <button
+                                      type="button"
+                                      onClick={(
+                                        event,
+                                      ) => {
 
-                                      event.stopPropagation();
+                                        event.stopPropagation();
 
-                                      handleEditBatchFromList(
-                                        batch,
-                                      );
-                                    }}
-                                    aria-label={`Edit ${batch.name}`}
-                                    title="Edit batch"
-                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                                  >
+                                        handleEditBatchFromList(
+                                          batch,
+                                        );
+                                      }}
+                                      aria-label={`Edit ${batch.name}`}
+                                      title="Edit batch"
+                                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                    >
 
-                                    <Pencil className="h-4 w-4" />
+                                      <Pencil className="h-4 w-4" />
 
-                                  </button>
+                                    </button>
+                                  )}
 
-                                  <button
-                                    type="button"
-                                    onClick={(
-                                      event,
-                                    ) => {
+                                  {hasPermission("batches.delete") && (
+                                    <button
+                                      type="button"
+                                      onClick={(
+                                        event,
+                                      ) => {
 
-                                      event.stopPropagation();
+                                        event.stopPropagation();
 
-                                      handleDeleteBatchFromList(
-                                        batch,
-                                      );
-                                    }}
-                                    aria-label={`Hapus ${batch.name}`}
-                                    title="Hapus batch"
-                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                                  >
+                                        handleDeleteBatchFromList(
+                                          batch,
+                                        );
+                                      }}
+                                      aria-label={`Hapus ${batch.name}`}
+                                      title="Hapus batch"
+                                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                    >
 
-                                    <Trash2 className="h-4 w-4" />
+                                      <Trash2 className="h-4 w-4" />
 
-                                  </button>
+                                    </button>
+                                  )}
                                 </>
                               )}
 
@@ -1941,33 +1951,37 @@ const handlePaymentSuccess =
                     {activeBatch.status !== "Sudah sampai di Admin" && (
                       <div className="flex shrink-0 items-center justify-end gap-3">
 
-                        <button
-                          type="button"
-                          onClick={
-                            handleEditBatch
-                          }
-                          className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
-                        >
+                        {hasPermission("batches.edit") && (
+                          <button
+                            type="button"
+                            onClick={
+                              handleEditBatch
+                            }
+                            className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
+                          >
 
-                          <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
 
-                          Edit Batch
+                            Edit Batch
 
-                        </button>
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={
-                            handleAddRecap
-                          }
-                          className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
-                        >
+                        {hasPermission("recaps.create") && (
+                          <button
+                            type="button"
+                            onClick={
+                              handleAddRecap
+                            }
+                            className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
+                          >
 
-                          <Plus className="h-4 w-4" />
+                            <Plus className="h-4 w-4" />
 
-                          Tambah Rekapan
+                            Tambah Rekapan
 
-                        </button>
+                          </button>
+                        )}
 
                       </div>
                     )}
@@ -2485,27 +2499,26 @@ const handlePaymentSuccess =
 
                                     {!isLoadingPayments &&
                                       paymentSummary &&
-                                      !dpPaid && (
-
-                                      <button
-                                        type="button"
-                                        disabled={
-                                          isCreatingDp
-                                        }
-                                        onClick={() =>
-                                          handleCreatePayment(
-                                            item,
-                                            "DP",
-                                          )
-                                        }
-                                        className="mt-2 rounded-md bg-[#1457ff] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        {isCreatingDp
-                                          ? "Memproses..."
-                                          : "Pembayaran"}
-                                      </button>
-
-                                    )}
+                                      !dpPaid &&
+                                      hasPermission("payments.create") && (
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            isCreatingDp
+                                          }
+                                          onClick={() =>
+                                            handleCreatePayment(
+                                              item,
+                                              "DP",
+                                            )
+                                          }
+                                          className="mt-2 rounded-md bg-[#1457ff] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {isCreatingDp
+                                            ? "Memproses..."
+                                            : "Pembayaran"}
+                                        </button>
+                                      )}
 
                                     {!isLoadingPayments &&
                                       paymentSummary &&
@@ -2677,23 +2690,25 @@ const handlePaymentSuccess =
                                       !pelunasanPaid && (
 
                                       <>
-                                        <button
-                                          type="button"
-                                          disabled={
-                                            isCreatingPelunasan
-                                          }
-                                          onClick={() =>
-                                            handleCreatePayment(
-                                              item,
-                                              "PELUNASAN",
-                                            )
-                                          }
-                                          className="mt-2 rounded-md bg-[#1457ff] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                          {isCreatingPelunasan
-                                            ? "Memproses..."
-                                            : "Pembayaran"}
-                                        </button>
+                                        {hasPermission("payments.create") && (
+                                          <button
+                                            type="button"
+                                            disabled={
+                                              isCreatingPelunasan
+                                            }
+                                            onClick={() =>
+                                              handleCreatePayment(
+                                                item,
+                                                "PELUNASAN",
+                                              )
+                                            }
+                                            className="mt-2 rounded-md bg-[#1457ff] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                            {isCreatingPelunasan
+                                              ? "Memproses..."
+                                              : "Pembayaran"}
+                                          </button>
+                                        )}
 
                                         {Number(
                                           pelunasanSummary?.penalty_days ??
@@ -2838,34 +2853,36 @@ const handlePaymentSuccess =
 
                                   <div className="flex items-center justify-center">
 
-                                    {isHnr ? (
-                                      <button
-                                        type="button"
-                                        disabled
-                                        aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
-                                        title="Member HNR tidak dapat menghapus rekapan"
-                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#9aa5bf] disabled:cursor-not-allowed"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    ) : !isRecapDeleteDisabled ? (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleDeleteRecap(
-                                            item,
-                                          )
-                                        }
-                                        aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
-                                        title="Hapus rekapan"
-                                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    ) : (
-                                      <span className="text-base text-[#7a89ad]">
-                                        -
-                                      </span>
+                                    {hasPermission("recaps.delete") && (
+                                      isHnr ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
+                                          title="Member HNR tidak dapat menghapus rekapan"
+                                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#9aa5bf] disabled:cursor-not-allowed"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      ) : !isRecapDeleteDisabled ? (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleDeleteRecap(
+                                              item,
+                                            )
+                                          }
+                                          aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
+                                          title="Hapus rekapan"
+                                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      ) : (
+                                        <span className="text-base text-[#7a89ad]">
+                                          -
+                                        </span>
+                                      )
                                     )}
 
                                   </div>

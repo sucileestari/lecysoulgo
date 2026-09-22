@@ -26,6 +26,8 @@ import {
   type NotificationType,
 } from "@/services/notificationLogService";
 
+import { hasPermission } from "@/utils/permissions";
+
 /* =========================================
    CONSTANTS
 ========================================= */
@@ -1011,24 +1013,32 @@ export default function NotificationLogPage() {
 
                               {item.status ===
                               "failed" ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    retryMutation.mutate(
-                                      item.id,
-                                    )
-                                  }
-                                  disabled={
-                                    retrying
-                                  }
-                                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#3f73eb] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#3265dd] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
+                                hasPermission(
+                                  "notification_log.manage",
+                                ) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      retryMutation.mutate(
+                                        item.id,
+                                      )
+                                    }
+                                    disabled={
+                                      retrying
+                                    }
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#3f73eb] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#3265dd] disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <MessageCircle className="h-3.5 w-3.5" />
 
-                                  {retrying
-                                    ? "Mengirim..."
-                                    : "Kirim Ulang"}
-                                </button>
+                                    {retrying
+                                      ? "Mengirim..."
+                                      : "Kirim Ulang"}
+                                  </button>
+                                ) : (
+                                  <span className="text-[#93a0b8]">
+                                    -
+                                  </span>
+                                )
                               ) : (
                                 <span className="text-[#93a0b8]">
                                   -

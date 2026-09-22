@@ -62,6 +62,7 @@ type CustomerMember = {
 type SubMenuItem = {
   label: string;
   path: string;
+  permission?: string;
 
   flag: React.ComponentType<{
     title?: string;
@@ -117,6 +118,8 @@ const adminMenuItems: MenuItem[] = [
     label: "Notification Log",
     path: "/notification-log",
     icon: Bell,
+
+    permission: "notification_log.view",
   },
 
   {
@@ -131,30 +134,35 @@ const adminMenuItems: MenuItem[] = [
         label: "China",
         path: "/rekapan/china",
         flag: CN,
+        permission: "recaps.china.view",
       },
 
       {
         label: "Indonesia",
         path: "/rekapan/indonesia",
         flag: ID,
+        permission: "recaps.indonesia.view",
       },
 
       {
         label: "Jepang",
         path: "/rekapan/jepang",
         flag: JP,
+        permission: "recaps.jepang.view",
       },
 
       {
         label: "Korea",
         path: "/rekapan/korea",
         flag: KR,
+        permission: "recaps.korea.view",
       },
 
       {
         label: "Thailand",
         path: "/rekapan/thailand",
         flag: TH,
+        permission: "recaps.thailand.view",
       },
     ],
   },
@@ -190,6 +198,8 @@ const adminMenuItems: MenuItem[] = [
     label: "Modal dan Keuntungan",
     path: "/modal-dan-keuntungan",
     icon: ChartNoAxesCombined,
+
+    permission: "modal.view",
   },
 
   {
@@ -197,6 +207,8 @@ const adminMenuItems: MenuItem[] = [
     label: "Keuangan / Arus Dana",
     path: "/arus-dana",
     icon: WalletCards,
+
+    permission: "finance.view",
   },
 
   {
@@ -309,9 +321,13 @@ function getCustomerMember(): CustomerMember | null {
    FILTER ADMIN MENU BY PERMISSION
 ========================================= */
 
+/* =========================================
+   FILTER ADMIN MENU BY PERMISSION
+========================================= */
+
 function getVisibleAdminMenuItems(): MenuItem[] {
-  return adminMenuItems.filter(
-    (item) => {
+  return adminMenuItems
+    .filter((item) => {
       /*
        * Kalau menu tidak mempunyai
        * permission, tampilkan.
@@ -321,19 +337,62 @@ function getVisibleAdminMenuItems(): MenuItem[] {
       }
 
       /*
-       * Cek permission user.
-       *
-       * Untuk Super Admin:
-       * hasPermission() akan mengembalikan
-       * true karena memiliki wildcard "*".
+       * Cek permission parent.
        */
       return hasPermission(
         item.permission,
       );
-    },
-  );
-}
+    })
+    .map((item) => {
+      /*
+       * Kalau menu mempunyai submenu,
+       * filter submenu berdasarkan permission.
+       */
+      if (item.children) {
+        const visibleChildren =
+          item.children.filter(
+            (subItem) => {
+              /*
+               * Kalau submenu tidak mempunyai
+               * permission, tampilkan.
+               */
+              if (!subItem.permission) {
+                return true;
+              }
 
+              return hasPermission(
+                subItem.permission,
+              );
+            },
+          );
+
+        /*
+         * Kalau tidak ada satu pun submenu
+         * yang memiliki akses, parent juga
+         * jangan ditampilkan.
+         */
+        if (
+          visibleChildren.length ===
+          0
+        ) {
+          return null;
+        }
+
+        return {
+          ...item,
+          children: visibleChildren,
+        };
+      }
+
+      return item;
+    })
+    .filter(
+      (
+        item,
+      ): item is MenuItem =>
+        item !== null,
+    );
+}
 /* =========================================
    LAYOUT
 ========================================= */

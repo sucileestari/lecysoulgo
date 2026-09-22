@@ -61,6 +61,8 @@ import type {
   FlagComponent,
 } from "country-flag-icons/react/3x2";
 
+import { hasPermission } from "../utils/permissions";
+
 /* =========================================
    TYPES
 ========================================= */
@@ -1212,19 +1214,21 @@ export default function ModalDanKeuntunganPage() {
 
             {/* TAMBAH MODAL */}
 
-            <button
-              type="button"
-              onClick={() =>
-                setIsAddModalDialogOpen(
-                  true,
-                )
-              }
-              className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
-            >
-              <Plus className="h-5 w-5" />
+            {hasPermission("modal.create") && (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsAddModalDialogOpen(
+                    true,
+                  )
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
+              >
+                <Plus className="h-5 w-5" />
 
-              Tambah Modal Penjualan
-            </button>
+                Tambah Modal Penjualan
+              </button>
+            )}
 
           </div>
         </div>

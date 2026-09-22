@@ -13,6 +13,8 @@ import { useState } from "react";
 
 import TambahTransaksiDialog from "../components/common/TambahTransaksiDialog";
 
+import { hasPermission } from "../utils/permissions";
+
 import {
   getFinanceData,
   type FinanceBankAccount,
@@ -247,17 +249,19 @@ export default function ArusDanaPage() {
 
               {/* TAMBAH TRANSAKSI */}
 
-              <button
-                type="button"
-                onClick={
-                  handleOpenAddTransaction
-                }
-                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
-              >
-                <Plus className="h-5 w-5" />
+              {hasPermission("finance.create") && (
+                <button
+                  type="button"
+                  onClick={
+                    handleOpenAddTransaction
+                  }
+                  className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0] active:scale-[0.99]"
+                >
+                  <Plus className="h-5 w-5" />
 
-                Tambah Transaksi
-              </button>
+                  Tambah Transaksi
+                </button>
+              )}
 
             </div>
 

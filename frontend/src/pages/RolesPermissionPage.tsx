@@ -32,6 +32,10 @@ import {
   type Role,
 } from "../services/rolePermissionService";
 
+import {
+  hasPermission,
+} from "../utils/permissions";
+
 /* =========================================
    TYPES
 ========================================= */
@@ -111,7 +115,7 @@ const ACTION_ALIASES: Record<string, string> = {
  *
  * PENTING:
  * "manage" harus ada di sini supaya
- * permissions.manage bisa ditampilkan
+ * roles.manage bisa ditampilkan
  * pada kolom Kelola.
  */
 const ACTION_ORDER = [
@@ -178,6 +182,27 @@ function getModuleLabel(
     .trim()
     .toLowerCase();
 
+  /*
+   * Semua permission yang diawali
+   * "recaps." tetap masuk ke module Rekapan.
+   *
+   * Contoh:
+   * recaps.view
+   * recaps.create
+   * recaps.delete
+   * recaps.china.view
+   * recaps.indonesia.view
+   * recaps.jepang.view
+   * recaps.korea.view
+   * recaps.thailand.view
+   */
+  if (
+    normalized === "recaps" ||
+    normalized.startsWith("recaps.")
+  ) {
+    return "Rekapan";
+  }
+
   const labels: Record<string, string> = {
     dashboard: "Dashboard",
 
@@ -200,6 +225,9 @@ function getModuleLabel(
 
     late_payment_permissions:
       "Ijin Telat Bayar",
+
+    notification_log:
+      "Notification Log",
 
     pengiriman: "Pengiriman",
     shipping: "Pengiriman",
@@ -248,7 +276,7 @@ function normalizeAction(
  * members.create
  * members.edit
  * members.delete
- * permissions.manage
+ * roles.manage
  *
  * maupun:
  *
@@ -334,6 +362,107 @@ function formatAction(
     ACTION_LABELS[action] ??
     action
   );
+}
+
+/* =========================================
+   PERMISSION DESCRIPTION
+========================================= */
+
+function getPermissionDescription(
+  permission: PermissionItem
+): string {
+  const code = String(
+    permission.code ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const recapCountryLabels: Record<
+    string,
+    string
+  > = {
+    china: "China",
+    indonesia: "Indonesia",
+    jepang: "Jepang",
+    korea: "Korea",
+    thailand: "Thailand",
+  };
+
+  for (const [countryCode, countryLabel] of Object.entries(
+    recapCountryLabels
+  )) {
+    if (
+      code ===
+      `recaps.${countryCode}.view`
+    ) {
+      return `Lihat Rekapan ${countryLabel}`;
+    }
+  }
+
+  return permission.name;
+}
+
+/* =========================================
+   PERMISSION DISPLAY LABEL
+========================================= */
+
+function getPermissionDisplayLabel(
+  permission: PermissionItem,
+  moduleName: string
+): string {
+  const code = String(
+    permission.code ?? ""
+  )
+    .trim()
+    .toLowerCase();
+
+  /* =====================================
+     VIEW / MENU
+  ===================================== */
+
+  if (permission.action === "view") {
+    const recapCountryLabels: Record<
+      string,
+      string
+    > = {
+      china: "China",
+      indonesia: "Indonesia",
+      jepang: "Jepang",
+      korea: "Korea",
+      thailand: "Thailand",
+    };
+
+    for (const [
+      countryCode,
+      countryLabel,
+    ] of Object.entries(
+      recapCountryLabels
+    )) {
+      if (
+        code ===
+        `recaps.${countryCode}.view`
+      ) {
+        return `Rekapan ${countryLabel} Menu`;
+      }
+    }
+
+    return `${moduleName} Menu`;
+  }
+
+  /* =====================================
+     BUTTON
+  ===================================== */
+
+  if (permission.action === "manage") {
+    return `${permission.name} Button`;
+  }
+
+  const actionLabel =
+    ACTION_LABELS[permission.action] ??
+    permission.name;
+
+  return `${actionLabel} ${moduleName} Button`;
 }
 
 /* =========================================
@@ -715,9 +844,26 @@ export default function RolesPermissionPage() {
       () =>
         permissions.map(
           (permission) => {
+            /*
+             * Gunakan permission.code sebagai sumber utama
+             * supaya permission seperti:
+             *
+             * recaps.china.view
+             * recaps.indonesia.view
+             * recaps.jepang.view
+             * recaps.korea.view
+             * recaps.thailand.view
+             *
+             * tetap dikenali sebagai module Rekapan.
+             *
+             * Sebelumnya parser memakai permission.name,
+             * sehingga "View Rekapan China" terbaca
+             * sebagai module "Rekapan China".
+             */
             const parsed =
               parsePermissionName(
-                permission.name
+                permission.code ||
+                  permission.name
               );
 
             return {
@@ -860,7 +1006,10 @@ export default function RolesPermissionPage() {
     /*
      * Super Admin tidak bisa diubah.
      */
-    if (isSuperAdmin) {
+    if (
+      isSuperAdmin ||
+      !hasPermission("roles.manage")
+    ) {
       return;
     }
 
@@ -896,7 +1045,10 @@ export default function RolesPermissionPage() {
     /*
      * Super Admin tidak bisa disimpan.
      */
-    if (isSuperAdmin) {
+    if (
+      isSuperAdmin ||
+      !hasPermission("roles.manage")
+    ) {
       return;
     }
 
@@ -1245,17 +1397,19 @@ export default function RolesPermissionPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={
-            openCreateRoleModal
-          }
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          <Plus size={18} />
+        {hasPermission("roles.create") && (
+          <button
+            type="button"
+            onClick={
+              openCreateRoleModal
+            }
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            <Plus size={18} />
 
-          Tambah Role
-        </button>
+            Tambah Role
+          </button>
+        )}
       </div>
 
       {/* =====================================
@@ -1515,41 +1669,45 @@ export default function RolesPermissionPage() {
 
                             {!isProtected && (
                               <>
-                                <button
-                                  type="button"
-                                  title="Edit role"
-                                  onClick={(
-                                    event
-                                  ) => {
-                                    event.stopPropagation();
+                                {hasPermission("roles.edit") && (
+                                  <button
+                                    type="button"
+                                    title="Edit role"
+                                    onClick={(
+                                      event
+                                    ) => {
+                                      event.stopPropagation();
 
-                                    openEditRoleModal(
-                                      role
-                                    );
-                                  }}
-                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
-                                >
-                                  <Edit size={16} />
-                                </button>
+                                      openEditRoleModal(
+                                        role
+                                      );
+                                    }}
+                                    className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                )}
 
-                                <button
-                                  type="button"
-                                  title="Hapus role"
-                                  onClick={(
-                                    event
-                                  ) => {
-                                    event.stopPropagation();
+                                {hasPermission("roles.delete") && (
+                                  <button
+                                    type="button"
+                                    title="Hapus role"
+                                    onClick={(
+                                      event
+                                    ) => {
+                                      event.stopPropagation();
 
-                                    void handleDeleteRole(
-                                      role
-                                    );
-                                  }}
-                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                >
-                                  <Trash2
-                                    size={16}
-                                  />
-                                </button>
+                                      void handleDeleteRole(
+                                        role
+                                      );
+                                    }}
+                                    className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                  >
+                                    <Trash2
+                                      size={16}
+                                    />
+                                  </button>
+                                )}
                               </>
                             )}
 
@@ -1751,6 +1909,12 @@ export default function RolesPermissionPage() {
                               togglePermission
                             }
                             disabled={
+                              isSuperAdmin ||
+                              !hasPermission(
+                                "roles.manage"
+                              )
+                            }
+                            isSuperAdmin={
                               isSuperAdmin
                             }
                           />
@@ -1784,56 +1948,59 @@ export default function RolesPermissionPage() {
             ================================= */}
 
             {!isSuperAdmin && (
-              <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
+                <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
 
-                <div className="text-sm text-slate-500">
+                  <div className="text-sm text-slate-500">
 
-                  <span className="font-semibold text-slate-800">
-                    {
-                      permissionCount
+                    <span className="font-semibold text-slate-800">
+                      {
+                        permissionCount
+                      }
+                    </span>{" "}
+
+                    dari{" "}
+
+                    <span className="font-semibold text-slate-800">
+                      {
+                        totalPermissions
+                      }
+                    </span>{" "}
+
+                    permission dipilih
+
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={
+                      saving ||
+                      !selectedRole ||
+                      !hasPermission(
+                        "roles.manage"
+                      )
                     }
-                  </span>{" "}
-
-                  dari{" "}
-
-                  <span className="font-semibold text-slate-800">
-                    {
-                      totalPermissions
+                    onClick={
+                      handleSavePermissions
                     }
-                  </span>{" "}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
 
-                  permission dipilih
+                    {saving ? (
+                      "Menyimpan..."
+                    ) : (
+                      <>
+                        <Check
+                          size={17}
+                        />
+
+                        Simpan Permission
+                      </>
+                    )}
+
+                  </button>
 
                 </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    saving ||
-                    !selectedRole
-                  }
-                  onClick={
-                    handleSavePermissions
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-
-                  {saving ? (
-                    "Menyimpan..."
-                  ) : (
-                    <>
-                      <Check
-                        size={17}
-                      />
-
-                      Simpan Permission
-                    </>
-                  )}
-
-                </button>
-
-              </div>
-            )}
+              )}
 
           </div>
 
@@ -2065,6 +2232,7 @@ function PermissionModule({
   selectedPermissionIds,
   onTogglePermission,
   disabled,
+  isSuperAdmin,
 }: {
   moduleName: string;
   permissions: PermissionItem[];
@@ -2075,6 +2243,7 @@ function PermissionModule({
     permissionId: string
   ) => void;
   disabled: boolean;
+  isSuperAdmin: boolean;
 }) {
   return (
     <>
@@ -2124,7 +2293,7 @@ function PermissionModule({
              */
 
             const checked =
-              disabled ||
+              isSuperAdmin ||
               selectedPermissionIds.includes(
                 permission.id
               );
@@ -2142,15 +2311,10 @@ function PermissionModule({
                   <div className="pl-6">
 
                     <div className="text-sm text-slate-700">
-                      {formatAction(
-                        permission.action
+                      {getPermissionDisplayLabel(
+                        permission,
+                        moduleName
                       )}
-                    </div>
-
-                    <div className="mt-0.5 text-xs text-slate-400">
-                      {
-                        permission.name
-                      }
                     </div>
 
                   </div>
