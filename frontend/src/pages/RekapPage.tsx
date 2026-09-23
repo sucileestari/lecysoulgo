@@ -91,6 +91,18 @@ type RecapPaymentStatus = {
   summary: PaymentSummary | null;
 };
 
+type RecapWithMaxTimbun = Recap & {
+  max_timbun: string | null;
+};
+
+function getRecapMaxTimbun(
+  recap: Recap,
+): string | null {
+  return (
+    recap as RecapWithMaxTimbun
+  ).max_timbun ?? null;
+}
+
 /* =========================================
    COUNTRY CONFIG
 ========================================= */
@@ -159,23 +171,19 @@ function formatDate(
 }
 
 function formatMaxTimbun(
-  pelunasanDate: string | null,
+  maxTimbunDate: string | null,
 ): string {
-  if (!pelunasanDate) {
+  if (!maxTimbunDate) {
     return "-";
   }
 
   const date = new Date(
-    `${pelunasanDate}T00:00:00`,
+    `${maxTimbunDate}T00:00:00`,
   );
 
   if (Number.isNaN(date.getTime())) {
     return "-";
   }
-
-  date.setDate(
-    date.getDate() + 60,
-  );
 
   return date.toLocaleDateString(
     "id-ID",
@@ -1441,7 +1449,7 @@ const handlePaymentSuccess =
         {activeTab ===
           "all" && (
 
-          <section className="mt-4 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
+          <section className="mt-4 hidden overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm md:block">
 
             <div className="overflow-x-auto">
 
@@ -1866,6 +1874,263 @@ const handlePaymentSuccess =
         )}
 
         {/* =================================
+            MOBILE - SEMUA BATCH
+        ================================== */}
+
+        {activeTab ===
+          "all" && (
+          <section className="mt-4 space-y-4 md:hidden">
+
+            {isLoading && (
+              <div className="rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center shadow-sm">
+                <p className="text-sm text-[#7a89ad]">
+                  Memuat data batch...
+                </p>
+              </div>
+            )}
+
+            {isError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-16 text-center shadow-sm">
+                <p className="text-sm font-medium text-red-500">
+                  Gagal mengambil data batch.
+                </p>
+
+                <p className="mt-2 text-sm text-[#7a89ad]">
+                  {error.message}
+                </p>
+              </div>
+            )}
+
+            {!isLoading &&
+              !isError &&
+              filteredBatches.length === 0 && (
+                <div className="rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center shadow-sm">
+                  <p className="text-base font-medium text-[#20366f]">
+                    {search
+                      ? "Batch tidak ditemukan"
+                      : "Belum ada batch"}
+                  </p>
+
+                  <p className="mt-2 text-sm text-[#7a89ad]">
+                    {search
+                      ? "Coba gunakan kata kunci pencarian lain."
+                      : "Tambahkan batch menggunakan tombol Tambah Batch."}
+                  </p>
+                </div>
+              )}
+
+            {!isLoading &&
+              !isError &&
+              filteredBatches.length > 0 &&
+              filteredBatches.map((batch) => (
+                <article
+                  key={batch.id}
+                  onClick={() =>
+                    handleTabChange(batch.id)
+                  }
+                  className="rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm transition-colors active:bg-[#f8faff]"
+                >
+
+                  {/* BATCH HEADER */}
+                  <div className="flex items-start gap-3">
+
+                    <div className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#edf2f9]">
+                      {batch.image_url ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+
+                            handlePreviewImage(
+                              batch.image_url!,
+                              batch.name,
+                            );
+                          }}
+                          className="group relative h-full w-full cursor-zoom-in"
+                        >
+                          <img
+                            src={batch.image_url}
+                            alt={batch.name}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[#7a89ad]">
+                          Batch
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-semibold text-[#20366f]">
+                            {batch.name}
+                          </h3>
+
+                          <span className="mt-2 inline-flex rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-medium text-[#1457ff]">
+                            {batch.type}
+                          </span>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                            Total Order
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-[#20366f]">
+                            {batch.total_order ?? 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* DATES */}
+                  <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[#edf0f6] pt-4 sm:grid-cols-2">
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Last Payment DP
+                      </p>
+
+                      <div className="mt-1 flex items-center gap-2 text-sm font-medium text-[#20366f]">
+                        <CalendarDays className="h-4 w-4 shrink-0 text-[#536795]" />
+                        <span>
+                          {formatDate(
+                            batch.last_payment_dp,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Last Payment Pelunasan
+                      </p>
+
+                      <div className="mt-1 flex items-center gap-2 text-sm font-medium text-[#20366f]">
+                        <CalendarDays className="h-4 w-4 shrink-0 text-[#536795]" />
+                        <span>
+                          {formatDate(
+                            batch.last_payment_pelunasan,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* ADMIN */}
+                  <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[#edf0f6] pt-4 sm:grid-cols-2">
+
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Admin Nyelem
+                      </p>
+
+                      <p className="mt-1 truncate text-sm font-medium text-[#20366f]">
+                        {getMemberName(
+                          batch.admin_nyelem_id,
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Admin Rekap
+                      </p>
+
+                      <p className="mt-1 truncate text-sm font-medium text-[#20366f]">
+                        {getMemberName(
+                          batch.admin_rekap_id,
+                        )}
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* ACTIONS */}
+                  {batch.status !== "Sudah sampai di Admin" && (
+                    <div className="mt-4 flex justify-end gap-2 border-t border-[#edf0f6] pt-4">
+
+                      {hasPermission("batches.edit") && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleEditBatchFromList(batch);
+                          }}
+                          aria-label={`Edit ${batch.name}`}
+                          title="Edit batch"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      {hasPermission("batches.delete") && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteBatchFromList(batch);
+                          }}
+                          aria-label={`Hapus ${batch.name}`}
+                          title="Hapus batch"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+
+                    </div>
+                  )}
+
+                </article>
+              ))}
+
+            {/* Mobile pagination/info */}
+            {!isLoading &&
+              !isError &&
+              filteredBatches.length > 0 && (
+                <div className="flex items-center justify-between rounded-xl border border-[#edf0f6] bg-white px-4 py-4 shadow-sm">
+                  <p className="text-xs text-[#7a89ad]">
+                    Menampilkan 1 - {filteredBatches.length} dari {filteredBatches.length} batch
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#8290ae] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#1457ff] bg-[#edf3ff] text-sm font-medium text-[#1457ff]"
+                    >
+                      {currentPage}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#8290ae] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+          </section>
+        )}
+
+        {/* =================================
             DETAIL BATCH
         ================================== */}
 
@@ -2122,7 +2387,7 @@ const handlePaymentSuccess =
                   REKAP TABLE
               ================================== */}
 
-              <section className="mt-4 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
+              <section className="mt-4 hidden overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm md:block">
 
                 <div className="overflow-x-auto">
 
@@ -2802,7 +3067,7 @@ const handlePaymentSuccess =
                                 <td className="px-6 py-6 text-center text-base text-[#20366f]">
 
                                   {formatMaxTimbun(
-                                    activeBatch.last_payment_pelunasan,
+                                    getRecapMaxTimbun(item),
                                   )}
 
                                 </td>
@@ -2963,6 +3228,552 @@ const handlePaymentSuccess =
                   </div>
 
                 </div>
+
+              </section>
+
+              {/* =================================
+                  MOBILE - REKAPAN
+              ================================== */}
+
+              <section className="mt-4 space-y-4 md:hidden">
+
+                {isLoadingRecaps && (
+                  <div className="rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center shadow-sm">
+                    <p className="text-sm text-[#7a89ad]">
+                      Memuat data rekapan...
+                    </p>
+                  </div>
+                )}
+
+                {isRecapError &&
+                  !isLoadingRecaps && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-16 text-center shadow-sm">
+                      <p className="text-sm font-medium text-red-500">
+                        Gagal mengambil data rekapan.
+                      </p>
+
+                      <p className="mt-2 text-sm text-[#7a89ad]">
+                        {recapError?.message}
+                      </p>
+                    </div>
+                  )}
+
+                {!isLoadingRecaps &&
+                  !isRecapError &&
+                  filteredRecaps.length === 0 && (
+                    <div className="rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center shadow-sm">
+                      <p className="text-base font-medium text-[#20366f]">
+                        {search
+                          ? "Rekapan tidak ditemukan"
+                          : "Belum ada rekapan"}
+                      </p>
+
+                      <p className="mt-2 text-sm text-[#7a89ad]">
+                        {search
+                          ? "Coba gunakan kata kunci pencarian lain."
+                          : "Tambahkan rekapan menggunakan tombol Tambah Rekapan."}
+                      </p>
+                    </div>
+                  )}
+
+                {!isLoadingRecaps &&
+                  !isRecapError &&
+                  filteredRecaps.length > 0 &&
+                  filteredRecaps.map((item) => {
+                    const totalHarga = Number(
+                      item.total_harga ?? 0,
+                    );
+
+                    const paymentStatus =
+                      paymentStatusMap.get(item.id);
+
+                    const paymentSummary =
+                      paymentStatus?.summary ?? null;
+
+                    const dpSummary =
+                      paymentSummary?.dp ?? null;
+
+                    const pelunasanSummary =
+                      paymentSummary?.pelunasan ?? null;
+
+                    const dpPaid =
+                      dpSummary?.status === "paid";
+
+                    const pelunasanPaid =
+                      pelunasanSummary?.status === "paid";
+
+                    const isFullyPaid =
+                      dpPaid && pelunasanPaid;
+
+                    const isHnr =
+                      item.member?.type === "hnr";
+
+                    const isPaymentLinkActive = (
+                      payment: Payment | null | undefined,
+                    ) => {
+                      if (!payment) {
+                        return false;
+                      }
+
+                      if (payment.status === "paid") {
+                        return true;
+                      }
+
+                      if (!payment.payment_url) {
+                        return false;
+                      }
+
+                      if (!payment.expires_at) {
+                        return true;
+                      }
+
+                      return (
+                        new Date(
+                          payment.expires_at,
+                        ).getTime() > Date.now()
+                      );
+                    };
+
+                    const hasActivePaymentLink =
+                      isPaymentLinkActive(
+                        dpSummary?.payment ?? null,
+                      ) ||
+                      isPaymentLinkActive(
+                        pelunasanSummary?.payment ?? null,
+                      );
+
+                    const isRecapDeleteDisabled =
+                      isFullyPaid ||
+                      hasActivePaymentLink;
+
+                    const isCreatingDp =
+                      isCreatingPayment ===
+                      `${item.id}-DP`;
+
+                    const isCreatingPelunasan =
+                      isCreatingPayment ===
+                      `${item.id}-PELUNASAN`;
+
+                    return (
+                      <article
+                        key={item.id}
+                        className={[
+                          "rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm",
+                          isHnr
+                            ? "bg-gray-50 opacity-60"
+                            : "",
+                        ].join(" ")}
+                      >
+
+                        {/* BUYER */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-semibold text-[#20366f]">
+                                {item.member?.name ?? "-"}
+                              </p>
+
+                              {isHnr && (
+                                <span className="inline-flex rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                  HNR
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-xs text-[#7a89ad]">
+                              {item.member?.phone ?? "-"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* ITEM */}
+                        <div className="mt-4 border-t border-[#edf0f6] pt-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                            Detail Barang
+                          </p>
+
+                          <p className="mt-1 break-words text-sm font-semibold text-[#20366f]">
+                            {item.detail_barang}
+                          </p>
+
+                          <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-[11px] text-[#7a89ad]">
+                                Qty
+                              </p>
+                              <p className="mt-1 font-medium text-[#20366f]">
+                                {item.qty}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[11px] text-[#7a89ad]">
+                                Harga Barang
+                              </p>
+                              <p className="mt-1 font-medium text-[#20366f]">
+                                {formatRupiah(
+                                  Number(
+                                    item.harga_barang ?? 0,
+                                  ),
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 rounded-lg bg-[#f8faff] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Total Harga
+                            </p>
+                            <p className="mt-1 text-lg font-bold text-[#20366f]">
+                              {formatRupiah(totalHarga)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* DP */}
+                        <div className="mt-4 border-t border-[#edf0f6] pt-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Down Payment
+                            </p>
+
+                            {!isLoadingPayments &&
+                              paymentSummary &&
+                              dpPaid && (
+                                <span className="inline-flex items-center rounded-md bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-600">
+                                  Paid
+                                </span>
+                              )}
+                          </div>
+
+                          {isLoadingPayments ? (
+                            <p className="mt-2 text-sm text-[#7a89ad]">
+                              Memuat...
+                            </p>
+                          ) : paymentSummary ? (
+                            <p className="mt-1 text-base font-semibold text-[#20366f]">
+                              {formatRupiah(
+                                Number(
+                                  dpSummary?.amount ?? 0,
+                                ),
+                              )}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-sm text-red-500">
+                              -
+                            </p>
+                          )}
+
+                          {!isLoadingPayments &&
+                            paymentSummary &&
+                            !dpPaid &&
+                            hasPermission("payments.create") && (
+                              <button
+                                type="button"
+                                disabled={isCreatingDp}
+                                onClick={() =>
+                                  handleCreatePayment(
+                                    item,
+                                    "DP",
+                                  )
+                                }
+                                className="mt-3 w-full rounded-md bg-[#1457ff] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isCreatingDp
+                                  ? "Memproses..."
+                                  : "Pembayaran"}
+                              </button>
+                            )}
+
+                          {!isLoadingPayments &&
+                            paymentSummary &&
+                            dpPaid &&
+                            dpSummary?.paid_at && (
+                              <p className="mt-1 text-xs text-[#7a89ad]">
+                                {formatPaymentDate(
+                                  dpSummary.paid_at,
+                                )}
+                              </p>
+                            )}
+
+                          {!isLoadingPayments &&
+                            paymentSummary &&
+                            !dpPaid &&
+                            Number(
+                              dpSummary?.penalty_days ?? 0,
+                            ) > 0 && (
+                              <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
+                                <p className="font-semibold text-red-600">
+                                  Terlambat {dpSummary?.penalty_days} hari
+                                </p>
+                                <p>
+                                  Denda + {formatRupiah(
+                                    Number(
+                                      dpSummary?.penalty_amount ?? 0,
+                                    ),
+                                  )}
+                                </p>
+
+                                {dpSummary?.late_payment_permission && (
+                                  <>
+                                    <p className="mt-1">
+                                      Sedang mengajukan ijin telat
+                                    </p>
+                                    <p>
+                                      sampai {formatDate(
+                                        dpSummary.late_payment_permission.payment_date,
+                                      )}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            )}
+
+                          {!isLoadingPayments &&
+                            paymentSummary &&
+                            !dpPaid &&
+                            Number(
+                              dpSummary?.penalty_days ?? 0,
+                            ) === 0 &&
+                            dpSummary?.late_payment_permission && (
+                              <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
+                                <p>Sedang mengajukan ijin telat</p>
+                                <p>
+                                  sampai {formatDate(
+                                    dpSummary.late_payment_permission.payment_date,
+                                  )}
+                                </p>
+                              </div>
+                            )}
+                        </div>
+
+                        {/* PELUNASAN */}
+                        <div className="mt-4 border-t border-[#edf0f6] pt-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Pelunasan
+                            </p>
+
+                            {!isLoadingPayments &&
+                              paymentSummary &&
+                              pelunasanPaid && (
+                                <span className="inline-flex items-center rounded-md bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-600">
+                                  Paid
+                                </span>
+                              )}
+                          </div>
+
+                          {isLoadingPayments ? (
+                            <p className="mt-2 text-sm text-[#7a89ad]">
+                              Memuat...
+                            </p>
+                          ) : dpPaid && paymentSummary ? (
+                            <p className="mt-1 text-base font-semibold text-[#20366f]">
+                              {formatRupiah(
+                                Number(
+                                  pelunasanSummary?.amount ?? 0,
+                                ),
+                              )}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-sm text-[#7a89ad]">
+                              -
+                            </p>
+                          )}
+
+                          {!isLoadingPayments &&
+                            dpPaid &&
+                            paymentSummary &&
+                            !pelunasanPaid &&
+                            hasPermission("payments.create") && (
+                              <button
+                                type="button"
+                                disabled={isCreatingPelunasan}
+                                onClick={() =>
+                                  handleCreatePayment(
+                                    item,
+                                    "PELUNASAN",
+                                  )
+                                }
+                                className="mt-3 w-full rounded-md bg-[#1457ff] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isCreatingPelunasan
+                                  ? "Memproses..."
+                                  : "Pembayaran"}
+                              </button>
+                            )}
+
+                          {!isLoadingPayments &&
+                            dpPaid &&
+                            paymentSummary &&
+                            pelunasanPaid &&
+                            pelunasanSummary?.paid_at && (
+                              <p className="mt-1 text-xs text-[#7a89ad]">
+                                {formatPaymentDate(
+                                  pelunasanSummary.paid_at,
+                                )}
+                              </p>
+                            )}
+
+                          {!isLoadingPayments &&
+                            dpPaid &&
+                            paymentSummary &&
+                            !pelunasanPaid &&
+                            Number(
+                              pelunasanSummary?.penalty_days ?? 0,
+                            ) > 0 && (
+                              <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
+                                <p className="font-semibold text-red-600">
+                                  Terlambat {pelunasanSummary?.penalty_days} hari
+                                </p>
+                                <p>
+                                  Denda + {formatRupiah(
+                                    Number(
+                                      pelunasanSummary?.penalty_amount ?? 0,
+                                    ),
+                                  )}
+                                </p>
+
+                                {pelunasanSummary?.late_payment_permission && (
+                                  <>
+                                    <p className="mt-1">
+                                      Sedang mengajukan ijin telat
+                                    </p>
+                                    <p>
+                                      sampai {formatDate(
+                                        pelunasanSummary.late_payment_permission.payment_date,
+                                      )}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            )}
+
+                          {!isLoadingPayments &&
+                            dpPaid &&
+                            paymentSummary &&
+                            !pelunasanPaid &&
+                            Number(
+                              pelunasanSummary?.penalty_days ?? 0,
+                            ) === 0 &&
+                            pelunasanSummary?.late_payment_permission && (
+                              <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
+                                <p>Sedang mengajukan ijin telat</p>
+                                <p>
+                                  sampai {formatDate(
+                                    pelunasanSummary.late_payment_permission.payment_date,
+                                  )}
+                                </p>
+                              </div>
+                            )}
+                        </div>
+
+                        {/* MAX TIMBUN + CHECKOUT */}
+                        <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[#edf0f6] pt-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Maksimal Timbun
+                            </p>
+                            <p className="mt-1 text-sm font-medium text-[#20366f]">
+                              {formatMaxTimbun(
+                                getRecapMaxTimbun(item),
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Sudah CO?
+                            </p>
+
+                            <div className="mt-1">
+                              {!isFullyPaid ? (
+                                <span className="text-sm text-[#20366f]">
+                                  Belum
+                                </span>
+                              ) : item.sudah_co ? (
+                                <span className="text-sm font-medium text-[#20366f]">
+                                  Sudah
+                                </span>
+                              ) : isHnr ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="rounded-md bg-[#e9eef8] px-3 py-1.5 text-xs font-medium text-[#7a89ad] disabled:cursor-not-allowed"
+                                  title="Member HNR tidak dapat melakukan CO"
+                                >
+                                  Belum
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={Boolean(isMarkingCo)}
+                                  onClick={() =>
+                                    handleMarkRecapAsCo(
+                                      item.id,
+                                    )
+                                  }
+                                  className="rounded-md bg-[#1457ff] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isMarkingCo === item.id
+                                    ? "Memproses..."
+                                    : "Belum"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ACTION */}
+                        {hasPermission("recaps.delete") && (
+                          <div className="mt-4 flex justify-end border-t border-[#edf0f6] pt-4">
+                            {isHnr ? (
+                              <button
+                                type="button"
+                                disabled
+                                aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
+                                title="Member HNR tidak dapat menghapus rekapan"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#9aa5bf] disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : !isRecapDeleteDisabled ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteRecap(item)
+                                }
+                                aria-label={`Hapus rekapan ${item.member?.name ?? ""}`}
+                                title="Hapus rekapan"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <span className="text-base text-[#7a89ad]">
+                                -
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                      </article>
+                    );
+                  })}
+
+                {!isLoadingRecaps &&
+                  !isRecapError &&
+                  filteredRecaps.length > 0 && (
+                    <div className="rounded-xl border border-[#edf0f6] bg-white px-4 py-4 shadow-sm">
+                      <p className="text-sm text-[#7a89ad]">
+                        Menampilkan {filteredRecaps.length} data
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-[#20366f]">
+                        Total Rekapan: {formatRupiah(totalRekap)}
+                      </p>
+                    </div>
+                  )}
 
               </section>
 

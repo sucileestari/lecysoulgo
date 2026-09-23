@@ -49,6 +49,8 @@ type CustomerRecap = {
     | "employee"
     | "hnr";
 
+  max_timbun: string | null;
+
   down_payment: {
     amount: number;
 
@@ -211,6 +213,7 @@ export async function getCustomerRecaps(
       total_dp,
       sisa_pelunasan,
       sudah_co,
+      max_timbun,
       created_at,
       updated_at,
 
@@ -451,6 +454,9 @@ export async function getCustomerRecaps(
               | "customer"
               | "employee"
               | "hnr",
+
+          max_timbun:
+            recap.max_timbun ?? null,
 
           down_payment: {
             amount:

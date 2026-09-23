@@ -33,6 +33,8 @@ export type Recap = {
    */
   sudah_co: boolean;
 
+  max_timbun: string | null;
+
   created_at: string;
 
   updated_at: string;

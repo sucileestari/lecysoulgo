@@ -824,7 +824,176 @@ export default function NotificationLogPage() {
                 : "Gagal mengambil notification log."}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* =================================
+                  MOBILE CARDS
+              ================================== */}
+
+              <div className="space-y-4 px-4 py-4 md:hidden">
+
+                {query.isLoading ? (
+                  Array.from({
+                    length: 3,
+                  }).map((_, index) => (
+                    <article
+                      key={`mobile-loading-${index}`}
+                      className="rounded-xl border border-[#e4e9f3] bg-white p-4 shadow-sm"
+                    >
+                      <div className="animate-pulse space-y-4">
+                        <div className="h-4 w-2/3 rounded bg-[#eef2f8]" />
+                        <div className="h-3 w-1/2 rounded bg-[#eef2f8]" />
+                        <div className="h-10 rounded-lg bg-[#eef2f8]" />
+                        <div className="h-3 w-full rounded bg-[#eef2f8]" />
+                      </div>
+                    </article>
+                  ))
+                ) : rows.length === 0 ? (
+                  <div className="rounded-xl border border-[#e4e9f3] bg-white px-5 py-14 text-center">
+                    <p className="text-sm text-[#7d8aa6]">
+                      Belum ada notification log.
+                    </p>
+                  </div>
+                ) : (
+                  rows.map((item) => {
+                    const dateTime =
+                      formatDateTime(
+                        item.scheduled_at,
+                      );
+
+                    let message =
+                      "Berhasil terkirim";
+
+                    if (
+                      item.status ===
+                      "failed"
+                    ) {
+                      message =
+                        item.error_message ||
+                        "Pengiriman WhatsApp gagal.";
+                    } else if (
+                      item.status ===
+                      "skipped"
+                    ) {
+                      message =
+                        item.skip_reason ||
+                        "Pembeli memiliki izin telat bayar.";
+                    }
+
+                    const retrying =
+                      retryMutation.isPending &&
+                      retryMutation.variables ===
+                        item.id;
+
+                    return (
+                      <article
+                        key={item.id}
+                        className="rounded-xl border border-[#e4e9f3] bg-white p-4 shadow-sm"
+                      >
+
+                        {/* HEADER */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold text-[#203468]">
+                              {item.member?.name ||
+                                "-"}
+                            </p>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#7d8aa6]">
+                              <span>
+                                {dateTime.date}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {dateTime.time}
+                              </span>
+                            </div>
+                          </div>
+
+                          <StatusBadge
+                            status={item.status}
+                          />
+                        </div>
+
+                        {/* DETAIL */}
+                        <div className="mt-4 space-y-3 border-t border-[#edf0f6] pt-4">
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7d8aa6]">
+                              Jenis Notifikasi
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium text-[#203468]">
+                              {notificationTypeLabel(
+                                item.notification_type,
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7d8aa6]">
+                              Tipe Pembayaran
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium text-[#203468]">
+                              {paymentTypeLabel(
+                                item.payment
+                                  ?.payment_type,
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7d8aa6]">
+                              Pesan
+                            </p>
+
+                            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-[#566889]">
+                              {message}
+                            </p>
+                          </div>
+
+                        </div>
+
+                        {/* ACTION */}
+                        {item.status ===
+                          "failed" &&
+                        hasPermission(
+                          "notification_log.manage",
+                        ) && (
+                          <div className="mt-4 border-t border-[#edf0f6] pt-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                retryMutation.mutate(
+                                  item.id,
+                                )
+                              }
+                              disabled={
+                                retrying
+                              }
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#3f73eb] px-3.5 py-2.5 text-xs font-semibold text-white hover:bg-[#3265dd] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+
+                              {retrying
+                                ? "Mengirim..."
+                                : "Kirim Ulang"}
+                            </button>
+                          </div>
+                        )}
+
+                      </article>
+                    );
+                  })
+                )}
+
+              </div>
+
+              {/* =================================
+                  DESKTOP TABLE
+              ================================== */}
+
+              <div className="hidden overflow-x-auto md:block">
 
               <table className="min-w-[1080px] w-full border-collapse">
 
@@ -1051,7 +1220,8 @@ export default function NotificationLogPage() {
 
               </table>
 
-            </div>
+              </div>
+            </>
           )}
 
           {/* =================================

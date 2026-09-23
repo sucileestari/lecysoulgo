@@ -1485,7 +1485,195 @@ export default function RolesPermissionPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* ===================================
+              MOBILE ROLE CARDS
+          =================================== */}
+
+          <div className="space-y-3 p-4 md:hidden">
+
+            {filteredRoles.map(
+              (
+                role,
+                index,
+              ) => {
+                const isSelected =
+                  selectedRoleId ===
+                  role.id;
+
+                const isProtected =
+                  isSuperAdminRole(
+                    role,
+                  );
+
+                return (
+                  <article
+                    key={role.id}
+                    onClick={() =>
+                      setSelectedRoleId(
+                        role.id,
+                      )
+                    }
+                    className={[
+                      "cursor-pointer rounded-xl border p-4 transition",
+                      isSelected
+                        ? "border-blue-200 bg-blue-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-400">
+                            #{index + 1}
+                          </span>
+
+                          <h3 className="break-words text-base font-semibold text-slate-900">
+                            {formatRoleName(
+                              role.name,
+                            )}
+                          </h3>
+                        </div>
+
+                        {isProtected && (
+                          <span className="mt-2 inline-flex rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-600">
+                            Protected
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="inline-flex shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-600">
+                        Aktif
+                      </span>
+
+                    </div>
+
+                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                          Deskripsi
+                        </p>
+
+                        <p className="mt-1 text-sm leading-5 text-slate-600">
+                          {role.description ||
+                            "-"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Permission
+                          </p>
+
+                          <div className="mt-1">
+                            {isProtected ? (
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                Semua
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
+                                {rolePermissionCounts[
+                                  role.id
+                                ] ?? 0}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+
+                          <button
+                            type="button"
+                            title="Pilih role"
+                            onClick={(
+                              event,
+                            ) => {
+                              event.stopPropagation();
+
+                              setSelectedRoleId(
+                                role.id,
+                              );
+                            }}
+                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+                          >
+                            <Eye size={16} />
+                          </button>
+
+                          {!isProtected && (
+                            <>
+                              {hasPermission(
+                                "roles.edit",
+                              ) && (
+                                <button
+                                  type="button"
+                                  title="Edit role"
+                                  onClick={(
+                                    event,
+                                  ) => {
+                                    event.stopPropagation();
+
+                                    openEditRoleModal(
+                                      role,
+                                    );
+                                  }}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-blue-600"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              )}
+
+                              {hasPermission(
+                                "roles.delete",
+                              ) && (
+                                <button
+                                  type="button"
+                                  title="Hapus role"
+                                  onClick={(
+                                    event,
+                                  ) => {
+                                    event.stopPropagation();
+
+                                    void handleDeleteRole(
+                                      role,
+                                    );
+                                  }}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <Trash2
+                                    size={16}
+                                  />
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    </div>
+                  </article>
+                );
+              },
+            )}
+
+            {filteredRoles.length ===
+              0 && (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+                Tidak ada role ditemukan.
+              </div>
+            )}
+
+          </div>
+
+          {/* ===================================
+              DESKTOP ROLE TABLE
+          =================================== */}
+
+          <div className="hidden overflow-x-auto md:block">
 
             <table className="w-full min-w-[700px] text-sm">
 
@@ -1779,7 +1967,150 @@ export default function RolesPermissionPage() {
                 Memuat permission...
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* ===================================
+                    MOBILE PERMISSION CARDS
+                =================================== */}
+
+                <div className="space-y-3 md:hidden">
+
+                {Object.entries(
+                  groupedPermissions,
+                ).map(
+                  ([
+                    moduleName,
+                    modulePermissions,
+                  ]) => {
+                    const isExpanded =
+                      expandedModules[
+                        moduleName
+                      ] === true;
+
+                    return (
+                      <div
+                        key={moduleName}
+                        className="overflow-hidden rounded-xl border border-slate-200"
+                      >
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleModule(
+                              moduleName,
+                            )
+                          }
+                          className="flex w-full items-center justify-between gap-3 bg-slate-50 px-4 py-3 text-left"
+                        >
+                          <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700">
+                            {isExpanded ? (
+                              <ChevronDown
+                                size={16}
+                                className="shrink-0"
+                              />
+                            ) : (
+                              <ChevronRight
+                                size={16}
+                                className="shrink-0"
+                              />
+                            )}
+
+                            <span className="break-words">
+                              {moduleName}
+                            </span>
+                          </span>
+
+                          <span className="shrink-0 text-xs text-slate-400">
+                            {modulePermissions.length}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="divide-y divide-slate-100 bg-white">
+                            {modulePermissions.map(
+                              (
+                                permission,
+                              ) => {
+                                const checked =
+                                  isSuperAdmin ||
+                                  selectedPermissionIds.includes(
+                                    permission.id,
+                                  );
+
+                                const actionLabel =
+                                  ACTION_LABELS[
+                                    permission.action
+                                  ] ??
+                                  permission.action;
+
+                                return (
+                                  <label
+                                    key={
+                                      permission.id
+                                    }
+                                    className={[
+                                      "flex items-start gap-3 px-4 py-3",
+                                      isSuperAdmin ||
+                                      !hasPermission("roles.manage")
+                                        ? "cursor-not-allowed"
+                                        : "cursor-pointer",
+                                    ].join(" ")}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        checked
+                                      }
+                                      disabled={
+                                        isSuperAdmin ||
+                                        !hasPermission("roles.manage")
+                                      }
+                                      onChange={() =>
+                                        togglePermission(
+                                          permission.id,
+                                        )
+                                      }
+                                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
+                                    />
+
+                                    <div className="min-w-0 flex-1">
+                                      <p className="break-words text-sm text-slate-700">
+                                        {getPermissionDisplayLabel(
+                                          permission,
+                                          moduleName,
+                                        )}
+                                      </p>
+
+                                      <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                        {actionLabel}
+                                      </span>
+                                    </div>
+                                  </label>
+                                );
+                              },
+                            )}
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  },
+                )}
+
+                {Object.keys(
+                  groupedPermissions,
+                ).length === 0 && (
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+                    Tidak ada permission tersedia.
+                  </div>
+                )}
+
+              </div>
+
+              {/* ===================================
+                  DESKTOP PERMISSION TABLE
+              =================================== */}
+
+              <div className="hidden overflow-x-auto md:block">
 
                 <table className="w-full min-w-[650px] text-sm">
 
@@ -1896,6 +2227,8 @@ export default function RolesPermissionPage() {
                 </table>
 
               </div>
+
+              </>
             )}
 
             {/* =================================

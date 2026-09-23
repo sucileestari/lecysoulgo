@@ -73,6 +73,46 @@ function createDefaultForm(): FormState {
   };
 }
 
+type ManualShipmentOptionWithTimbun =
+  ManualShipmentOptionItem & {
+    pelunasan_due_date?: string | null;
+  };
+
+const MAX_TIMBUN_DAYS = 60;
+
+function isPastMaxTimbun(
+  pelunasanDueDate: string | null | undefined,
+): boolean {
+  if (!pelunasanDueDate) {
+    return false;
+  }
+
+  const maxTimbunDate = new Date(
+    `${pelunasanDueDate}T00:00:00`,
+  );
+
+  if (Number.isNaN(maxTimbunDate.getTime())) {
+    return false;
+  }
+
+  maxTimbunDate.setDate(
+    maxTimbunDate.getDate() + MAX_TIMBUN_DAYS,
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() > maxTimbunDate.getTime();
+}
+
+function getPelunasanDueDate(
+  item: ManualShipmentOptionItem,
+): string | null | undefined {
+  return (
+    item as ManualShipmentOptionWithTimbun
+  ).pelunasan_due_date;
+}
+
 function formatBatchCountry(
   value: string | null | undefined,
 ): string {
@@ -554,6 +594,25 @@ export default function TambahPengirimanDialog({
       return;
     }
 
+    const item =
+      availableItems.find(
+        (currentItem) =>
+          currentItem.recap_id === recapId,
+      );
+
+    const exists =
+      form.recap_ids.includes(recapId);
+
+    if (
+      !exists &&
+      item &&
+      isPastMaxTimbun(
+        getPelunasanDueDate(item),
+      )
+    ) {
+      return;
+    }
+
     setForm(
       (current) => {
         const exists =
@@ -850,9 +909,7 @@ export default function TambahPengirimanDialog({
                     {buyerOptionsQuery.isLoading
                       ? "Memuat pembeli..."
                       : selectedMember
-                        ? isCustomer
-                          ? `${selectedMember.name} - ${selectedMember.phone}`
-                          : selectedMember.name
+                        ? `${selectedMember.name} - ${selectedMember.phone}`
                         : "Pilih nama pembeli"}
                   </span>
 
@@ -1037,16 +1094,28 @@ export default function TambahPengirimanDialog({
                       filteredItems.map((item) => {
                         const checked =
                           form.recap_ids.includes(item.recap_id);
+                        const isPastMaxTimbunItem =
+                          isPastMaxTimbun(
+                            getPelunasanDueDate(item),
+                          );
 
                         return (
                           <button
                             key={item.recap_id}
                             type="button"
-                            disabled={isHnrCustomer}
+                            disabled={
+                              isHnrCustomer ||
+                              isPastMaxTimbunItem
+                            }
                             onClick={() =>
                               toggleItem(item.recap_id)
                             }
-                            className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-[#f7f9ff]"
+                            className={[
+                              "flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition",
+                              isPastMaxTimbunItem
+                                ? "cursor-not-allowed opacity-60"
+                                : "hover:bg-[#f7f9ff]",
+                            ].join(" ")}
                           >
                             <span
                               className={[
@@ -1072,6 +1141,12 @@ export default function TambahPengirimanDialog({
                               <span className="mt-1 block text-xs text-[#7a89ad]">
                                 Qty {item.qty}
                               </span>
+
+                              {isPastMaxTimbunItem && (
+                                <span className="mt-1 block text-[11px] font-medium text-red-500">
+                                  Sudah melewati masa timbun
+                                </span>
+                              )}
                             </span>
 
                             <span className="ml-3 shrink-0 text-right">

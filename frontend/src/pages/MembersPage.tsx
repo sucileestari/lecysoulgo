@@ -172,7 +172,10 @@ export default function MembersPage() {
         {/* =========================
             TABLE
         ========================== */}
-        <section className="mt-7 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
+        {/* =========================
+            DESKTOP TABLE
+        ========================== */}
+        <section className="mt-7 hidden overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm md:block">
           <div className="overflow-x-auto">
 
             <table className="w-full min-w-[900px] table-fixed border-collapse">
@@ -372,6 +375,161 @@ export default function MembersPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        {/* =========================
+            MOBILE CARDS
+        ========================== */}
+        <section className="mt-7 space-y-3 md:hidden">
+          {isLoading && (
+            <div className="rounded-xl border border-[#edf0f6] bg-white px-5 py-10 text-center shadow-sm">
+              <p className="text-sm text-[#7a89ad]">
+                Memuat data anggota...
+              </p>
+            </div>
+          )}
+
+          {isError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-8 text-center">
+              <p className="text-sm font-medium text-red-500">
+                Gagal mengambil data anggota.
+              </p>
+
+              <p className="mt-2 break-words text-xs text-[#7a89ad]">
+                {error.message}
+              </p>
+            </div>
+          )}
+
+          {!isLoading &&
+            !isError &&
+            members.length === 0 && (
+              <div className="rounded-xl border border-[#edf0f6] bg-white px-5 py-10 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#edf3ff]">
+                  <Users className="h-6 w-6 text-[#1457ff]" />
+                </div>
+
+                <p className="mt-4 text-base font-medium text-[#20366f]">
+                  {search
+                    ? "Anggota tidak ditemukan"
+                    : "Belum ada anggota"}
+                </p>
+
+                <p className="mt-2 text-sm text-[#7a89ad]">
+                  {search
+                    ? "Coba gunakan kata kunci pencarian lain."
+                    : "Data anggota akan muncul di sini."}
+                </p>
+              </div>
+            )}
+
+          {!isLoading &&
+            !isError &&
+            members.map((member, index) => {
+              const memberTypeLabel =
+                member.type === "employee"
+                  ? "Karyawan"
+                  : member.type === "hnr"
+                    ? "HNR"
+                    : "Customer";
+
+              const isHnr =
+                member.type === "hnr";
+
+              return (
+                <article
+                  key={member.id}
+                  className={[
+                    "rounded-xl border p-4 shadow-sm",
+                    isHnr
+                      ? "border-gray-200 bg-gray-50"
+                      : "border-[#edf0f6] bg-white",
+                  ].join(" ")}
+                >
+                  {/* HEADER CARD */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-[#8a96b4]">
+                          #{index + 1}
+                        </span>
+
+                        <h3 className="truncate text-base font-semibold text-[#20366f]">
+                          {member.name}
+                        </h3>
+                      </div>
+
+                      <p className="mt-1 break-all text-sm text-[#7a89ad]">
+                        {member.phone}
+                      </p>
+                    </div>
+
+                    <span
+                      className={[
+                        "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
+                        isHnr
+                          ? "bg-red-50 text-red-600"
+                          : "bg-[#eef4ff] text-[#1457ff]",
+                      ].join(" ")}
+                    >
+                      {memberTypeLabel}
+                    </span>
+                  </div>
+
+                  {/* LAST UPDATE */}
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <p className="text-xs font-medium text-[#7a89ad]">
+                      Last Update
+                    </p>
+
+                    <p className="mt-1 text-sm text-[#20366f]">
+                      {formatUpdatedAt(
+                        member.updated_at,
+                      )}
+                    </p>
+                  </div>
+
+                  {/* ACTION */}
+                  {!isHnr && (
+                    <div className="mt-4 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                      {hasPermission("members.edit") && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEditMember(
+                              member,
+                            )
+                          }
+                          aria-label={`Edit ${member.name}`}
+                          title="Edit anggota"
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] px-4 text-sm font-medium text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </button>
+                      )}
+
+                      {hasPermission("members.delete") && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteMember(
+                              member,
+                            )
+                          }
+                          aria-label={`Hapus ${member.name}`}
+                          title="Hapus anggota"
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-500 transition hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
         </section>
       </div>
 

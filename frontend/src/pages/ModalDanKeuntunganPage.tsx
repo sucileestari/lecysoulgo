@@ -1239,7 +1239,7 @@ export default function ModalDanKeuntunganPage() {
 
         <section className="mt-7 rounded-xl border border-[#edf0f6] bg-white shadow-sm">
 
-          <div className="flex items-center justify-between gap-6 px-6 py-6">
+          <div className="grid grid-cols-1 gap-5 px-6 py-6 sm:grid-cols-2 xl:flex xl:items-center xl:justify-between xl:gap-6">
 
             {/* TOTAL BATCH */}
 
@@ -1379,7 +1379,315 @@ export default function ModalDanKeuntunganPage() {
 
         <section className="mt-6 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
 
-          <div className="overflow-x-auto">
+          {/* =================================
+              MOBILE CARDS
+          ================================== */}
+
+          <div className="space-y-4 p-4 md:hidden">
+
+            {isLoading && (
+              Array.from({
+                length: 3,
+              }).map((_, index) => (
+                <article
+                  key={`mobile-loading-${index}`}
+                  className="rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm"
+                >
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-4 w-2/3 rounded bg-[#eef2f8]" />
+                    <div className="h-3 w-1/2 rounded bg-[#eef2f8]" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="h-10 rounded-lg bg-[#eef2f8]" />
+                      <div className="h-10 rounded-lg bg-[#eef2f8]" />
+                    </div>
+                    <div className="h-12 rounded-lg bg-[#eef2f8]" />
+                  </div>
+                </article>
+              ))
+            )}
+
+            {!isLoading &&
+              isError && (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-5 py-12 text-center">
+                  <p className="text-sm font-medium text-red-500">
+                    Gagal mengambil data modal penjualan.
+                  </p>
+
+                  <p className="mt-2 break-words text-xs text-red-500">
+                    {errorMessage}
+                  </p>
+                </div>
+              )}
+
+            {!isLoading &&
+              !isError &&
+              filteredRows.length === 0 && (
+                <div className="rounded-xl border border-[#edf0f6] bg-white px-5 py-14 text-center">
+                  <p className="text-base font-medium text-[#20366f]">
+                    {search
+                      ? "Batch tidak ditemukan"
+                      : "Belum ada data modal dan keuntungan"}
+                  </p>
+
+                  <p className="mt-2 text-sm text-[#7a89ad]">
+                    {search
+                      ? "Coba gunakan kata kunci pencarian lain."
+                      : "Tambahkan modal penjualan menggunakan tombol Tambah Modal Penjualan."}
+                  </p>
+                </div>
+              )}
+
+            {!isLoading &&
+              !isError &&
+              filteredRows.map((row) => {
+                const Flag =
+                  row.countryFlag;
+
+                return (
+                  <article
+                    key={row.id}
+                    className="rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm"
+                  >
+
+                    {/* HEADER */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Flag
+                            title={row.country}
+                            className="h-5 w-auto shrink-0 rounded-sm"
+                          />
+
+                          <p className="text-base font-semibold text-[#20366f]">
+                            {row.country}
+                          </p>
+                        </div>
+
+                        <h3 className="mt-2 break-words text-base font-bold text-[#10245c]">
+                          {row.batchName}
+                        </h3>
+                      </div>
+
+                      <div className="shrink-0 rounded-lg bg-[#eef4ff] px-2.5 py-1.5 text-xs font-semibold text-[#1457ff]">
+                        Qty {row.qty}
+                      </div>
+                    </div>
+
+                    {/* TRANSACTION INFO */}
+                    <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[#edf0f6] pt-4 sm:grid-cols-2">
+
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Tanggal Transaksi
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium text-[#20366f]">
+                          {row.transactionDate
+                            ? new Intl.DateTimeFormat(
+                                "id-ID",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              ).format(
+                                new Date(
+                                  `${row.transactionDate}T00:00:00`,
+                                ),
+                              )
+                            : "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Bank
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium text-[#20366f]">
+                          {row.bankName}
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* MODAL */}
+                    <div className="mt-4 space-y-3 border-t border-[#edf0f6] pt-4">
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-[#65749b]">
+                          Modal Beli
+                        </span>
+
+                        <span className="text-sm font-semibold text-[#20366f]">
+                          {formatRupiah(
+                            row.modalBeli,
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-[#65749b]">
+                          Harga Modal / Barang
+                        </span>
+
+                        <span className="text-right text-sm text-[#20366f]">
+                          {formatRupiah(
+                            row.hargaModalPerBarang,
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-[#65749b]">
+                          Harga Modal / Barang (Pembulatan)
+                        </span>
+
+                        <span className="text-right text-sm font-medium text-[#20366f]">
+                          {formatRupiah(
+                            row.hargaModalPembulatan,
+                          )}
+                        </span>
+                      </div>
+
+                    </div>
+
+                    {/* SALES */}
+                    <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[#edf0f6] pt-4 sm:grid-cols-2">
+
+                      <div className="rounded-lg bg-[#f8faff] p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Total Harga Jual
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-[#20366f]">
+                          {formatRupiah(
+                            row.totalHargaJual,
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-[#f8faff] p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Qty Terjual
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-[#20366f]">
+                          {row.qtyTerjual}
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* DEDUCTIONS */}
+                    <div className="mt-4 space-y-3 border-t border-[#edf0f6] pt-4">
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-[#65749b]">
+                          Denda
+                        </span>
+
+                        <span className="text-right text-sm text-[#20366f]">
+                          {formatRupiah(
+                            row.denda,
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-[#65749b]">
+                          Fee 0,8%
+                        </span>
+
+                        <span className="text-right text-sm font-medium text-[#ef4444]">
+                          {formatRupiah(
+                            row.totalFee,
+                          )}
+                        </span>
+                      </div>
+
+                    </div>
+
+                    {/* PROFIT */}
+                    <div className="mt-4 rounded-lg border border-[#edf0f6] bg-[#f8faff] p-4">
+
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#65749b]">
+                        Keuntungan
+                      </p>
+
+                      <p
+                        className={[
+                          "mt-1 text-lg font-bold",
+                          row.keuntungan < 0
+                            ? "text-[#ef4444]"
+                            : "text-[#16a34a]",
+                        ].join(" ")}
+                      >
+                        {row.keuntungan < 0
+                          ? `- ${formatRupiah(
+                              Math.abs(
+                                row.keuntungan,
+                              ),
+                            )}`
+                          : formatRupiah(
+                              row.keuntungan,
+                            )}
+                      </p>
+
+                    </div>
+
+                    {/* ACTION */}
+                    <div className="mt-4 flex items-center gap-2 border-t border-[#edf0f6] pt-4">
+
+                      <button
+                        type="button"
+                        aria-label={`Edit ${row.batchName}`}
+                        title={`Edit ${row.batchName}`}
+                        onClick={() => {
+                          const productCost =
+                            productCosts.find(
+                              (item) =>
+                                item.id ===
+                                row.id,
+                            );
+
+                          if (
+                            productCost
+                          ) {
+                            handleOpenEditModal(
+                              productCost,
+                            );
+                          }
+                        }}
+                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        aria-label={`Hapus ${row.batchName}`}
+                        title={`Hapus ${row.batchName}`}
+                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Hapus
+                      </button>
+
+                    </div>
+
+                  </article>
+                );
+              })}
+
+          </div>
+
+          {/* =================================
+              DESKTOP TABLE
+          ================================== */}
+
+          <div className="hidden overflow-x-auto md:block">
 
             <table className="w-full min-w-[2120px] table-fixed border-collapse">
 

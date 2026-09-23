@@ -45,9 +45,13 @@ type InformationRule = {
     method: string;
     detail: string;
   }[];
+  recapNotice: string;
+  recapNote: string;
   manualCoSteps: string[];
   shopeeCoSteps: string[];
   shippingNotice: string[];
+  latePaymentSteps: string[];
+  latePaymentNote: string;
 };
 
 type RulesData = {
@@ -165,6 +169,7 @@ const rules: RulesData = {
   information: {
     description:
       "Beberapa informasi penting yang perlu diketahui oleh member",
+
     contactPersons: [
       {
         role: "Owner GO",
@@ -179,6 +184,7 @@ const rules: RulesData = {
           "Jika ada pertanyaan mengenai Tagihan dan Rekapan",
       },
     ],
+
     paymentMethods: [
       {
         method: "QRIS",
@@ -196,6 +202,22 @@ const rules: RulesData = {
           "005786054201 atas nama Suci Lestari",
       },
     ],
+
+    recapNotice:
+      "Member dapat melihat seluruh rekapan pembalian barang pada menu Rekapan Saya. Semua informasi terkait rekapan seperti Pembelian dari negara mana, batch apa, gambar barang, Total harga barang, Maksimal Tanggal Pembayaran untuk DP dan Pelunasan, Total DP atau Pelunasan hingga denda, maksimal timbun, dan Keterangan sudah CO atau belum, sudah ditampilkan pada menu tersebut.\n\nSetiap tagihan dikirimkan ke WA masing-masing member bersamaan dengan Link Payment. Mohon untuk membaca Instruksi yang ada secara baik dan jika ada pertanyaan bisa langsung menghubungi Admin melalui chat WA.",
+
+    recapNote:
+      "Dimohon agar member dapat secara berkala melakukan pengecekan untuk rekapan pembelian barang dari masing-masing member, agar jika terjadi kesalahan dapat diperbaiki secepat mungkin.",
+
+    latePaymentSteps: [
+      "Buka menu Ijin Telat Bayar",
+      "Klik Ajukan Ijin",
+      "Isi semua yang diperlukan",
+    ],
+
+    latePaymentNote:
+      "Member dapat mengajukan ijin telat bayar paling lama H-2 dari maksimal tanggal pembayaran DP atau Pelunasan. Diluar dari tanggal itu, ijin telat bayar ditolak oleh sistem, dan member hanya memiliki 2 pilihan yaitu membayarnya tepat waktu atau membayarnya lewat dari tanggal yang ditentukan dan terkena denda. Admin tidak menerima alasan apapun, karena Admin juga tidak bisa melakukan apapun jika hal tersebut terjadi, karena semua sudah melalui sistem.",
+
     manualCoSteps: [
       "Buka menu Pengiriman Manual",
       "Pilih batch yang saat ini sedang berjalan",
@@ -203,6 +225,7 @@ const rules: RulesData = {
       "Isi semua yang diperlukan",
       "Tunggu sampai barang diproses dan akan ada tagihan yang masuk ke WA",
     ],
+
     shopeeCoSteps: [
       "CO Shopee melalui link yang diberikan (tidak perlu isi notes pesanan atau chat dari shopee)",
       "Buka menu Pesanan Marketplace",
@@ -210,6 +233,7 @@ const rules: RulesData = {
       "Isi semua yang diperlukan",
       "Tunggu sampai barang diproses",
     ],
+
     shippingNotice: [
       "Setiap minggu dilakukan pengiriman paling banyak 20 paket tergantung dengan kondisi Admin dalam melakukan packing. Packing dilakukan sesuai dengan orderan yang masuk di web bukan di marketplace, sehingga customer dapat memantau langsung kapan paketnya dapat dipacking dan dikirim. Meskipun sudah di packing, paket belum tentu langsung dapat dikirim. Ini bergantung terhadap kondisi kurir yang pickup atau cuaca dan lain-lainnya.",
       "Mohon untuk selalu bersabar dalam hal packing dan pengiriman, karena Admin hanya bisa melakukan packing dan pengiriman di hari Sabtu dan Minggu. Karena hal itu, Admin tidak menerima hal yang terburu-buru dan tetap melakukan packing dan pengiriman sesuai dengan urutan orderan di web bukan di marketplace.",
@@ -247,9 +271,11 @@ export default function RulesGoPage() {
   return (
     <div className="min-h-screen bg-[#f8faff] text-left">
       <div className="w-full px-6 py-8 lg:px-8">
+
         {/* =========================
             HEADER
         ========================== */}
+
         <section className="text-left">
           <h1 className="text-3xl font-bold tracking-tight text-[#10245c]">
             Peraturan & Ketentuan
@@ -265,6 +291,7 @@ export default function RulesGoPage() {
         {/* =========================
             CATEGORY TABS
         ========================== */}
+
         <section className="mt-8 grid gap-2 text-left sm:grid-cols-2 lg:grid-cols-6">
           {ruleCategories.map((category) => {
             const Icon = category.icon;
@@ -303,6 +330,7 @@ export default function RulesGoPage() {
         {/* =========================
             ACTIVE TAB UNDERLINE
         ========================== */}
+
         <div className="mt-0 hidden lg:grid lg:grid-cols-6 lg:gap-2">
           {ruleCategories.map((category) => (
             <div
@@ -320,10 +348,13 @@ export default function RulesGoPage() {
         {/* =========================
             CONTENT
         ========================== */}
+
         <section className="mt-4 rounded-xl bg-white px-7 py-5 shadow-sm ring-1 ring-black/5 lg:px-8 lg:py-6">
+
           {/* =========================
               GENERAL / PAYMENT / SHIPPING
           ========================== */}
+
           {activeCategory !== "behavior" &&
           activeCategory !== "information" &&
           activeCategory !== "hnr" &&
@@ -353,6 +384,7 @@ export default function RulesGoPage() {
           {/* =========================
               BEHAVIOR
           ========================== */}
+
           {activeCategory === "behavior" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
@@ -360,7 +392,9 @@ export default function RulesGoPage() {
               </p>
 
               <div className="mt-6 space-y-8">
+
                 {/* Allowed */}
+
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <ListChecks className="h-6 w-6 text-green-600" />
@@ -387,6 +421,7 @@ export default function RulesGoPage() {
                 </section>
 
                 {/* Prohibited */}
+
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <X className="h-6 w-6 text-red-500" />
@@ -411,6 +446,7 @@ export default function RulesGoPage() {
                     )}
                   </ul>
                 </section>
+
               </div>
             </>
           ) : null}
@@ -418,6 +454,7 @@ export default function RulesGoPage() {
           {/* =========================
               INFORMATION
           ========================== */}
+
           {activeCategory === "information" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
@@ -425,7 +462,9 @@ export default function RulesGoPage() {
               </p>
 
               <div className="mt-5 space-y-5">
+
                 {/* Contact Person */}
+
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
                     Contact Person
@@ -456,6 +495,7 @@ export default function RulesGoPage() {
                 </section>
 
                 {/* Metode Pembayaran */}
+
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
                     Metode Pembayaran
@@ -481,7 +521,67 @@ export default function RulesGoPage() {
                   </div>
                 </section>
 
+                {/* Rekapan */}
+
+                <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
+                  <h3 className="text-lg font-semibold text-[#10245c]">
+                    Rekapan
+                  </h3>
+
+                  <p className="mt-4 whitespace-pre-line text-sm leading-7 text-[#20366f]">
+                    {rules.information.recapNotice}
+                  </p>
+
+                  <div className="mt-6 rounded-lg border border-[#f0dca8] bg-[#fffaf0] px-5 py-4">
+                    <p className="text-sm font-semibold text-[#8a5a00]">
+                      Notes:
+                    </p>
+
+                    <p className="mt-2 text-sm leading-7 text-[#6f5730]">
+                      {rules.information.recapNote}
+                    </p>
+                  </div>
+                </section>
+
+                {/* Cara Ijin Telat Pembayaran */}
+
+                <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
+                  <h3 className="text-lg font-semibold text-[#10245c]">
+                    Cara Ijin Telat Pembayaran
+                  </h3>
+
+                  <ol className="mt-4 space-y-3">
+                    {rules.information.latePaymentSteps.map(
+                      (step, index) => (
+                        <li
+                          key={`late-payment-${index}`}
+                          className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-xs font-semibold text-[#1457ff]">
+                            {index + 1}
+                          </span>
+
+                          <span className="pt-0.5">
+                            {step}
+                          </span>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+
+                  <div className="mt-6 rounded-lg border border-[#f0dca8] bg-[#fffaf0] px-5 py-4">
+                    <p className="text-sm font-semibold text-[#8a5a00]">
+                      Notes:
+                    </p>
+
+                    <p className="mt-2 text-sm leading-7 text-[#6f5730]">
+                      {rules.information.latePaymentNote}
+                    </p>
+                  </div>
+                </section>
+
                 {/* Pemberitahuan Pengiriman */}
+
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
                     Pemberitahuan Pengiriman
@@ -502,6 +602,7 @@ export default function RulesGoPage() {
                 </section>
 
                 {/* Cara CO Manual */}
+
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
                     Cara CO Manual
@@ -518,7 +619,9 @@ export default function RulesGoPage() {
                             {index + 1}
                           </span>
 
-                          <span className="pt-0.5">{step}</span>
+                          <span className="pt-0.5">
+                            {step}
+                          </span>
                         </li>
                       ),
                     )}
@@ -526,6 +629,7 @@ export default function RulesGoPage() {
                 </section>
 
                 {/* Cara CO Shopee */}
+
                 <section className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-5">
                   <h3 className="text-lg font-semibold text-[#10245c]">
                     Cara CO Shopee
@@ -542,12 +646,15 @@ export default function RulesGoPage() {
                             {index + 1}
                           </span>
 
-                          <span className="pt-0.5">{step}</span>
+                          <span className="pt-0.5">
+                            {step}
+                          </span>
                         </li>
                       ),
                     )}
                   </ol>
                 </section>
+
               </div>
             </>
           ) : null}
@@ -555,6 +662,7 @@ export default function RulesGoPage() {
           {/* =========================
               HNR
           ========================== */}
+
           {activeCategory === "hnr" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
@@ -619,6 +727,7 @@ export default function RulesGoPage() {
               )}
             </>
           ) : null}
+
         </section>
       </div>
     </div>

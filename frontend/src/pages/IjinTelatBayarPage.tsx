@@ -364,10 +364,275 @@ export default function IjinTelatBayarPage() {
         )}
 
         {/* =================================
+            MOBILE CARDS
+        ================================== */}
+
+        {!isLoading &&
+          !isError &&
+          paginatedPermissions.length > 0 && (
+            <div className="mt-7 space-y-4 md:hidden">
+              {paginatedPermissions.map((item) => {
+                const isPaid =
+                  item.payment_status ===
+                  "paid";
+
+                const isHnr =
+                  item.member?.type ===
+                  "hnr";
+
+                return (
+                  <article
+                    key={item.id}
+                    aria-disabled={
+                      isHnr
+                    }
+                    className={[
+                      "rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm",
+                      isHnr
+                        ? "bg-[#f7f9fc] opacity-60"
+                        : "",
+                    ].join(" ")}
+                  >
+                    {/* PEMBELI */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-semibold text-[#20366f]">
+                            {item.member?.name ??
+                              "-"}
+                          </p>
+
+                          {isHnr && (
+                            <span className="inline-flex rounded-md bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600">
+                              HNR
+                            </span>
+                          )}
+                        </div>
+
+                        {item.member?.phone && (
+                          <p className="mt-1 text-xs text-[#7a89ad]">
+                            {item.member.phone}
+                          </p>
+                        )}
+                      </div>
+
+                      {isPaid ? (
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-green-50 px-2.5 py-1.5 text-[11px] font-semibold text-green-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Sudah Dibayar
+                        </span>
+                      ) : (
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-600">
+                          Belum Dibayar
+                        </span>
+                      )}
+                    </div>
+
+                    {/* DETAIL BARANG */}
+                    <div className="mt-4 border-t border-gray-100 pt-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Detail Barang
+                      </p>
+
+                      <div className="space-y-3">
+                        {item.items &&
+                        item.items.length > 0 ? (
+                          item.items.map(
+                            (permissionItem) => (
+                              <div
+                                key={
+                                  permissionItem.id
+                                }
+                                className="flex items-start gap-2"
+                              >
+                                <span className="mt-0.5 shrink-0 text-sm text-[#7a89ad]">
+                                  •
+                                </span>
+
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[#20366f]">
+                                    {permissionItem
+                                      .recap
+                                      ?.detail_barang ??
+                                      "-"}
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-[#7a89ad]">
+                                    {permissionItem
+                                      .recap
+                                      ?.batch?.name ??
+                                      "Batch tidak diketahui"}
+                                    {" - "}
+                                    {permissionItem
+                                      .recap
+                                      ?.batch?.country ??
+                                      "Country tidak diketahui"}
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-[#7a89ad]">
+                                    {permissionItem.payment_type}
+                                  </p>
+                                </div>
+                              </div>
+                            ),
+                          )
+                        ) : (
+                          <p className="text-sm text-[#7a89ad]">
+                            -
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ALASAN */}
+                    <div className="mt-4 border-t border-gray-100 pt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                        Alasan Telat
+                      </p>
+
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-[#20366f]">
+                        {item.reason || "-"}
+                      </p>
+                    </div>
+
+                    {/* TANGGAL */}
+                    <div className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Tanggal Pembayaran
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium text-[#20366f]">
+                          {formatDate(
+                            item.payment_date,
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                          Waktu Dibayar
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium text-[#20366f]">
+                          {item.paid_at
+                            ? formatDateTime(
+                                item.paid_at,
+                              )
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+        {/* =================================
+            MOBILE EMPTY STATE
+        ================================== */}
+
+        {!isLoading &&
+          !isError &&
+          paginatedPermissions.length === 0 && (
+            <div className="mt-7 rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center md:hidden">
+              <p className="text-base font-medium text-[#20366f]">
+                {search
+                  ? "Data tidak ditemukan"
+                  : "Belum ada ijin telat bayar"}
+              </p>
+
+              <p className="mt-2 text-sm text-[#7a89ad]">
+                {search
+                  ? "Coba gunakan kata kunci pencarian lain."
+                  : "Klik Ajukan Ijin untuk membuat pengajuan baru."}
+              </p>
+            </div>
+          )}
+
+        {/* =================================
+            MOBILE PAGINATION
+        ================================== */}
+
+        {!isLoading &&
+          !isError &&
+          filteredPermissions.length > 0 && (
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-[#edf0f6] bg-white px-4 py-4 md:hidden">
+              <p className="text-xs text-[#7a89ad]">
+                {Math.min(
+                  (currentPage - 1) *
+                    itemsPerPage +
+                    1,
+                  filteredPermissions.length,
+                )}
+                {" - "}
+                {Math.min(
+                  currentPage *
+                    itemsPerPage,
+                  filteredPermissions.length,
+                )}
+                {" dari "}
+                {filteredPermissions.length}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={
+                    currentPage === 1
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      (page) =>
+                        Math.max(
+                          1,
+                          page - 1,
+                        ),
+                    )
+                  }
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#8290ae] transition hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Halaman sebelumnya"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#1457ff] bg-[#edf3ff] text-sm font-medium text-[#1457ff]"
+                >
+                  {currentPage}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    currentPage >=
+                    totalPages
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      (page) =>
+                        Math.min(
+                          totalPages,
+                          page + 1,
+                        ),
+                    )
+                  }
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#8290ae] transition hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Halaman berikutnya"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+        {/* =================================
             TABLE
         ================================== */}
 
-        <section className="mt-7 overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm">
+        <section className="mt-7 hidden overflow-hidden rounded-xl border border-[#edf0f6] bg-white shadow-sm md:block">
 
           <div className="overflow-x-auto">
 

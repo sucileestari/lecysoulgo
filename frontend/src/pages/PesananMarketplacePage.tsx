@@ -503,60 +503,324 @@ export default function PesananMarketplacePage() {
           HEADER
       ================================== */}
 
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mb-6 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
 
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#10245c]">
             Pesanan Marketplace
           </h1>
 
-          <p className="mt-1 text-sm text-[#5d6f9f]">
+          <p className="mt-2 text-sm text-[#5d6f9f]">
             Kelola pesanan barang dari
             Marketplace.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={
-            handleAddOrder
-          }
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-semibold text-white transition hover:bg-[#0f49d8] focus:outline-none focus:ring-2 focus:ring-[#1457ff]/30"
-        >
-          <Plus className="h-5 w-5" />
+        <div className="flex flex-col gap-3 sm:flex-row">
 
-          Tambah Pesanan
-        </button>
+          {/* SEARCH */}
+
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7a89ad]" />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value,
+                )
+              }
+              placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
+              className="h-12 w-full rounded-lg border border-[#d9e0ef] bg-white pl-11 pr-4 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 sm:w-[250px]"
+            />
+          </div>
+
+          {/* TAMBAH PESANAN */}
+
+          <button
+            type="button"
+            onClick={
+              handleAddOrder
+            }
+            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0d4be0]"
+          >
+            <Plus className="h-5 w-5" />
+            Tambah Pesanan
+          </button>
+
+        </div>
 
       </div>
 
       {/* =================================
-          SEARCH
+          MOBILE
       ================================== */}
 
-      <div className="mb-5 flex w-full max-w-md items-center rounded-lg border border-[#d9e0ef] bg-white px-3 focus-within:border-[#1457ff] focus-within:ring-2 focus-within:ring-[#1457ff]/10">
+      <div className="space-y-4 md:hidden">
 
-        <Search className="h-5 w-5 shrink-0 text-[#7a89ad]" />
+        {isLoading && (
+          <div className="rounded-xl border border-[#e1e6f0] bg-white px-5 py-12 text-center shadow-sm">
+            <p className="text-sm text-[#7a89ad]">
+              Memuat pesanan Marketplace...
+            </p>
+          </div>
+        )}
 
-        <input
-          type="text"
-          value={search}
-          onChange={(event) =>
-            setSearch(
-              event.target.value,
-            )
-          }
-          placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
-          className="h-12 w-full border-0 bg-transparent px-3 text-sm text-[#20366f] outline-none placeholder:text-[#a0abc0]"
-        />
+        {!isLoading && isError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-8 text-center">
+            <p className="text-sm font-medium text-red-600">
+              {error?.message ||
+                "Gagal mengambil pesanan Marketplace."}
+            </p>
 
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="mt-3 text-sm font-semibold text-[#1457ff] hover:underline"
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
+
+        {!isLoading &&
+          !isError &&
+          filteredOrders.length === 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white px-5 py-12 text-center shadow-sm">
+              <p className="text-sm text-[#7a89ad]">
+                {search
+                  ? "Pesanan Marketplace tidak ditemukan."
+                  : "Belum ada pesanan Marketplace."}
+              </p>
+            </div>
+          )}
+
+        {!isLoading &&
+          !isError &&
+          filteredOrders.map((order) => {
+            const memberType =
+              memberTypeMap.get(
+                order.member_id,
+              ) ??
+              order.member_type;
+
+            const isHnr =
+              memberType
+                ?.trim()
+                .toLowerCase() ===
+              "hnr";
+
+            const currentShippingStatus =
+              shippingStatusOverrides[
+                order.id
+              ] ??
+              getShippingStatusValue(
+                order.status,
+              );
+
+            return (
+              <div
+                key={order.id}
+                className={[
+                  "rounded-xl border p-4 shadow-sm",
+                  isHnr
+                    ? "border-gray-200 bg-gray-50"
+                    : "border-[#e1e6f0] bg-white",
+                ].join(" ")}
+              >
+                {/* ORDER + DATE */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-bold text-[#10245c]">
+                      {order.order_number}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-[#20366f]">
+                        {order.member_name}
+                      </p>
+
+                      {isHnr && (
+                        <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600">
+                          HNR
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-xs text-[#7a89ad]">
+                      {formatPhone(
+                        order.member_phone,
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-[#8a96b4]">
+                      Tanggal Input
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-[#50628e]">
+                      {formatDate(
+                        order.created_at,
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* DETAIL BARANG */}
+                <div className="mt-4 rounded-lg bg-[#f8faff] px-3 py-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                    Detail Barang
+                  </p>
+
+                  <div className="space-y-3">
+                    {order.items.length > 0 ? (
+                      order.items.map((item) => {
+                        const {
+                          productName,
+                          qty,
+                          batchName,
+                          batchCountry,
+                        } =
+                          getMarketplaceItemDetail(
+                            item,
+                          );
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="min-w-0"
+                          >
+                            <p className="text-sm font-semibold text-[#20366f]">
+                              • {productName}{" "}
+                              <span className="font-normal text-[#7a89ad]">
+                                x{qty}
+                              </span>
+                            </p>
+
+                            <p className="mt-1 text-xs text-[#7a89ad]">
+                              {batchName} -{" "}
+                              {batchCountry}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-[#7a89ad]">
+                        -
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* STATUS */}
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
+                    Status Pengiriman
+                  </p>
+
+                  <div className="relative">
+                    <select
+                      value={
+                        currentShippingStatus
+                      }
+                      onChange={(event) =>
+                        void handleShippingStatusChange(
+                          order,
+                          event.target.value as MarketplaceShippingStatus,
+                        )
+                      }
+                      disabled={
+                        isHnr ||
+                        isCustomerSession() ||
+                        currentShippingStatus ===
+                          "Dalam proses pick up"
+                      }
+                      style={{
+                        appearance: "none",
+                        WebkitAppearance:
+                          "none",
+                        MozAppearance:
+                          "none",
+                        paddingRight:
+                          "44px",
+                        color: "#000000",
+                      }}
+                      className={[
+                        "h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10",
+                        isHnr
+                          ? "cursor-not-allowed bg-[#f5f6fa] !text-black disabled:!text-black disabled:opacity-100"
+                          : isCustomerSession() ||
+                              currentShippingStatus ===
+                                "Dalam proses pick up"
+                            ? "cursor-not-allowed bg-[#f5f6fa] text-[#9aa4bb]"
+                            : "",
+                      ].join(" ")}
+                    >
+                      <option value="Sedang dikemas">
+                        Sudah di packing
+                      </option>
+
+                      <option value="Dalam proses pick up">
+                        Sudah di pick up
+                      </option>
+                    </select>
+
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536795]" />
+                  </div>
+                </div>
+
+                {/* ACTION */}
+                <div className="mt-4 flex items-center justify-between border-t border-[#edf0f6] pt-4">
+                  <span className="text-xs text-[#8a96b4]">
+                    {isHnr
+                      ? "Pesanan HNR"
+                      : currentShippingStatus ===
+                          "Dalam proses pick up"
+                        ? "Sudah di-pick up"
+                        : "Aksi pesanan"}
+                  </span>
+
+                  {isHnr ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg text-[#9aa4bb] opacity-60"
+                      title="Pesanan HNR tidak dapat dihapus"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : currentShippingStatus ===
+                    "Dalam proses pick up" ? (
+                    <span className="text-sm text-[#7a89ad]">
+                      -
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDeleteOrder(
+                          order,
+                        )
+                      }
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#5d6f9f] transition hover:bg-red-50 hover:text-red-600"
+                      title="Hapus"
+                      aria-label={`Hapus pesanan ${order.order_number}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
       </div>
 
       {/* =================================
           TABLE
       ================================== */}
 
-      <div className="overflow-hidden rounded-xl border border-[#e1e6f0] bg-white shadow-sm">
+      <div className="hidden overflow-hidden rounded-xl border border-[#e1e6f0] bg-white shadow-sm md:block">
 
         <div className="overflow-x-auto">
 

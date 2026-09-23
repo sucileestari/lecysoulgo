@@ -52,6 +52,7 @@ export type MarketplaceAvailableItem = {
   batch_name: string;
   batch_country: string;
   batch_status: string;
+  pelunasan_due_date: string | null;
 };
 
 export type CreateMarketplaceOrderInput = {
@@ -72,6 +73,92 @@ export type MarketplaceMemberOption = {
 
 const ELIGIBLE_BATCH_STATUS =
   "Sudah sampai di Admin";
+
+const MAX_TIMBUN_DAYS = 60;
+
+/* =========================================
+   MAX TIMBUN HELPER
+========================================= */
+
+function addDaysToDateOnly(
+  value: string | null | undefined,
+  days: number,
+): string | null {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    return null;
+  }
+
+  const [year, month, day] =
+    value.split("-").map(Number);
+
+  const date = new Date(
+    Date.UTC(year, month - 1, day),
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setUTCDate(
+    date.getUTCDate() + days,
+  );
+
+  return date
+    .toISOString()
+    .slice(0, 10);
+}
+
+function getJakartaDateOnly(): string {
+  const parts = new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    },
+  ).formatToParts(new Date());
+
+  const year =
+    parts.find(
+      (part) => part.type === "year",
+    )?.value ?? "0000";
+  const month =
+    parts.find(
+      (part) => part.type === "month",
+    )?.value ?? "00";
+  const day =
+    parts.find(
+      (part) => part.type === "day",
+    )?.value ?? "00";
+
+  return `${year}-${month}-${day}`;
+}
+
+function isPastMaxTimbun(
+  pelunasanDueDate:
+    | string
+    | null
+    | undefined,
+): boolean {
+  const maxTimbunDate =
+    addDaysToDateOnly(
+      pelunasanDueDate,
+      MAX_TIMBUN_DAYS,
+    );
+
+  if (!maxTimbunDate) {
+    return false;
+  }
+
+  return (
+    getJakartaDateOnly() >
+    maxTimbunDate
+  );
+}
 
 /* =========================================
    PAYMENT HELPER
@@ -264,6 +351,11 @@ export async function getMarketplaceOrders(
  * - Pelunasan paid
  * - belum CO
  * - belum digunakan Marketplace
+ * - belum digunakan Pengiriman Manual
+ *
+ * Barang yang sudah melewati Max Timbun
+ * tetap dikembalikan agar Frontend dapat
+ * menampilkannya sebagai disabled.
  */
 export async function getAvailableMarketplaceItems(
   memberId?: string,
@@ -287,7 +379,8 @@ export async function getAvailableMarketplaceItems(
         id,
         name,
         country,
-        status
+        status,
+        last_payment_pelunasan
       ),
       member:members (
         name,
@@ -417,6 +510,40 @@ export async function getAvailableMarketplaceItems(
     );
 
   /* -----------------------------------------
+     GET USED MANUAL SHIPMENT RECAPS
+  ----------------------------------------- */
+
+  const {
+    data: manualShipmentItems,
+    error: manualShipmentItemsError,
+  } = await supabase
+    .from("manual_shipment_items")
+    .select("recap_id")
+    .in(
+      "recap_id",
+      recapIds,
+    );
+
+  if (manualShipmentItemsError) {
+    console.error(
+      "getAvailableMarketplaceItems manual shipment items error:",
+      manualShipmentItemsError,
+    );
+
+    throw new Error(
+      `Gagal memeriksa barang Pengiriman Manual: ${manualShipmentItemsError.message}`,
+    );
+  }
+
+  const manualShipmentRecapIds =
+    new Set(
+      (manualShipmentItems ?? []).map(
+        (item) =>
+          item.recap_id,
+      ),
+    );
+
+  /* -----------------------------------------
      FILTER ELIGIBLE ITEMS
   ----------------------------------------- */
 
@@ -440,6 +567,14 @@ export async function getAvailableMarketplaceItems(
 
       if (
         usedRecapIds.has(
+          recap.id,
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        manualShipmentRecapIds.has(
           recap.id,
         )
       ) {
@@ -513,6 +648,11 @@ export async function getAvailableMarketplaceItems(
           rawBatch?.country ?? "",
         batch_status:
           rawBatch?.status ?? "",
+        pelunasan_due_date:
+          typeof rawBatch?.last_payment_pelunasan ===
+          "string"
+            ? rawBatch.last_payment_pelunasan
+            : null,
       };
     });
 }
@@ -611,7 +751,8 @@ async function validateMarketplaceRecaps(
       sudah_co,
       batch:batches (
         id,
-        status
+        status,
+        last_payment_pelunasan
       )
     `)
     .in(
@@ -663,6 +804,19 @@ async function validateMarketplaceRecaps(
     ) {
       throw new Error(
         "Salah satu barang yang dipilih belum sampai di Admin.",
+      );
+    }
+
+    if (
+      isPastMaxTimbun(
+        typeof rawBatch.last_payment_pelunasan ===
+          "string"
+          ? rawBatch.last_payment_pelunasan
+          : null,
+      )
+    ) {
+      throw new Error(
+        "Salah satu barang yang dipilih sudah melewati masa timbun.",
       );
     }
   }
@@ -753,6 +907,37 @@ async function validateMarketplaceRecaps(
   ) {
     throw new Error(
       "Salah satu barang yang dipilih sudah digunakan pada pesanan Marketplace lain.",
+    );
+  }
+
+  /* -----------------------------------------
+     MANUAL SHIPMENT DUPLICATE
+  ----------------------------------------- */
+
+  const {
+    data: existingManualShipmentItems,
+    error: existingManualShipmentItemsError,
+  } = await supabase
+    .from("manual_shipment_items")
+    .select("recap_id")
+    .in(
+      "recap_id",
+      uniqueRecapIds,
+    );
+
+  if (existingManualShipmentItemsError) {
+    throw new Error(
+      `Gagal memeriksa Pengiriman Manual: ${existingManualShipmentItemsError.message}`,
+    );
+  }
+
+  if (
+    existingManualShipmentItems &&
+    existingManualShipmentItems.length >
+      0
+  ) {
+    throw new Error(
+      "Salah satu barang yang dipilih sudah digunakan pada Pengiriman Manual.",
     );
   }
 }

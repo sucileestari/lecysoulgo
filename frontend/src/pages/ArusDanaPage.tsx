@@ -410,9 +410,112 @@ export default function ArusDanaPage() {
 
             ) : (
 
-              <div className="overflow-x-auto">
+              <>
+                {/* =================================
+                    MOBILE CARDS
+                ================================== */}
 
-                <table className="w-full min-w-[950px] border-collapse">
+                <div className="space-y-4 p-4 md:hidden">
+
+                  {bank_accounts.map(
+                    (account) => (
+                      <article
+                        key={account.id}
+                        className="rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm"
+                      >
+
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold text-[#20366f]">
+                              {account.name}
+                            </p>
+
+                            {account.account_number && (
+                              <p className="mt-1 text-xs text-[#7a89ad]">
+                                {account.account_number}
+                              </p>
+                            )}
+                          </div>
+
+                          <div
+                            className={[
+                              "shrink-0 text-right text-sm font-semibold",
+                              account.balance < 0
+                                ? "text-[#ef4444]"
+                                : "text-[#10245c]",
+                            ].join(" ")}
+                          >
+                            {formatRupiah(
+                              account.balance,
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#edf0f6] pt-4">
+
+                          <div className="rounded-lg bg-[#effcf4] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Pemasukan
+                            </p>
+
+                            <p className="mt-1 break-words text-sm font-semibold text-[#16a34a]">
+                              {formatRupiah(
+                                account.total_income,
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-[#fff1f2] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Pengeluaran
+                            </p>
+
+                            <p className="mt-1 break-words text-sm font-semibold text-[#ef4444]">
+                              {formatRupiah(
+                                account.total_expense,
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-[#eef4ff] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Transfer Masuk
+                            </p>
+
+                            <p className="mt-1 break-words text-sm font-semibold text-[#1457ff]">
+                              {formatRupiah(
+                                account.total_transfer_in,
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-[#f4f7fc] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Transfer Keluar
+                            </p>
+
+                            <p className="mt-1 break-words text-sm font-semibold text-[#50628e]">
+                              {formatRupiah(
+                                account.total_transfer_out,
+                              )}
+                            </p>
+                          </div>
+
+                        </div>
+
+                      </article>
+                    ),
+                  )}
+
+                </div>
+
+                {/* =================================
+                    DESKTOP TABLE
+                ================================== */}
+
+                <div className="hidden overflow-x-auto md:block">
+
+                  <table className="w-full min-w-[950px] border-collapse">
 
                   <thead>
 
@@ -520,9 +623,10 @@ export default function ArusDanaPage() {
 
                   </tbody>
 
-                </table>
+                  </table>
 
-              </div>
+                </div>
+              </>
 
             )}
 
@@ -564,9 +668,110 @@ export default function ArusDanaPage() {
 
             ) : (
 
-              <div className="overflow-x-auto">
+              <>
+                {/* =================================
+                    MOBILE CARDS
+                ================================== */}
 
-                <table className="w-full min-w-[1000px] border-collapse">
+                <div className="space-y-4 p-4 md:hidden">
+
+                  {transactions.map(
+                    (transaction) => (
+                      <article
+                        key={transaction.id}
+                        className="rounded-xl border border-[#edf0f6] bg-white p-4 shadow-sm"
+                      >
+
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-[#7a89ad]">
+                              {formatDate(
+                                transaction.transaction_date,
+                              )}
+                            </p>
+
+                            <p className="mt-1 break-words text-base font-semibold text-[#20366f]">
+                              {transaction.description}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${getTransactionTypeClass(
+                              transaction.type,
+                            )}`}
+                          >
+                            {getTransactionTypeLabel(
+                              transaction.type,
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 border-t border-[#edf0f6] pt-4">
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Dari
+                            </p>
+
+                            <p className="mt-1 break-words text-sm text-[#50628e]">
+                              {transaction.type === "income"
+                                ? "Customer"
+                                : getBankName(
+                                    bank_accounts,
+                                    transaction.from_bank_account_id,
+                                  )}
+                            </p>
+                          </div>
+
+                          <div className="mt-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                              Ke
+                            </p>
+
+                            <p className="mt-1 break-words text-sm text-[#50628e]">
+                              {transaction.type === "expense"
+                                ? getMemberName(
+                                    members,
+                                    (
+                                      transaction as FinanceTransaction & {
+                                        to_member_id?: string | null;
+                                      }
+                                    ).to_member_id,
+                                  )
+                                : getBankName(
+                                    bank_accounts,
+                                    transaction.to_bank_account_id,
+                                  )}
+                            </p>
+                          </div>
+
+                        </div>
+
+                        <div className="mt-4 rounded-lg border border-[#edf0f6] bg-[#f8faff] p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a89ad]">
+                            Nominal
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-[#10245c]">
+                            {formatRupiah(
+                              transaction.amount,
+                            )}
+                          </p>
+                        </div>
+
+                      </article>
+                    ),
+                  )}
+
+                </div>
+
+                {/* =================================
+                    DESKTOP TABLE
+                ================================== */}
+
+                <div className="hidden overflow-x-auto md:block">
+
+                  <table className="w-full min-w-[1000px] border-collapse">
 
                   <thead>
 
@@ -674,9 +879,10 @@ export default function ArusDanaPage() {
 
                   </tbody>
 
-                </table>
+                  </table>
 
-              </div>
+                </div>
+              </>
 
             )}
 

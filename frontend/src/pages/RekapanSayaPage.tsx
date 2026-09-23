@@ -37,6 +37,10 @@ import type {
    COUNTRY CONFIG
 ========================================= */
 
+type CustomerRecapWithMaxTimbun = CustomerRecap & {
+  max_timbun?: string | null;
+};
+
 const countryConfig: Record<
   string,
   {
@@ -157,10 +161,6 @@ function formatMaxTimbun(
   if (Number.isNaN(date.getTime())) {
     return null;
   }
-
-  date.setDate(
-    date.getDate() + 60,
-  );
 
   return new Intl.DateTimeFormat(
     "id-ID",
@@ -428,7 +428,15 @@ export default function RekapanSaya() {
     setIsCountryDropdownOpen,
   ] = useState(false);
 
+  const [
+    isPaymentDropdownOpen,
+    setIsPaymentDropdownOpen,
+  ] = useState(false);
+
   const countryDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const paymentDropdownRef =
     useRef<HTMLDivElement>(null);
 
   const [
@@ -621,20 +629,33 @@ export default function RekapanSaya() {
     }, [recaps]);
 
   /* -------------------------------------
-     CLOSE COUNTRY DROPDOWN
+     CLOSE FILTER DROPDOWNS
   ------------------------------------- */
 
   useEffect(() => {
     function handleClickOutside(
       event: MouseEvent,
     ) {
+      const target = event.target as Node;
+
       if (
         countryDropdownRef.current &&
         !countryDropdownRef.current.contains(
-          event.target as Node,
+          target,
         )
       ) {
         setIsCountryDropdownOpen(
+          false,
+        );
+      }
+
+      if (
+        paymentDropdownRef.current &&
+        !paymentDropdownRef.current.contains(
+          target,
+        )
+      ) {
+        setIsPaymentDropdownOpen(
           false,
         );
       }
@@ -894,23 +915,101 @@ export default function RekapanSaya() {
 
           {/* PAYMENT STATUS */}
 
-          <div className="w-full md:w-[180px]">
-            <select
-              value={paymentFilter}
-              onChange={(event) =>
-                setPaymentFilter(
-                  event.target.value as
-                    | "all"
-                    | "paid"
-                    | "unpaid",
+          <div
+            ref={paymentDropdownRef}
+            className="relative w-full md:w-[220px]"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setIsPaymentDropdownOpen(
+                  (current) => !current,
                 )
               }
-              className="h-11 w-full rounded-lg border border-[#d8dfec] bg-white px-3 text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
+              className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
             >
-              <option value="all">Semua Pembayaran</option>
-              <option value="paid">Paid</option>
-              <option value="unpaid">Unpaid</option>
-            </select>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium text-[#20366f]">
+                  {paymentFilter === "all"
+                    ? "Semua Pembayaran"
+                    : paymentFilter === "paid"
+                      ? "Paid"
+                      : "Unpaid"}
+                </span>
+              </div>
+
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                  isPaymentDropdownOpen
+                    ? "rotate-180"
+                    : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {isPaymentDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                <div className="max-h-56 overflow-y-auto">
+                  {[
+                    {
+                      value: "all" as const,
+                      label: "Semua Pembayaran",
+                    },
+                    {
+                      value: "paid" as const,
+                      label: "Paid",
+                    },
+                    {
+                      value: "unpaid" as const,
+                      label: "Unpaid",
+                    },
+                  ].map((option) => {
+                    const isSelected =
+                      paymentFilter ===
+                      option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setPaymentFilter(
+                            option.value,
+                          );
+                          setIsPaymentDropdownOpen(
+                            false,
+                          );
+                        }}
+                        className={[
+                          "flex h-12 w-full items-center px-4 text-left transition",
+                          isSelected
+                            ? "bg-[#edf3ff] text-[#1457ff]"
+                            : "text-[#20366f] hover:bg-[#f8faff]",
+                        ].join(" ")}
+                      >
+                        <span
+                          className={[
+                            "text-sm",
+                            isSelected
+                              ? "font-medium text-[#1457ff]"
+                              : "text-[#20366f]",
+                          ].join(" ")}
+                        >
+                          {option.label}
+                        </span>
+
+                        {isSelected && (
+                          <span className="ml-auto text-xs font-medium text-[#1457ff]">
+                            Dipilih
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1139,7 +1238,8 @@ export default function RekapanSaya() {
                         <td className="px-5 py-5">
                           <div className="text-sm font-medium text-gray-800">
                             {formatMaxTimbun(
-                              recap.pelunasan.due_date,
+                              (recap as CustomerRecapWithMaxTimbun)
+                                .max_timbun,
                             ) ?? "—"}
                           </div>
                         </td>
@@ -1310,7 +1410,8 @@ export default function RekapanSaya() {
 
                         <div className="text-sm font-medium text-gray-800">
                           {formatMaxTimbun(
-                            recap.pelunasan.due_date,
+                            (recap as CustomerRecapWithMaxTimbun)
+                              .max_timbun,
                           ) ?? "—"}
                         </div>
 

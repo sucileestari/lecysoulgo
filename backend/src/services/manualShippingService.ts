@@ -113,7 +113,7 @@ export type CreateManualShipmentInput = {
 
   shipping_price?: number;
 
-  due_date: string;
+  due_date?: string | null;
 
   shipping_status?: ManualShipmentShippingStatus;
 
@@ -154,6 +154,8 @@ export type ManualShipmentOptions = {
 
     reference_date: string;
 
+    pelunasan_due_date: string | null;
+
     batch_id: string;
 
     batch_name: string;
@@ -180,6 +182,11 @@ const ALLOWED_SHIPPING_STATUSES: ManualShipmentShippingStatus[] =
     "Dalam proses pick up",
   ];
 
+const ELIGIBLE_RECAP_BATCH_STATUS =
+  "Sudah sampai di Admin";
+
+const MAX_TIMBUN_DAYS = 60;
+
 type PaymentRecord = {
   recap_id: string;
 
@@ -190,6 +197,7 @@ type PaymentRecord = {
   status:
     | string
     | null;
+
 };
 
 function isPaid(
@@ -234,6 +242,50 @@ function recapFullyPaid(
   return (
     dpPaid &&
     pelunasanPaid
+  );
+}
+
+function getMaxTimbunDate(
+  pelunasanDueDate: string | null | undefined,
+): Date | null {
+  if (!pelunasanDueDate) {
+    return null;
+  }
+
+  const date = new Date(
+    `${pelunasanDueDate}T00:00:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setDate(
+    date.getDate() +
+      MAX_TIMBUN_DAYS,
+  );
+
+  return date;
+}
+
+function isPastMaxTimbun(
+  pelunasanDueDate: string | null | undefined,
+): boolean {
+  const maxTimbunDate =
+    getMaxTimbunDate(
+      pelunasanDueDate,
+    );
+
+  if (!maxTimbunDate) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return (
+    today.getTime() >
+    maxTimbunDate.getTime()
   );
 }
 
@@ -518,6 +570,8 @@ async function getRecapsForShipment(
 async function ensureRecapsAvailableForShipment(
   recapIds: string[],
   memberId: string,
+  currentShipmentId?: string,
+  enforceShipmentItemEligibility = true,
 ) {
   const {
     recaps,
@@ -527,9 +581,153 @@ async function ensureRecapsAvailableForShipment(
       recapIds,
     );
 
-  for (
-    const recap of recaps
-  ) {
+  if (enforceShipmentItemEligibility) {
+    const recapBatchIds =
+      Array.from(
+        new Set(
+          recaps
+            .map(
+              (recap) =>
+                recap.batch_id,
+            )
+            .filter(
+              (batchId): batchId is string =>
+                Boolean(batchId?.trim()),
+            ),
+        ),
+      );
+
+    const {
+      data: batchData,
+      error: batchError,
+    } = await supabase
+      .from("batches")
+      .select("id, status, last_payment_pelunasan")
+      .in("id", recapBatchIds);
+
+    if (batchError) {
+      throw new Error(
+        `Gagal memeriksa status batch: ${batchError.message}`,
+      );
+    }
+
+    const batchInfoMap =
+      new Map(
+        (batchData ?? []).map(
+          (batch) => [
+            batch.id,
+            {
+              status: batch.status,
+              last_payment_pelunasan:
+                batch.last_payment_pelunasan ??
+                null,
+            },
+          ],
+        ),
+      );
+
+    const {
+      data: usedManualItems,
+      error: usedManualItemsError,
+    } = await supabase
+      .from("manual_shipment_items")
+      .select("recap_id, shipment_id")
+      .in("recap_id", recapIds);
+
+    if (usedManualItemsError) {
+      throw new Error(
+        `Gagal memeriksa riwayat pengiriman: ${usedManualItemsError.message}`,
+      );
+    }
+
+    const usedByOtherShipmentIds =
+      new Set(
+        (usedManualItems ?? [])
+          .filter(
+            (item) =>
+              item.shipment_id !==
+              currentShipmentId,
+          )
+          .map(
+            (item) =>
+              item.recap_id,
+          ),
+      );
+
+    /* -----------------------------------------
+       CEK BARANG YANG SUDAH MASUK MARKETPLACE
+    ----------------------------------------- */
+
+    const {
+      data: usedMarketplaceItems,
+      error: usedMarketplaceItemsError,
+    } = await supabase
+      .from("marketplace_order_items")
+      .select("recap_id")
+      .in("recap_id", recapIds);
+
+    if (usedMarketplaceItemsError) {
+      throw new Error(
+        `Gagal memeriksa pesanan Marketplace: ${usedMarketplaceItemsError.message}`,
+      );
+    }
+
+    const usedMarketplaceRecapIds =
+      new Set(
+        (usedMarketplaceItems ?? []).map(
+          (item) =>
+            item.recap_id,
+        ),
+      );
+
+    for (const recap of recaps) {
+      const batchInfo =
+        batchInfoMap.get(
+          recap.batch_id,
+        );
+
+      if (
+        batchInfo?.status !==
+        ELIGIBLE_RECAP_BATCH_STATUS
+      ) {
+        throw new Error(
+          `Barang "${recap.detail_barang}" belum sampai di Admin.`,
+        );
+      }
+
+      if (
+        usedByOtherShipmentIds.has(
+          recap.id,
+        )
+      ) {
+        throw new Error(
+          `Barang "${recap.detail_barang}" sudah pernah dimasukkan ke Pengiriman Manual.`,
+        );
+      }
+
+      if (
+        usedMarketplaceRecapIds.has(
+          recap.id,
+        )
+      ) {
+        throw new Error(
+          `Barang "${recap.detail_barang}" sudah digunakan pada Pesanan Marketplace.`,
+        );
+      }
+
+      if (
+        isPastMaxTimbun(
+          batchInfo?.last_payment_pelunasan,
+        )
+      ) {
+        throw new Error(
+          `Barang "${recap.detail_barang}" sudah melewati masa timbun dan tidak dapat dimasukkan ke pengiriman.`,
+        );
+      }
+    }
+  }
+
+  for (const recap of recaps) {
     if (
       recap.member_id !==
       memberId
@@ -1100,28 +1298,195 @@ export async function getManualShipmentOptions(
   }
 
   /* =======================================
+     STEP 5
+     AMBIL STATUS BATCH REKAP
+  ======================================== */
+
+  const recapBatchIds =
+    Array.from(
+      new Set(
+        recapRows
+          .map(
+            (recap) =>
+              recap.batch_id,
+          )
+          .filter(
+            (
+              batchId,
+            ): batchId is string =>
+              Boolean(
+                batchId?.trim(),
+              ),
+          ),
+      ),
+    );
+
+  const {
+    data: batchData,
+    error: batchError,
+  } = await supabase
+    .from("batches")
+    .select(
+      "id, name, country, status, last_payment_pelunasan",
+    )
+    .in(
+      "id",
+      recapBatchIds,
+    );
+
+  if (batchError) {
+    throw new Error(
+      `Gagal mengambil status batch: ${batchError.message}`,
+    );
+  }
+
+  const batchInfoMap =
+    new Map<
+      string,
+      {
+        name: string;
+        country: string;
+        status: string;
+        last_payment_pelunasan: string | null;
+      }
+    >();
+
+  for (
+    const batch of
+      batchData ??
+    []
+  ) {
+    batchInfoMap.set(
+      batch.id,
+      {
+        name: batch.name,
+        country: batch.country,
+        status: batch.status,
+        last_payment_pelunasan:
+          batch.last_payment_pelunasan ??
+          null,
+      },
+    );
+  }
+
+  /* =======================================
      STEP 6
-     BARANG YANG BOLEH DIKIRIM
+     AMBIL BARANG YANG SUDAH PERNAH
+     MASUK PENGIRIMAN MANUAL
+  ======================================== */
+
+  const {
+    data: usedManualItems,
+    error: usedManualItemsError,
+  } = await supabase
+    .from("manual_shipment_items")
+    .select("recap_id")
+    .in(
+      "recap_id",
+      recapIds,
+    );
+
+  if (usedManualItemsError) {
+    throw new Error(
+      `Gagal memeriksa riwayat pengiriman: ${usedManualItemsError.message}`,
+    );
+  }
+
+  const usedManualRecapIds =
+    new Set(
+      (usedManualItems ?? [])
+        .map(
+          (item) =>
+            item.recap_id,
+        ),
+    );
+
+  /* =======================================
+     STEP 6B
+     AMBIL BARANG YANG SUDAH PERNAH
+     MASUK PESANAN MARKETPLACE
+  ======================================== */
+
+  const {
+    data: usedMarketplaceItems,
+    error: usedMarketplaceItemsError,
+  } = await supabase
+    .from("marketplace_order_items")
+    .select("recap_id")
+    .in(
+      "recap_id",
+      recapIds,
+    );
+
+  if (usedMarketplaceItemsError) {
+    throw new Error(
+      `Gagal memeriksa pesanan Marketplace: ${usedMarketplaceItemsError.message}`,
+    );
+  }
+
+  const usedMarketplaceRecapIds =
+    new Set(
+      (usedMarketplaceItems ?? [])
+        .map(
+          (item) =>
+            item.recap_id,
+        ),
+    );
+
+  /* =======================================
+     STEP 7
+     BARANG YANG BOLEH DIPILIH
 
      Syarat:
      - DP sudah paid
      - Pelunasan sudah paid
      - BELUM CO
-     - belum pernah masuk shipment
+     - batch "Sudah sampai di Admin"
+     - belum pernah masuk shipment manual
+     - belum pernah masuk pesanan Marketplace
+
+     Maksimal timbun TIDAK dipakai
+     untuk menghilangkan item dari response.
+     Item yang sudah lewat tetap dikirim ke FE
+     agar ditampilkan sebagai disabled.
   ======================================== */
 
   const eligibleRecaps =
     recapRows.filter(
       (recap) => {
+        const batchInfo =
+          batchInfoMap.get(
+            recap.batch_id,
+          );
+
+        if (
+          batchInfo?.status !==
+          ELIGIBLE_RECAP_BATCH_STATUS
+        ) {
+          return false;
+        }
+
+        if (
+          usedManualRecapIds.has(
+            recap.id,
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          usedMarketplaceRecapIds.has(
+            recap.id,
+          )
+        ) {
+          return false;
+        }
+
         const recapPayments =
           paymentsByRecap.get(
             recap.id,
           ) ?? [];
 
-        /*
-         * SHIPPING:
-         * DP harus sudah paid.
-         */
         const dpPaid =
           recapPayments.some(
             (payment) =>
@@ -1137,10 +1502,6 @@ export async function getManualShipmentOptions(
                 "paid",
           );
 
-        /*
-         * SHIPPING:
-         * Pelunasan harus sudah paid.
-         */
         const pelunasanPaid =
           recapPayments.some(
             (payment) =>
@@ -1156,13 +1517,6 @@ export async function getManualShipmentOptions(
                 "paid",
           );
 
-        /*
-         * SHIPPING:
-         * Barang harus BELUM CO.
-         *
-         * false = Belum CO
-         * true  = Sudah CO
-         */
         const belumCO =
           recap.sudah_co ===
           false;
@@ -1189,79 +1543,6 @@ export async function getManualShipmentOptions(
       ),
     );
 
-  /*
-   * Ambil nama Batch Rekapan berdasarkan
-   * recap.batch_id.
-   *
-   * Ini BUKAN manual_shipping_batches.
-   */
-  const recapBatchIds =
-    Array.from(
-      new Set(
-        eligibleRecaps
-          .map(
-            (recap) =>
-              recap.batch_id,
-          )
-          .filter(
-            (
-              batchId,
-            ): batchId is string =>
-              Boolean(
-                batchId?.trim(),
-              ),
-          ),
-      ),
-    );
-
-  const batchInfoMap =
-    new Map<
-      string,
-      {
-        name: string;
-        country: string;
-      }
-    >();
-
-  if (
-    recapBatchIds.length >
-    0
-  ) {
-    const {
-      data: batchData,
-      error: batchError,
-    } =
-      await supabase
-        .from("batches")
-        .select(
-          "id, name, country",
-        )
-        .in(
-          "id",
-          recapBatchIds,
-        );
-
-    if (batchError) {
-      throw new Error(
-        `Gagal mengambil nama Batch Rekapan: ${batchError.message}`,
-      );
-    }
-
-    for (
-      const batch of
-        batchData ??
-      []
-    ) {
-      batchInfoMap.set(
-        batch.id,
-        {
-          name: batch.name,
-          country: batch.country,
-        },
-      );
-    }
-  }
-
   return {
     /*
      * Nama Pembeli:
@@ -1277,48 +1558,59 @@ export async function getManualShipmentOptions(
 
     /*
      * Detail Barang:
-     * hanya barang yang eligible
-     * untuk pengiriman manual.
+     * hanya barang yang memenuhi
+     * kriteria Pengiriman Manual.
      */
     items:
       eligibleRecaps.map(
-        (recap) => ({
-          recap_id:
-            recap.id,
+        (recap) => {
+          const pelunasanDueDate =
+            batchInfoMap.get(
+              recap.batch_id,
+            )?.last_payment_pelunasan ??
+            null;
 
-          member_id:
-            recap.member_id,
+          return {
+            recap_id:
+              recap.id,
 
-          member_name:
-            memberMap.get(
+            member_id:
               recap.member_id,
-            )?.name ??
-            "Member",
 
-          detail_barang:
-            recap.detail_barang,
+            member_name:
+              memberMap.get(
+                recap.member_id,
+              )?.name ??
+              "Member",
 
-          qty:
-            recap.qty,
+            detail_barang:
+              recap.detail_barang,
 
-          reference_date:
-            recap.created_at,
+            qty:
+              recap.qty,
 
-          batch_id:
-            recap.batch_id,
+            reference_date:
+              recap.created_at,
 
-          batch_name:
-            batchInfoMap.get(
+            pelunasan_due_date:
+              pelunasanDueDate,
+
+            batch_id:
               recap.batch_id,
-            )?.name ??
-            "Batch tidak diketahui",
 
-          batch_country:
-            batchInfoMap.get(
-              recap.batch_id,
-            )?.country ??
-            "Country tidak diketahui",
-        }),
+            batch_name:
+              batchInfoMap.get(
+                recap.batch_id,
+              )?.name ??
+              "Batch tidak diketahui",
+
+            batch_country:
+              batchInfoMap.get(
+                recap.batch_id,
+              )?.country ??
+              "Country tidak diketahui",
+          };
+        },
       ),
   };
 }
@@ -1345,17 +1637,11 @@ export async function createManualShipment(
     input.shipping_price ?? 0;
 
   const due_date =
-    input.due_date?.trim();
+    input.due_date?.trim() || null;
 
   if (!batch_id.trim()) {
     throw new Error(
       "ID batch wajib diisi.",
-    );
-  }
-
-  if (!due_date) {
-    throw new Error(
-      "Tanggal jatuh tempo wajib diisi.",
     );
   }
 
@@ -1774,6 +2060,8 @@ export async function updateManualShipment(
   await ensureRecapsAvailableForShipment(
     nextRecapIds,
     nextMemberId,
+    id.trim(),
+    input.recap_ids !== undefined,
   );
 
   const totalPrice =

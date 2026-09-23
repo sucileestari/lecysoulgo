@@ -32,6 +32,7 @@ type MarketplaceAvailableItem = {
   qty?: number | null;
   batch_name?: string | null;
   batch_country?: string | null;
+  pelunasan_due_date?: string | null;
   recap?: {
     id?: string;
     detail_barang?: string | null;
@@ -142,6 +143,43 @@ function getBatchCountry(
     item.batch?.country ||
     "-"
   );
+}
+
+const MAX_TIMBUN_DAYS = 60;
+
+function getMaxTimbunDate(
+  value?: string | null,
+): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setDate(date.getDate() + MAX_TIMBUN_DAYS);
+
+  return date;
+}
+
+function isPastMaxTimbun(
+  item: MarketplaceAvailableItem,
+): boolean {
+  const maxTimbunDate = getMaxTimbunDate(
+    item.pelunasan_due_date,
+  );
+
+  if (!maxTimbunDate) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return maxTimbunDate < today;
 }
 
 export default function TambahPesananMarketplaceDialog({
@@ -491,6 +529,16 @@ export default function TambahPesananMarketplaceDialog({
   function toggleItem(
     recapId: string,
   ) {
+    const item = availableItems.find(
+      (availableItem) =>
+        availableItem.recap_id ===
+        recapId,
+    );
+
+    if (item && isPastMaxTimbun(item)) {
+      return;
+    }
+
     setSelectedRecapIds(
       (current) => {
         const exists =
@@ -924,7 +972,16 @@ export default function TambahPesananMarketplaceDialog({
                                     item.recap_id,
                                   )
                                 }
-                                className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-[#f7f9ff]"
+                                disabled={
+                                  isPastMaxTimbun(item) ||
+                                  isSubmitting
+                                }
+                                className={[
+                                  "flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition",
+                                  isPastMaxTimbun(item)
+                                    ? "cursor-not-allowed opacity-60"
+                                    : "hover:bg-[#f7f9ff]",
+                                ].join(" ")}
                               >
 
                                 <span
@@ -960,6 +1017,12 @@ export default function TambahPesananMarketplaceDialog({
                                       Qty {getItemQty(
                                         item,
                                       )}
+                                    </span>
+                                  )}
+
+                                  {isPastMaxTimbun(item) && (
+                                    <span className="mt-1 block text-xs font-medium text-red-500">
+                                      Sudah melewati masa timbun
                                     </span>
                                   )}
 

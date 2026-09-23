@@ -25,6 +25,8 @@ import {
   ChartNoAxesCombined,
   WalletCards,
   ShoppingBag,
+  Menu,
+  X,
 } from "lucide-react";
 
 import {
@@ -321,10 +323,6 @@ function getCustomerMember(): CustomerMember | null {
    FILTER ADMIN MENU BY PERMISSION
 ========================================= */
 
-/* =========================================
-   FILTER ADMIN MENU BY PERMISSION
-========================================= */
-
 function getVisibleAdminMenuItems(): MenuItem[] {
   return adminMenuItems
     .filter((item) => {
@@ -393,6 +391,7 @@ function getVisibleAdminMenuItems(): MenuItem[] {
         item !== null,
     );
 }
+
 /* =========================================
    LAYOUT
 ========================================= */
@@ -404,6 +403,15 @@ export default function AdminLayout({
 }) {
   const navigate =
     useNavigate();
+
+  /* =======================================
+     MOBILE SIDEBAR STATE
+  ======================================== */
+
+  const [
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
+  ] = useState(false);
 
   /* =======================================
      REKAPAN SUBMENU STATE
@@ -432,7 +440,7 @@ export default function AdminLayout({
 
   /* =======================================
      CUSTOMER DATA
-  ======================================= */
+  ======================================== */
 
   const customerMember =
     useMemo(
@@ -479,6 +487,14 @@ export default function AdminLayout({
       .toUpperCase();
 
   /* =======================================
+     CLOSE MOBILE SIDEBAR
+  ======================================= */
+
+  function closeMobileSidebar() {
+    setIsMobileSidebarOpen(false);
+  }
+
+  /* =======================================
      LOGOUT
   ======================================= */
 
@@ -523,17 +539,42 @@ export default function AdminLayout({
 
   /* =======================================
      RENDER
-  ======================================== */
+  ======================================= */
 
   return (
     <div className="min-h-screen bg-[#f8faff] text-left">
       <div className="flex min-h-screen">
 
         {/* =================================
+            MOBILE OVERLAY
+        ================================== */}
+
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Tutup sidebar"
+            onClick={
+              closeMobileSidebar
+            }
+            className="fixed inset-0 z-40 bg-black/30 md:hidden"
+          />
+        )}
+
+        {/* =================================
             SIDEBAR
         ================================== */}
 
-        <aside className="fixed inset-y-0 left-0 z-40 flex w-[190px] flex-col border-r border-[#e5eaf4] bg-white">
+        <aside
+          className={[
+            "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-[#e5eaf4] bg-white transition-transform duration-300",
+            isMobileSidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full",
+
+            "md:translate-x-0",
+            "md:w-[190px]",
+          ].join(" ")}
+        >
 
           {/* =================================
               LOGO
@@ -564,6 +605,26 @@ export default function AdminLayout({
           </div>
 
           {/* =================================
+              MOBILE CLOSE BUTTON
+          ================================== */}
+
+          <div className="mt-4 flex justify-end px-4 md:hidden">
+
+            <button
+              type="button"
+              onClick={
+                closeMobileSidebar
+              }
+              title="Tutup sidebar"
+              aria-label="Tutup sidebar"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#50628e] transition-colors hover:bg-[#f5f7fc] hover:text-[#20366f]"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+          </div>
+
+          {/* =================================
               NAVIGATION
           ================================== */}
 
@@ -572,45 +633,70 @@ export default function AdminLayout({
             <div className="space-y-1">
 
               {(() => {
-                const groups = menuItems.reduce<
-                  Array<{
-                    label: string;
-                    items: MenuItem[];
-                  }>
-                >((result, item) => {
-                  const groupLabel =
-                    item.group ?? "General";
+                const groups =
+                  menuItems.reduce<
+                    Array<{
+                      label: string;
+                      items: MenuItem[];
+                    }>
+                  >(
+                    (
+                      result,
+                      item,
+                    ) => {
+                      const groupLabel =
+                        item.group ??
+                        "General";
 
-                  let group = result.find(
-                    (current) =>
-                      current.label ===
-                      groupLabel,
+                      let group =
+                        result.find(
+                          (
+                            current,
+                          ) =>
+                            current.label ===
+                            groupLabel,
+                        );
+
+                      if (!group) {
+                        group = {
+                          label:
+                            groupLabel,
+                          items: [],
+                        };
+
+                        result.push(
+                          group,
+                        );
+                      }
+
+                      group.items.push(
+                        item,
+                      );
+
+                      return result;
+                    },
+                    [],
                   );
-
-                  if (!group) {
-                    group = {
-                      label: groupLabel,
-                      items: [],
-                    };
-
-                    result.push(group);
-                  }
-
-                  group.items.push(item);
-                  return result;
-                }, []);
 
                 return groups.map(
                   (group) => (
                     <div
-                      key={group.label}
+                      key={
+                        group.label
+                      }
                       className="mb-5 last:mb-0"
                     >
+
+                      {/* GROUP LABEL */}
+
                       <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a96b4]">
-                        {group.label}
+                        {
+                          group.label
+                        }
                       </p>
 
                       <div className="space-y-1">
+
                         {group.items.map(
                           (item) => {
                             const Icon =
@@ -681,9 +767,14 @@ export default function AdminLayout({
                                               to={
                                                 subItem.path
                                               }
-                                              className={( {
-                                                isActive,
-                                              }) =>
+                                              onClick={
+                                                closeMobileSidebar
+                                              }
+                                              className={(
+                                                {
+                                                  isActive,
+                                                },
+                                              ) =>
                                                 [
                                                   "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-all",
 
@@ -734,9 +825,14 @@ export default function AdminLayout({
                                   item.path ??
                                   "#"
                                 }
-                                className={( {
-                                  isActive,
-                                }) =>
+                                onClick={
+                                  closeMobileSidebar
+                                }
+                                className={(
+                                  {
+                                    isActive,
+                                  },
+                                ) =>
                                   [
                                     "flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-all",
 
@@ -777,7 +873,9 @@ export default function AdminLayout({
                             );
                           },
                         )}
+
                       </div>
+
                     </div>
                   ),
                 );
@@ -851,8 +949,36 @@ export default function AdminLayout({
             MAIN CONTENT
         ================================== */}
 
-        <main className="ml-[190px] min-h-screen w-[calc(100%-190px)] text-left">
+        <main className="ml-0 min-h-screen w-full text-left md:ml-[190px] md:w-[calc(100%-190px)]">
+
+          {/* =================================
+              MOBILE HEADER
+          ================================== */}
+
+          <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#e5eaf4] bg-white px-4 md:hidden">
+
+            <button
+              type="button"
+              onClick={() =>
+                setIsMobileSidebarOpen(
+                  true,
+                )
+              }
+              aria-label="Buka sidebar"
+              title="Buka sidebar"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#20366f] transition-colors hover:bg-[#f5f7fc]"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <h1 className="ml-3 text-[16px] font-bold text-[#142968]">
+              Lecy Soulgo
+            </h1>
+
+          </div>
+
           <Outlet />
+
         </main>
 
       </div>
