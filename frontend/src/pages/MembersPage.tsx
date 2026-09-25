@@ -18,7 +18,7 @@ import {
 } from "../services/memberService";
 
 import {
-  hasPermission,
+  canAccessPermission,
 } from "../utils/permissions";
 
 export default function MembersPage() {
@@ -156,7 +156,7 @@ export default function MembersPage() {
             </div>
 
             {/* Add Button */}
-            {hasPermission("members.create") && (
+            {canAccessPermission("members.create") && (
               <button
                 type="button"
                 onClick={() => setIsAddDialogOpen(true)}
@@ -338,7 +338,7 @@ export default function MembersPage() {
                           {member.type !== "hnr" && (
                             <>
                               {/* Edit */}
-                              {hasPermission("members.edit") && (
+                              {canAccessPermission("members.edit") && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -353,7 +353,7 @@ export default function MembersPage() {
                               )}
 
                               {/* Delete */}
-                              {hasPermission("members.delete") && (
+                              {canAccessPermission("members.delete") && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -492,7 +492,7 @@ export default function MembersPage() {
                   {/* ACTION */}
                   {!isHnr && (
                     <div className="mt-4 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
-                      {hasPermission("members.edit") && (
+                      {canAccessPermission("members.edit") && (
                         <button
                           type="button"
                           onClick={() =>
@@ -509,7 +509,7 @@ export default function MembersPage() {
                         </button>
                       )}
 
-                      {hasPermission("members.delete") && (
+                      {canAccessPermission("members.delete") && (
                         <button
                           type="button"
                           onClick={() =>

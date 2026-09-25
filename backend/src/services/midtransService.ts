@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 
 import { midtransConfig } from "../config/midtrans.js";
 
+const MIDTRANS_REQUEST_TIMEOUT_MS = 15_000;
+
 export type CreateMidtransPaymentLinkInput = {
   orderId: string;
   amount: number;
@@ -268,7 +270,7 @@ export async function createMidtransPaymentLink(
     },
 
     // Hanya tampilkan metode pembayaran QRIS.
-    enabled_payments: ["other_qris","bca_va"],
+    enabled_payments: ["other_qris"],
 
     usage_limit: 1,
 
@@ -329,123 +331,51 @@ export async function createMidtransPaymentLink(
     `${midtransConfig.baseUrl}/v1/payment-links`;
 
   /* -------------------------------------------------------
-     DEBUG AMAN
-
-     Server Key tidak pernah ditampilkan penuh.
-  ------------------------------------------------------- */
-
-  console.log(
-    "========== MIDTRANS CREATE PAYMENT LINK ==========",
-  );
-
-  console.log(
-    "URL:",
-    url,
-  );
-
-  console.log(
-    "Production:",
-    midtransConfig.isProduction,
-  );
-
-  console.log(
-    "Server Key Exists:",
-    Boolean(
-      midtransConfig.serverKey,
-    ),
-  );
-
-  console.log(
-    "Server Key Length:",
-    midtransConfig.serverKey.length,
-  );
-
-  console.log(
-    "Server Key Preview:",
-    `${midtransConfig.serverKey.slice(0, 8)}...`,
-  );
-
-  console.log(
-    "Server Key Has Colon:",
-    midtransConfig.serverKey.endsWith(":"),
-  );
-
-  console.log(
-    "Order ID:",
-    orderId,
-  );
-
-  console.log(
-    "Order ID Length:",
-    orderId.length,
-  );
-
-  console.log(
-    "Amount:",
-    input.amount,
-  );
-
-  console.log(
-    "Payment Type:",
-    input.paymentType,
-  );
-
-  console.log(
-    "Customer Name:",
-    input.customer?.name ?? null,
-  );
-
-  console.log(
-    "Customer Phone Exists:",
-    Boolean(normalizeMidtransPhone(input.customer?.phone)),
-  );
-
-  console.log(
-    "Enabled Payments:",
-    body.enabled_payments,
-  );
-
-  console.log(
-    "Expiry:",
-    input.expiresAt.toISOString(),
-  );
-
-  console.log(
-    "Duration:",
-    durationMinutes,
-    "minutes",
-  );
-
-  console.log(
-    "==================================================",
-  );
-
-  /* -------------------------------------------------------
      REQUEST KE MIDTRANS
   ------------------------------------------------------- */
 
-  const response =
-    await fetch(
-      url,
-      {
-        method: "POST",
+  let response: Response;
 
-        headers: {
-          Accept:
-            "application/json",
+  try {
+    response =
+      await fetch(
+        url,
+        {
+          method: "POST",
 
-          "Content-Type":
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
 
-          Authorization:
-            `Basic ${auth}`,
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Basic ${auth}`,
+          },
+
+          body: JSON.stringify(
+            body,
+          ),
+          signal: AbortSignal.timeout(
+            MIDTRANS_REQUEST_TIMEOUT_MS,
+          ),
         },
+      );
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      error.name === "TimeoutError"
+    ) {
+      throw new Error(
+        "Timeout saat menghubungi Midtrans untuk membuat Payment Link.",
+      );
+    }
 
-        body: JSON.stringify(
-          body,
-        ),
-      },
+    throw new Error(
+      "Gagal terhubung ke Midtrans untuk membuat Payment Link.",
     );
+  }
 
   /* -------------------------------------------------------
      BACA RESPONSE SEBAGAI TEXT
@@ -457,28 +387,6 @@ export async function createMidtransPaymentLink(
 
   const responseText =
     await response.text();
-
-  /* -------------------------------------------------------
-     DEBUG RESPONSE
-  ------------------------------------------------------- */
-
-  console.log(
-    "========== MIDTRANS RESPONSE ==========",
-  );
-
-  console.log(
-    "HTTP Status:",
-    response.status,
-  );
-
-  console.log(
-    "Response:",
-    responseText,
-  );
-
-  console.log(
-    "=======================================",
-  );
 
   /* -------------------------------------------------------
      PARSE RESPONSE
@@ -599,24 +507,45 @@ export async function deleteMidtransPaymentLink(
      REQUEST DELETE
   ------------------------------------------------------- */
 
-  const response =
-    await fetch(
-      url,
-      {
-        method: "DELETE",
+  let response: Response;
 
-        headers: {
-          Accept:
-            "application/json",
+  try {
+    response =
+      await fetch(
+        url,
+        {
+          method: "DELETE",
 
-          "Content-Type":
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
 
-          Authorization:
-            `Basic ${auth}`,
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Basic ${auth}`,
+          },
+
+          signal: AbortSignal.timeout(
+            MIDTRANS_REQUEST_TIMEOUT_MS,
+          ),
         },
-      },
+      );
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      error.name === "TimeoutError"
+    ) {
+      throw new Error(
+        "Timeout saat menghubungi Midtrans untuk menonaktifkan Payment Link.",
+      );
+    }
+
+    throw new Error(
+      "Gagal terhubung ke Midtrans untuk menonaktifkan Payment Link.",
     );
+  }
 
   /* -------------------------------------------------------
      404 DIANGGAP SUDAH TIDAK ADA

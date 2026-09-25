@@ -238,6 +238,25 @@ type ApiResponse<T> =
 //   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    RESPONSE PARSER
 ========================================= */
 
@@ -301,6 +320,9 @@ export async function getManualShipmentsByBatch(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments?batch_id=${encodeURIComponent(
@@ -312,6 +334,9 @@ export async function getManualShipmentsByBatch(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -338,6 +363,9 @@ export async function getManualShipmentById(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
@@ -349,6 +377,9 @@ export async function getManualShipmentById(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -379,6 +410,9 @@ export async function getManualShipmentOptions(
         )}`
       : "";
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments/options${params}`,
@@ -388,6 +422,9 @@ export async function getManualShipmentOptions(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -480,6 +517,9 @@ export async function createManualShipment(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments`,
@@ -492,6 +532,9 @@ export async function createManualShipment(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify({
@@ -565,6 +608,9 @@ export async function updateManualShipment(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
@@ -579,6 +625,9 @@ export async function updateManualShipment(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify(
@@ -609,6 +658,9 @@ export async function deleteManualShipment(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
@@ -620,6 +672,9 @@ export async function deleteManualShipment(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );

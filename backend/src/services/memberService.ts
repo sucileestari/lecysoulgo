@@ -5,6 +5,21 @@ type MemberType =
   | "employee"
   | "hnr";
 
+type MemberRecord = {
+  id: string;
+  name: string;
+  phone: string;
+  type: MemberType;
+  created_at: string;
+  updated_at: string;
+};
+
+type HnrMemberRecord = {
+  id: string;
+  name: string;
+  type: "hnr";
+};
+
 type MemberInput = {
   name: string;
   phone: string;
@@ -46,7 +61,10 @@ function normalizeMemberType(
 }
 
 function handleSupabaseError(
-  error: { code?: string; message?: string },
+  error: {
+    code?: string;
+    message?: string;
+  },
 ): never {
   if (error.code === "23505") {
     throw new Error(
@@ -55,15 +73,74 @@ function handleSupabaseError(
   }
 
   throw new Error(
-    error.message || "Terjadi kesalahan pada database",
+    error.message ||
+      "Terjadi kesalahan pada database",
   );
 }
 
-export async function getMembers(search?: string) {
+/* =========================================
+   GET MEMBERS
+========================================= */
+
+export async function getMembers(
+  search?: string,
+  type?: "hnr",
+): Promise<
+  MemberRecord[] | HnrMemberRecord[]
+> {
+  /*
+   * HNR hanya membutuhkan:
+   * - id
+   * - name
+   * - type
+   *
+   * Query dibuat terpisah supaya
+   * TypeScript tidak gagal melakukan
+   * inference terhadap select().
+   */
+  if (type === "hnr") {
+    let query = supabase
+      .from("members")
+      .select(
+        "id, name, type",
+      )
+      .order("updated_at", {
+        ascending: false,
+      });
+
+    if (search?.trim()) {
+      query = query.ilike(
+        "name",
+        `%${search.trim()}%`,
+      );
+    }
+
+    const { data, error } =
+      await query;
+
+    if (error) {
+      handleSupabaseError(error);
+    }
+
+    return (data ??
+      []) as HnrMemberRecord[];
+  }
+
+  /*
+   * Normal member query:
+   * Mengembalikan seluruh data member.
+   *
+   * Digunakan oleh:
+   * - Member page
+   * - Add Batch
+   * - Add Recap
+   */
   let query = supabase
     .from("members")
     .select("*")
-    .order("updated_at", { ascending: false });
+    .order("updated_at", {
+      ascending: false,
+    });
 
   if (search?.trim()) {
     query = query.ilike(
@@ -72,74 +149,111 @@ export async function getMembers(search?: string) {
     );
   }
 
-  const { data, error } = await query;
+  if (type) {
+    query = query.eq(
+      "type",
+      type,
+    );
+  }
+
+  const { data, error } =
+    await query;
 
   if (error) {
     handleSupabaseError(error);
   }
 
-  return data;
+  return (data ??
+    []) as MemberRecord[];
 }
 
-export async function getMemberById(id: string) {
-  const { data, error } = await supabase
-    .from("members")
-    .select("*")
-    .eq("id", id)
-    .single();
+/* =========================================
+   GET MEMBER BY ID
+========================================= */
+
+export async function getMemberById(
+  id: string,
+): Promise<MemberRecord> {
+  const { data, error } =
+    await supabase
+      .from("members")
+      .select("*")
+      .eq("id", id)
+      .single();
 
   if (error) {
     handleSupabaseError(error);
   }
 
-  return data;
+  return data as MemberRecord;
 }
+
+/* =========================================
+   CREATE MEMBER
+========================================= */
 
 export async function createMember(
   input: MemberInput,
-) {
-  const name = input.name.trim();
-  const phone = normalizePhone(input.phone);
-  const type = normalizeMemberType(
-    input.type,
-  );
+): Promise<MemberRecord> {
+  const name =
+    input.name.trim();
+
+  const phone =
+    normalizePhone(
+      input.phone,
+    );
+
+  const type =
+    normalizeMemberType(
+      input.type,
+    );
 
   if (!name) {
-    throw new Error("Nama lengkap wajib diisi");
+    throw new Error(
+      "Nama lengkap wajib diisi",
+    );
   }
 
   if (!phone) {
-    throw new Error("Nomor HP wajib diisi");
+    throw new Error(
+      "Nomor HP wajib diisi",
+    );
   }
 
-  const { data, error } = await supabase
-    .from("members")
-    .insert({
-      name,
-      phone,
-      type,
-    })
-    .select()
-    .single();
+  const { data, error } =
+    await supabase
+      .from("members")
+      .insert({
+        name,
+        phone,
+        type,
+      })
+      .select()
+      .single();
 
   if (error) {
     handleSupabaseError(error);
   }
 
-  return data;
+  return data as MemberRecord;
 }
+
+/* =========================================
+   UPDATE MEMBER
+========================================= */
 
 export async function updateMember(
   id: string,
   input: UpdateMemberInput,
-) {
+): Promise<MemberRecord> {
   /* =========================================
      HNR TIDAK BOLEH DIUBAH
   ========================================= */
 
   const {
     data: existingMember,
-    error: existingMemberError,
+    error:
+      existingMemberError,
   } = await supabase
     .from("members")
     .select("id, type")
@@ -152,70 +266,101 @@ export async function updateMember(
     );
   }
 
-  if (existingMember?.type === "hnr") {
+  if (
+    existingMember?.type ===
+    "hnr"
+  ) {
     throw new Error(
       "Member dengan status HNR tidak dapat diedit.",
     );
   }
 
-  const updateData: UpdateMemberInput = {};
+  const updateData: UpdateMemberInput =
+    {};
 
-  if (input.name !== undefined) {
-    const name = input.name.trim();
+  if (
+    input.name !== undefined
+  ) {
+    const name =
+      input.name.trim();
 
     if (!name) {
-      throw new Error("Nama lengkap wajib diisi");
+      throw new Error(
+        "Nama lengkap wajib diisi",
+      );
     }
 
     updateData.name = name;
   }
 
-  if (input.phone !== undefined) {
-    const phone = normalizePhone(input.phone);
+  if (
+    input.phone !== undefined
+  ) {
+    const phone =
+      normalizePhone(
+        input.phone,
+      );
 
     if (!phone) {
-      throw new Error("Nomor HP wajib diisi");
+      throw new Error(
+        "Nomor HP wajib diisi",
+      );
     }
 
     updateData.phone = phone;
   }
 
-  if (input.type !== undefined) {
-    updateData.type = normalizeMemberType(
-      input.type,
-    );
+  if (
+    input.type !== undefined
+  ) {
+    updateData.type =
+      normalizeMemberType(
+        input.type,
+      );
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (
+    Object.keys(updateData)
+      .length === 0
+  ) {
     throw new Error(
       "Minimal satu data harus diperbarui",
     );
   }
 
-  updateData.updated_at = new Date().toISOString();
+  updateData.updated_at =
+    new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("members")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .single();
+  const { data, error } =
+    await supabase
+      .from("members")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
 
   if (error) {
     handleSupabaseError(error);
   }
 
-  return data;
+  return data as MemberRecord;
 }
 
-export async function deleteMember(id: string) {
+/* =========================================
+   DELETE MEMBER
+========================================= */
+
+export async function deleteMember(
+  id: string,
+): Promise<void> {
   /* =========================================
      HNR TIDAK BOLEH DIHAPUS
   ========================================= */
 
   const {
     data: existingMember,
-    error: existingMemberError,
+    error:
+      existingMemberError,
   } = await supabase
     .from("members")
     .select("id, type")
@@ -228,16 +373,20 @@ export async function deleteMember(id: string) {
     );
   }
 
-  if (existingMember?.type === "hnr") {
+  if (
+    existingMember?.type ===
+    "hnr"
+  ) {
     throw new Error(
       "Member dengan status HNR tidak dapat dihapus.",
     );
   }
 
-  const { error } = await supabase
-    .from("members")
-    .delete()
-    .eq("id", id);
+  const { error } =
+    await supabase
+      .from("members")
+      .delete()
+      .eq("id", id);
 
   if (error) {
     handleSupabaseError(error);

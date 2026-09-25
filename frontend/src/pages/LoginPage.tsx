@@ -13,6 +13,8 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import { getPermissions } from "../services/rolePermissionService";
+
 /* =========================================
    API CONFIG
 ========================================= */
@@ -246,6 +248,59 @@ export default function LoginPage() {
       );
 
       /* -------------------------------------
+         LOAD REGISTERED PERMISSIONS
+      ------------------------------------- */
+
+      try {
+        const permissions =
+          await getPermissions();
+
+        const registeredPermissionCodes =
+          permissions
+            .map(
+              (permission) =>
+                String(
+                  (
+                    permission as {
+                      code?: string;
+                    }
+                  ).code ?? "",
+                )
+                  .trim()
+                  .toLowerCase(),
+            )
+            .filter(Boolean);
+
+        localStorage.setItem(
+          "auth_registered_permissions",
+          JSON.stringify(
+            registeredPermissionCodes,
+          ),
+        );
+      } catch (permissionError) {
+        console.error(
+          "Load registered permissions error:",
+          permissionError,
+        );
+
+        localStorage.removeItem(
+          "auth_token",
+        );
+
+        localStorage.removeItem(
+          "auth_user",
+        );
+
+        localStorage.removeItem(
+          "auth_registered_permissions",
+        );
+
+        throw new Error(
+          "Gagal memuat permission admin.",
+        );
+      }
+
+      /* -------------------------------------
          REDIRECT ADMIN
       ------------------------------------- */
 
@@ -364,6 +419,10 @@ export default function LoginPage() {
           "auth_user",
         );
 
+        localStorage.removeItem(
+          "auth_registered_permissions",
+        );
+
         localStorage.setItem(
           "customer_rules_only",
           "true",
@@ -416,6 +475,10 @@ export default function LoginPage() {
 
       localStorage.removeItem(
         "auth_user",
+      );
+
+      localStorage.removeItem(
+        "auth_registered_permissions",
       );
 
       /* =====================================

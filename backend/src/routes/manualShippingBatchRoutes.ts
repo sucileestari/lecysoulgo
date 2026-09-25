@@ -1,14 +1,26 @@
 import { Router } from "express";
 
 import {
-  getManualShippingBatchesHandler,
-  getManualShippingBatchByIdHandler,
+  authenticate,
+} from "../middleware/authMiddleware.js";
+
+import {
   createManualShippingBatchHandler,
-  updateManualShippingBatchHandler,
   deleteManualShippingBatchHandler,
+  getManualShippingBatchByIdHandler,
+  getManualShippingBatchesHandler,
+  updateManualShippingBatchHandler,
 } from "../controllers/manualShippingBatchController.js";
 
 const router = Router();
+
+/* =========================================
+   ALL ROUTES REQUIRE LOGIN
+========================================= */
+
+router.use(
+  authenticate,
+);
 
 /* =========================================
    GET ALL BATCHES
@@ -18,6 +30,8 @@ const router = Router();
  * GET /api/manual-shipping-batches
  *
  * Mengambil seluruh batch pengiriman manual.
+ *
+ * Tidak membutuhkan batch_id.
  */
 router.get(
   "/",
@@ -31,7 +45,7 @@ router.get(
 /**
  * GET /api/manual-shipping-batches/:id
  *
- * Mengambil satu batch berdasarkan ID.
+ * Mengambil satu batch pengiriman manual.
  */
 router.get(
   "/:id",
@@ -59,7 +73,7 @@ router.post(
 /**
  * PUT /api/manual-shipping-batches/:id
  *
- * Memperbarui data batch pengiriman.
+ * Mengubah batch pengiriman manual.
  */
 router.put(
   "/:id",
@@ -73,7 +87,7 @@ router.put(
 /**
  * DELETE /api/manual-shipping-batches/:id
  *
- * Menghapus batch pengiriman.
+ * Menghapus batch pengiriman manual.
  */
 router.delete(
   "/:id",

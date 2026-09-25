@@ -75,6 +75,25 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    VALIDATION
 ========================================= */
 
@@ -196,6 +215,9 @@ async function parseResponse<T>(
 export async function getManualShippingBatches(): Promise<
   ManualShippingBatch[]
 > {
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipping-batches`,
@@ -205,6 +227,9 @@ export async function getManualShippingBatches(): Promise<
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -231,6 +256,9 @@ export async function getManualShippingBatchById(
       "ID batch",
     );
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipping-batches/${encodeURIComponent(
@@ -242,6 +270,9 @@ export async function getManualShippingBatchById(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -303,6 +334,9 @@ export async function createManualShippingBatch(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipping-batches`,
@@ -315,6 +349,9 @@ export async function createManualShippingBatch(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify({
@@ -429,6 +466,9 @@ export async function updateManualShippingBatch(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipping-batches/${encodeURIComponent(
@@ -443,6 +483,9 @@ export async function updateManualShippingBatch(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify(
@@ -473,6 +516,9 @@ export async function deleteManualShippingBatch(
       "ID batch",
     );
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/manual-shipping-batches/${encodeURIComponent(
@@ -484,6 +530,9 @@ export async function deleteManualShippingBatch(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );

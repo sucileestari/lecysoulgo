@@ -50,6 +50,10 @@ import {
   type ManualShipment,
 } from "@/services/manualShippingService";
 
+import {
+  canAccessPermission,
+} from "@/utils/permissions";
+
 /* =========================================
    CONSTANTS
 ========================================= */
@@ -2968,7 +2972,8 @@ export default function PengirimanManualPage({
                             </p>
                           ) : (
                             <>
-                              {!isCustomer && (
+                              {!isCustomer &&
+                                canAccessPermission("payments.create") && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -3490,7 +3495,8 @@ export default function PengirimanManualPage({
 
                                       return (
                                         <div className="flex flex-col items-center">
-                                          {!isCustomer && (
+                                          {!isCustomer &&
+                                            canAccessPermission("payments.create") && (
                                             <button
                                               type="button"
                                               onClick={() =>

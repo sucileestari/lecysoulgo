@@ -3,22 +3,27 @@ import {
   useLocation,
 } from "react-router-dom";
 
-import {
-  ShieldAlert,
-  ArrowLeft,
-} from "lucide-react";
-
-import {
-  hasPermission,
-} from "../utils/permissions";
-
 /* =========================================
    TYPES
 ========================================= */
 
 type PermissionRouteProps = {
   children: React.ReactNode;
-  permission: string;
+
+  /*
+   * Dipertahankan untuk kompatibilitas
+   * dengan AppRoutes yang masih mengirim
+   * permission="...".
+   *
+   * Permission TIDAK digunakan sebagai
+   * route access control.
+   *
+   * Permission UI ditangani oleh:
+   * - AdminLayout
+   * - page/action menggunakan
+   *   canAccessPermission()
+   */
+  permission?: string;
 };
 
 /* =========================================
@@ -27,10 +32,8 @@ type PermissionRouteProps = {
 
 export default function PermissionRoute({
   children,
-  permission,
 }: PermissionRouteProps) {
-  const location =
-    useLocation();
+  const location = useLocation();
 
   /* =========================================
      CHECK CUSTOMER SESSION
@@ -43,7 +46,11 @@ export default function PermissionRoute({
 
   /*
    * Customer tidak boleh masuk
-   * ke halaman admin permission.
+   * ke halaman admin yang menggunakan
+   * PermissionRoute.
+   *
+   * Customer tetap diarahkan ke
+   * Rules GO seperti behavior sebelumnya.
    */
   if (customerToken) {
     return (
@@ -66,9 +73,9 @@ export default function PermissionRoute({
   /*
    * Tidak ada admin session.
    *
-   * ProtectedRoute sebenarnya sudah
+   * ProtectedRoute biasanya juga
    * menangani kondisi ini, tetapi
-   * pengecekan ini membuat component
+   * pengecekan di sini membuat component
    * tetap aman jika digunakan sendiri.
    */
   if (!adminToken) {
@@ -85,78 +92,29 @@ export default function PermissionRoute({
   }
 
   /* =========================================
-     CHECK PERMISSION
-  ========================================= */
-
-  const allowed =
-    hasPermission(
-      permission,
-    );
-
-  if (!allowed) {
-    return (
-      <PermissionDenied />
-    );
-  }
-
-  /* =========================================
      AUTHORIZED
   ========================================= */
 
+  /*
+   * Permission tidak dicek di level route.
+   *
+   * Aturan permission aplikasi:
+   *
+   * - permission tidak ada
+   *   → UI tampil
+   *
+   * - permission tidak terdaftar di DB
+   *   → UI tampil
+   *
+   * - permission terdaftar + user punya
+   *   → UI tampil
+   *
+   * - permission terdaftar + user tidak punya
+   *   → UI disembunyikan
+   *
+   * Route tetap dapat diakses setelah
+   * authentication berhasil.
+   */
+
   return <>{children}</>;
-}
-
-/* =========================================
-   PERMISSION DENIED
-========================================= */
-
-function PermissionDenied() {
-  function handleBack() {
-    window.history.back();
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f8faff] p-6">
-
-      <div className="w-full max-w-md rounded-2xl border border-[#e3e9f4] bg-white p-8 text-center shadow-sm">
-
-        {/* ICON */}
-
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff1f2]">
-
-          <ShieldAlert className="h-8 w-8 text-[#ef5368]" />
-
-        </div>
-
-        {/* TITLE */}
-
-        <h1 className="mt-5 text-xl font-bold text-[#142968]">
-          Akses Ditolak
-        </h1>
-
-        {/* DESCRIPTION */}
-
-        <p className="mt-2 text-sm leading-6 text-[#7181a7]">
-          Kamu tidak memiliki permission
-          untuk mengakses halaman ini.
-        </p>
-
-        {/* BUTTON */}
-
-        <button
-          type="button"
-          onClick={
-            handleBack
-          }
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#1457ff] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f49d8]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-
-          Kembali
-        </button>
-
-      </div>
-
-    </div>
-  );
 }

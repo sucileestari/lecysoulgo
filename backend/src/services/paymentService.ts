@@ -40,6 +40,14 @@ export type Payment = {
    */
   amount: number;
 
+  /**
+   * Nominal terbaru yang harus dibayar saat ini.
+   *
+   * Untuk payment lama, nilai ini bisa berbeda
+   * dengan amount jika nominal berubah karena denda.
+   */
+  current_amount?: number;
+
   status: PaymentStatus;
 
   provider: string;
@@ -730,7 +738,11 @@ export async function getManualShipmentPaymentSummary(
     payment &&
     payment.status === "pending" &&
     Number(payment.amount) !==
-      currentAmount
+      currentAmount &&
+    !(
+      payment.provider === "midtrans" &&
+      Boolean(payment.provider_order_id)
+    )
   ) {
     const {
       data: updatedPayment,
@@ -1639,6 +1651,9 @@ function buildPaymentMeta(
   return {
     ...payment,
 
+    current_amount:
+      penalty.currentAmount,
+
     base_amount:
       baseAmount,
 
@@ -1866,7 +1881,11 @@ export async function createPayment(
     if (pendingPayment) {
       if (
         Number(pendingPayment.amount) !==
-        currentAmount
+        currentAmount &&
+        !(
+          pendingPayment.provider === "midtrans" &&
+          Boolean(pendingPayment.provider_order_id)
+        )
       ) {
         const {
           data: updatedPending,
@@ -2064,7 +2083,11 @@ export async function createPayment(
         Number(
           pendingDp.amount,
         ) !==
-        currentAmount
+        currentAmount &&
+        !(
+          pendingDp.provider === "midtrans" &&
+          Boolean(pendingDp.provider_order_id)
+        )
       ) {
         const {
           data:
@@ -2234,7 +2257,11 @@ export async function createPayment(
         Number(
           pendingPelunasan.amount,
         ) !==
-        currentAmount
+        currentAmount &&
+        !(
+          pendingPelunasan.provider === "midtrans" &&
+          Boolean(pendingPelunasan.provider_order_id)
+        )
       ) {
         const {
           data:
@@ -2562,6 +2589,42 @@ export async function generatePaymentLink(
     );
 
   /* -------------------------------------
+     Check WhatsApp send history
+
+     Jika Payment Link pada payment lama
+     sudah pernah berhasil dikirim ke
+     WhatsApp, payment lama tidak boleh
+     dipakai lagi untuk membuat Payment Link
+     baru. Harus dibuat payment record baru.
+  ------------------------------------- */
+
+  const {
+    data: whatsappNotificationLog,
+    error: whatsappNotificationLogError,
+  } = await supabase
+    .from("notification_logs")
+    .select("id, status")
+    .eq(
+      "payment_id",
+      payment.id,
+    )
+    .eq(
+      "notification_type",
+      "RECAP_PAYMENT",
+    )
+    .maybeSingle();
+
+  if (whatsappNotificationLogError) {
+    throw new Error(
+      `Gagal mengecek riwayat pengiriman WhatsApp: ${whatsappNotificationLogError.message}`,
+    );
+  }
+
+  const whatsappAlreadySent =
+    whatsappNotificationLog?.status ===
+    "sent";
+
+  /* -------------------------------------
      Prepare payment data
   ------------------------------------- */
 
@@ -2569,23 +2632,49 @@ export async function generatePaymentLink(
     payment;
 
   /*
-   * Jangan ubah nominal payment lama
-   * jika link Midtrans-nya sudah expired.
-   *
-   * Payment lama harus tetap menjadi
-   * history dengan nominal aslinya.
+   * Cek apakah nominal pembayaran
+   * sudah berubah dari payment lama.
    */
   const amountChanged =
     Number(payment.amount) !==
     currentAmount;
 
+  /*
+   * Jika Payment Link sudah pernah
+   * dikirim ke WhatsApp, jangan kirim ulang
+   * selama link lama masih aktif dan nominal
+   * masih sama. Jika link sudah expired,
+   * payment baru tetap boleh dibuat.
+   */
+  if (
+    whatsappAlreadySent &&
+    !oldPaymentLinkExpired &&
+    !amountChanged
+  ) {
+    throw new Error(
+      "Payment Link sudah dikirimkan melalui Whatsapp",
+    );
+  }
+
+  /*
+   * Jika belum ada Payment Link Midtrans,
+   * payment lama masih boleh dipakai.
+   *
+   * Contoh:
+   * amount lama = 30K
+   * current amount = 46K
+   *
+   * Karena belum ada link yang harus
+   * dipertahankan, cukup update nominal
+   * payment lama menjadi nominal terbaru.
+   */
   if (
     amountChanged &&
-    !oldPaymentLinkExpired
+    !hasExistingMidtransLink
   ) {
     const {
-      data,
-      error,
+      data: updatedPayment,
+      error: updatePaymentError,
     } = await supabase
       .from("payments")
       .update({
@@ -2601,129 +2690,118 @@ export async function generatePaymentLink(
       .select("*")
       .single();
 
-    if (error || !data) {
+    if (
+      updatePaymentError ||
+      !updatedPayment
+    ) {
       throw new Error(
         `Gagal memperbarui nominal pembayaran: ${
-          error?.message ??
+          updatePaymentError?.message ??
           "Unknown error"
         }`,
       );
     }
 
     paymentData =
-      data as Payment;
+      updatedPayment as Payment;
   }
 
-  /* -------------------------------------
-     Determine expiry
-  ------------------------------------- */
-
-  const expiresAt =
-    getPaymentLinkExpiry(
-      penalty.dueDate,
-      oldPaymentLinkExpired,
+  /*
+   * Payment baru hanya diperlukan jika:
+   *
+   * - Payment Link lama sudah expired; atau
+   * - nominal berubah.
+   *
+   * Payment Link lama harus sudah
+   * pernah dibuat di Midtrans.
+   */
+  const mustCreateNewPayment =
+    hasExistingMidtransLink &&
+    (
+      oldPaymentLinkExpired ||
+      amountChanged
     );
 
-  /* -------------------------------------
-     Reuse existing active link
-  ------------------------------------- */
-
-  const paymentDataExpiresAt =
-    paymentData.expires_at
-      ? new Date(
-          paymentData.expires_at,
-        )
-      : null;
-
-  const hasValidExistingExpiry =
-    paymentDataExpiresAt !==
-      null &&
-    !Number.isNaN(
-      paymentDataExpiresAt.getTime(),
-    ) &&
-    paymentDataExpiresAt.getTime() >
-      now.getTime();
-
-  const hasReusableLink =
-    paymentData.provider ===
-      "midtrans" &&
-    Boolean(
-      paymentData.provider_order_id,
-    ) &&
-    Boolean(
-      paymentData.payment_url,
-    ) &&
-    hasValidExistingExpiry &&
-    Number(paymentData.amount) ===
-      currentAmount;
-
-  if (hasReusableLink) {
-    /**
-     * Payment Link masih aktif dan nominal
-     * masih sama. Gunakan link yang sudah ada.
-     */
-    return {
-      payment:
-        buildPaymentMeta(
-          paymentData,
-          penalty.baseAmount,
-          penalty,
-        ),
-
-      paymentUrl:
-        paymentData.payment_url!,
-
-      expiresAt:
-        paymentData.expires_at!,
-    };
-  }
-
-  /* -------------------------------------
-     Create new payment if old link expired
-  ------------------------------------- */
-
-  if (oldPaymentLinkExpired) {
+  if (mustCreateNewPayment) {
     /* -------------------------------------
-       Mark payment lama as expired
-
-       Payment lama tetap disimpan sebagai
-       history, tetapi statusnya harus berubah
-       dari pending menjadi expired sebelum
-       payment baru dibuat.
-
-       Ini diperlukan karena database memiliki
-       unique constraint untuk payment aktif.
+       Disable old active Midtrans link
+       jika masih aktif
     ------------------------------------- */
 
-    if (payment.status === "pending") {
+    if (!oldPaymentLinkExpired) {
+      try {
+        await deleteMidtransPaymentLink(
+          payment.provider_order_id!,
+        );
+      } catch (error) {
+        console.error(
+          "Gagal menonaktifkan Payment Link Midtrans lama:",
+          {
+            paymentId:
+              payment.id,
+            orderId:
+              payment.provider_order_id,
+            error,
+          },
+        );
+
+        throw new Error(
+          "Payment Link lama masih aktif dan gagal dinonaktifkan. Payment Link baru tidak dibuat.",
+        );
+      }
+    }
+
+    /* -------------------------------------
+       Bebaskan constraint payment aktif
+       tanpa menghapus history.
+
+       Hanya payment pending yang perlu
+       diubah menjadi expired karena
+       payment baru akan dibuat.
+    ------------------------------------- */
+
+    if (
+      paymentData.status ===
+      "pending"
+    ) {
       const {
-        error: expireOldPaymentError,
+        data: expiredPayment,
+        error: expirePaymentError,
       } = await supabase
         .from("payments")
         .update({
           status:
             "expired",
-
           updated_at:
             new Date().toISOString(),
         })
         .eq(
           "id",
-          payment.id,
+          paymentData.id,
         )
-        .eq(
-          "status",
-          "pending",
-        );
+        .select("*")
+        .single();
 
-      if (expireOldPaymentError) {
+      if (
+        expirePaymentError ||
+        !expiredPayment
+      ) {
         throw new Error(
           `Gagal menandai pembayaran lama sebagai expired: ${
-            expireOldPaymentError.message
+            expirePaymentError?.message ??
+            "Unknown error"
           }`,
         );
       }
+
+      paymentData =
+        expiredPayment as Payment;
     }
+
+    /* -------------------------------------
+       Create payment baru dengan nominal
+       terbaru
+    ------------------------------------- */
 
     const {
       data: newPayment,
@@ -2759,7 +2837,7 @@ export async function generatePaymentLink(
       !newPayment
     ) {
       throw new Error(
-        `Gagal membuat pembayaran baru: ${
+        `Gagal membuat pembayaran baru dengan nominal terbaru: ${
           newPaymentError?.message ??
           "Unknown error"
         }`,
@@ -2769,6 +2847,72 @@ export async function generatePaymentLink(
     paymentData =
       newPayment as Payment;
   }
+
+  /* -------------------------------------
+     Determine expiry
+  ------------------------------------- */
+
+  const expiresAt =
+    getPaymentLinkExpiry(
+      penalty.dueDate,
+      oldPaymentLinkExpired,
+    );
+
+  /* -------------------------------------
+     Reuse existing active link
+  ------------------------------------- */
+
+  const paymentDataExpiresAt =
+    paymentData.expires_at
+      ? new Date(
+          paymentData.expires_at,
+        )
+      : null;
+
+  const hasValidExistingExpiry =
+    paymentDataExpiresAt !==
+      null &&
+    !Number.isNaN(
+      paymentDataExpiresAt.getTime(),
+    ) &&
+    paymentDataExpiresAt.getTime() >
+      now.getTime();
+
+  const hasReusableLink =
+    !mustCreateNewPayment &&
+    paymentData.provider ===
+      "midtrans" &&
+    Boolean(
+      paymentData.provider_order_id,
+    ) &&
+    Boolean(
+      paymentData.payment_url,
+    ) &&
+    hasValidExistingExpiry &&
+    Number(paymentData.amount) ===
+      currentAmount;
+
+  if (hasReusableLink) {
+    /**
+     * Payment Link masih aktif dan nominal
+     * masih sama. Gunakan link yang sudah ada.
+     */
+    return {
+      payment:
+        buildPaymentMeta(
+          paymentData,
+          penalty.baseAmount,
+          penalty,
+        ),
+
+      paymentUrl:
+        paymentData.payment_url!,
+
+      expiresAt:
+        paymentData.expires_at!,
+    };
+  }
+
 
   /* -------------------------------------
      Disable old active link if necessary
@@ -3271,33 +3415,50 @@ export async function handleMidtransNotification(
      3. FIND PAYMENT
   ------------------------------------- */
 
-  const originalOrderId =
-    typeof notification.custom_field1 === "string" &&
-    notification.custom_field1.trim()
-      ? notification.custom_field1.trim()
-      : orderId.replace(/-\d+$/, "");
+  /*
+   * Cari payment hanya berdasarkan order_id yang
+   * ditandatangani Midtrans.
+   *
+   * Jangan menggunakan custom_field1 atau membuat
+   * variasi order_id lain sebagai fallback karena
+   * field tersebut tidak termasuk field signature
+   * Midtrans. Menggunakannya sebagai identifier
+   * dapat membuat notification yang sah untuk satu
+   * order diarahkan ke payment lain.
+   */
+  let paymentData: Payment | null =
+    null;
 
   const {
-    data: paymentData,
-    error: paymentError,
+    data,
+    error: paymentLookupError,
   } = await supabase
     .from("payments")
     .select("*")
     .eq(
       "provider_order_id",
-      originalOrderId,
+      orderId,
+    )
+    .eq(
+      "provider",
+      "midtrans",
     )
     .maybeSingle();
 
-  if (paymentError) {
+  if (paymentLookupError) {
     throw new Error(
-      `Gagal mencari pembayaran Midtrans: ${paymentError.message}`,
+      `Gagal mencari pembayaran Midtrans: ${paymentLookupError.message}`,
     );
+  }
+
+  if (data) {
+    paymentData =
+      data as Payment;
   }
 
   if (!paymentData) {
     throw new Error(
-      `Pembayaran dengan order ID "${originalOrderId}" tidak ditemukan.`,
+      `Pembayaran dengan order ID "${orderId}" tidak ditemukan.`,
     );
   }
 
@@ -3930,6 +4091,32 @@ export async function getRecapPaymentSummary(
   );
 
   /* -------------------------------------
+     Payment references
+  ------------------------------------- */
+
+  const currentDpPayment =
+    dpPaidPayment ??
+    payments.find(
+      (
+        payment,
+      ) =>
+        payment.payment_type ===
+        "DP",
+    ) ??
+    null;
+
+  const currentPelunasanPayment =
+    pelunasanPaidPayment ??
+    payments.find(
+      (
+        payment,
+      ) =>
+        payment.payment_type ===
+        "PELUNASAN",
+    ) ??
+    null;
+
+  /* -------------------------------------
      Return summary
   ------------------------------------- */
 
@@ -4020,15 +4207,14 @@ export async function getRecapPaymentSummary(
           : null,
 
       payment:
-        dpPaidPayment ??
-        payments.find(
-          (
-            payment,
-          ) =>
-            payment.payment_type ===
-            "DP",
-        ) ??
-        null,
+        currentDpPayment
+          ? {
+              ...currentDpPayment,
+
+              current_amount:
+                dpCurrentAmount,
+            }
+          : null,
     },
 
     pelunasan: {
@@ -4096,15 +4282,14 @@ export async function getRecapPaymentSummary(
           : null,
 
       payment:
-        pelunasanPaidPayment ??
-        payments.find(
-          (
-            payment,
-          ) =>
-            payment.payment_type ===
-            "PELUNASAN",
-        ) ??
-        null,
+        currentPelunasanPayment
+          ? {
+              ...currentPelunasanPayment,
+
+              current_amount:
+                pelunasanCurrentAmount,
+            }
+          : null,
     },
   };
 }

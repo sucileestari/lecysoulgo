@@ -137,6 +137,23 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem("auth_token");
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    PARSE RESPONSE
 ========================================= */
 
@@ -179,6 +196,8 @@ async function parseResponse<T>(
 export async function getBatches(
   country: Country,
 ): Promise<Batch[]> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/batches?country=${encodeURIComponent(
       country,
@@ -188,6 +207,7 @@ export async function getBatches(
 
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
       },
     },
   );
@@ -223,6 +243,8 @@ export async function getBatchById(
     );
   }
 
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/batches/${encodeURIComponent(
       id,
@@ -232,6 +254,7 @@ export async function getBatchById(
 
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
       },
     },
   );
@@ -264,6 +287,8 @@ export async function getBatchById(
 export async function createBatch(
   input: CreateBatchInput,
 ): Promise<Batch> {
+  const token = getAuthToken();
+
   const formData =
     new FormData();
 
@@ -339,6 +364,10 @@ export async function createBatch(
     {
       method: "POST",
 
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+
       body: formData,
     },
   );
@@ -387,6 +416,8 @@ export async function updateBatch(
     );
   }
 
+  const token = getAuthToken();
+
   const formData =
     new FormData();
 
@@ -432,6 +463,10 @@ export async function updateBatch(
     {
       method: "PUT",
 
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+
       body: formData,
     },
   );
@@ -467,6 +502,8 @@ export async function deleteBatch(
     );
   }
 
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/batches/${encodeURIComponent(
       id,
@@ -476,6 +513,7 @@ export async function deleteBatch(
 
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
       },
     },
   );

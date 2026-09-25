@@ -10,6 +10,14 @@ import {
   midtransWebhookHandler,
 } from "../controllers/paymentController.js";
 
+import {
+  authenticate,
+} from "../middleware/authMiddleware.js";
+
+import {
+  requirePermission,
+} from "../middleware/permissionMiddleware.js";
+
 const router =
   Router();
 
@@ -34,11 +42,13 @@ router.post(
 
 router.get(
   "/recap/:recapId",
+  authenticate,
   getRecapPaymentSummaryHandler,
 );
 
 router.get(
   "/recap/:recapId/history",
+  authenticate,
   getPaymentsByRecapHandler,
 );
 
@@ -48,21 +58,35 @@ router.get(
 
 router.get(
   "/manual-shipment/:shipmentId",
+  authenticate,
   getManualShipmentPaymentHandler,
 );
 
 router.get(
   "/manual-shipment/:shipmentId/summary",
+  authenticate,
   getManualShipmentPaymentSummaryHandler,
 );
 
+/* =========================================
+   CREATE PAYMENT
+========================================= */
+
 router.post(
   "/",
+  authenticate,
+  requirePermission("payments.create"),
   createPaymentHandler,
 );
 
+/* =========================================
+   GENERATE MIDTRANS PAYMENT LINK
+========================================= */
+
 router.post(
   "/:id/generate-link",
+  authenticate,
+  requirePermission("payments.create"),
   generatePaymentLinkHandler,
 );
 

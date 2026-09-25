@@ -15,6 +15,7 @@ export type Role = {
 export type Permission = {
   id: string;
   name: string;
+  code?: string;
   description?: string | null;
   created_at?: string;
 };
@@ -99,7 +100,13 @@ export async function getAllPermissions() {
     error,
   } = await supabase
     .from("permissions")
-    .select("*")
+    .select(`
+      id,
+      name,
+      code,
+      description,
+      created_at
+    `)
     .order("name", {
       ascending: true,
     });
@@ -131,6 +138,7 @@ export async function getRolePermissions(
       permissions (
         id,
         name,
+        code,
         description,
         created_at
       )
@@ -169,6 +177,8 @@ export async function getRolePermissions(
       return {
         id: permission.id,
         name: permission.name,
+        code:
+          permission.code,
         description:
           permission.description ?? null,
         created_at:

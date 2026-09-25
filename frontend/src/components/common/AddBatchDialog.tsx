@@ -23,8 +23,8 @@ import {
 } from "../../services/batchService";
 
 import {
-  getMembers,
-  type Member,
+  getMembersForBatch,
+  type BatchMemberOption,
 } from "../../services/memberService";
 
 type AddBatchDialogProps = {
@@ -169,7 +169,7 @@ export default function AddBatchDialog({
   const [
     employees,
     setEmployees,
-  ] = useState<Member[]>([]);
+  ] = useState<BatchMemberOption[]>([]);
 
   // ==============================
   // Image State
@@ -279,7 +279,7 @@ export default function AddBatchDialog({
         setIsLoadingEmployees(true);
 
         const members =
-          await getMembers();
+          await getMembersForBatch();
 
         if (!cancelled) {
           setEmployees(
@@ -625,6 +625,7 @@ export default function AddBatchDialog({
       setError(
         "Nama batch wajib diisi.",
       );
+
       return;
     }
 
@@ -632,6 +633,7 @@ export default function AddBatchDialog({
       setError(
         "Jenis barang wajib dipilih.",
       );
+
       return;
     }
 
@@ -639,6 +641,7 @@ export default function AddBatchDialog({
       setError(
         "Tanggal mulai wajib diisi.",
       );
+
       return;
     }
 
@@ -646,6 +649,7 @@ export default function AddBatchDialog({
       setError(
         "Admin Nyelem wajib dipilih.",
       );
+
       return;
     }
 
@@ -653,6 +657,7 @@ export default function AddBatchDialog({
       setError(
         "Admin Rekap wajib dipilih.",
       );
+
       return;
     }
 
@@ -667,6 +672,7 @@ export default function AddBatchDialog({
       setError(
         "Jatuh tempo DP minimal 1 hari.",
       );
+
       return;
     }
 
@@ -688,6 +694,7 @@ export default function AddBatchDialog({
         setError(
           "Jatuh tempo pelunasan minimal 1 hari.",
         );
+
         return;
       }
     }
@@ -1043,7 +1050,9 @@ export default function AddBatchDialog({
 
                           return (
                             <button
-                              key={employee.id}
+                              key={
+                                employee.id
+                              }
                               type="button"
                               onClick={() => {
                                 setAdminNyelemId(
@@ -1167,7 +1176,9 @@ export default function AddBatchDialog({
 
                           return (
                             <button
-                              key={employee.id}
+                              key={
+                                employee.id
+                              }
                               type="button"
                               onClick={() => {
                                 setAdminRekapId(
@@ -1238,79 +1249,79 @@ export default function AddBatchDialog({
               className="relative mt-2"
             >
               <button
-              type="button"
-              onClick={() =>
-                setStatusDropdownOpen(
-                  (current) => !current,
-                )
-              }
-              disabled={
-                isSubmitting ||
-                isCompressing
-              }
-              className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
-            >
-              <span className="truncate font-medium text-[#20366f]">
-                {status}
-              </span>
+                type="button"
+                onClick={() =>
+                  setStatusDropdownOpen(
+                    (current) => !current,
+                  )
+                }
+                disabled={
+                  isSubmitting ||
+                  isCompressing
+                }
+                className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] disabled:bg-[#f7f8fb]"
+              >
+                <span className="truncate font-medium text-[#20366f]">
+                  {status}
+                </span>
 
-              <ChevronDown
-                className={[
-                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
-                  statusDropdownOpen
-                    ? "rotate-180"
-                    : "",
-                ].join(" ")}
-              />
+                <ChevronDown
+                  className={[
+                    "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                    statusDropdownOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
               </button>
 
               {statusDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full z-[100] overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
-                <div className="max-h-56 overflow-y-auto">
-                  {BATCH_STATUSES.map(
-                    (item) => {
-                      const isSelected =
-                        item === status;
+                <div className="absolute left-0 right-0 top-full z-[100] overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto">
+                    {BATCH_STATUSES.map(
+                      (item) => {
+                        const isSelected =
+                          item === status;
 
-                      return (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => {
-                            setStatus(item);
-                            setStatusDropdownOpen(
-                              false,
-                            );
-                          }}
-                          className={[
-                            "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
-                            isSelected
-                              ? "bg-[#edf3ff]"
-                              : "hover:bg-[#f8faff]",
-                          ].join(" ")}
-                        >
-                          <span
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => {
+                              setStatus(item);
+                              setStatusDropdownOpen(
+                                false,
+                              );
+                            }}
                             className={[
-                              "truncate text-sm",
+                              "flex min-h-11 w-full items-center px-4 py-2 text-left transition",
                               isSelected
-                                ? "font-medium text-[#1457ff]"
-                                : "text-[#20366f]",
+                                ? "bg-[#edf3ff]"
+                                : "hover:bg-[#f8faff]",
                             ].join(" ")}
                           >
-                            {item}
-                          </span>
-
-                          {isSelected && (
-                            <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
-                              Dipilih
+                            <span
+                              className={[
+                                "truncate text-sm",
+                                isSelected
+                                  ? "font-medium text-[#1457ff]"
+                                  : "text-[#20366f]",
+                              ].join(" ")}
+                            >
+                              {item}
                             </span>
-                          )}
-                        </button>
-                      );
-                    },
-                  )}
+
+                            {isSelected && (
+                              <span className="ml-auto shrink-0 text-xs font-medium text-[#1457ff]">
+                                Dipilih
+                              </span>
+                            )}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
             </div>
 
@@ -1610,6 +1621,7 @@ export default function AddBatchDialog({
             </button>
 
           </div>
+
         </form>
       </div>
     </div>

@@ -13,7 +13,7 @@ import { useState } from "react";
 
 import TambahTransaksiDialog from "../components/common/TambahTransaksiDialog";
 
-import { hasPermission } from "../utils/permissions";
+import { canAccessPermission } from "../utils/permissions";
 
 import {
   getFinanceData,
@@ -249,7 +249,7 @@ export default function ArusDanaPage() {
 
               {/* TAMBAH TRANSAKSI */}
 
-              {hasPermission("finance.create") && (
+              {canAccessPermission("finance.create") && (
                 <button
                   type="button"
                   onClick={

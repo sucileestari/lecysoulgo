@@ -81,6 +81,64 @@ function getBatchImageUrl(
 }
 
 /* =========================================
+   VALIDATE BATCH ADMINS
+========================================= */
+
+async function validateBatchAdmins(
+  adminNyelemId: string,
+  adminRekapId: string,
+): Promise<void> {
+  const adminIds = [
+    adminNyelemId.trim(),
+    adminRekapId.trim(),
+  ];
+
+  const uniqueAdminIds = [
+    ...new Set(adminIds),
+  ];
+
+  const { data, error } =
+    await supabase
+      .from("members")
+      .select("id, type")
+      .in(
+        "id",
+        uniqueAdminIds,
+      );
+
+  if (error) {
+    throw new Error(
+      `Gagal memvalidasi admin batch: ${error.message}`,
+    );
+  }
+
+  const validEmployeeIds =
+    new Set(
+      (data ?? [])
+        .filter(
+          (member) =>
+            member.type ===
+            "employee",
+        )
+        .map((member) =>
+          String(member.id),
+        ),
+    );
+
+  const allAdminsValid =
+    uniqueAdminIds.every(
+      (id) =>
+        validEmployeeIds.has(id),
+    );
+
+  if (!allAdminsValid) {
+    throw new Error(
+      "Admin Nyelem dan Admin Rekap harus merupakan member bertipe employee yang valid.",
+    );
+  }
+}
+
+/* =========================================
    TOTAL ORDER
 ========================================= */
 
@@ -348,6 +406,16 @@ export async function createBatch(
   input: CreateBatchInput,
   imagePath?: string | null,
 ): Promise<Batch> {
+  /*
+   * Pastikan Admin Nyelem dan
+   * Admin Rekap benar-benar member
+   * bertipe employee.
+   */
+  await validateBatchAdmins(
+    input.admin_nyelem_id,
+    input.admin_rekap_id,
+  );
+
   const payload = {
     country: input.country,
 

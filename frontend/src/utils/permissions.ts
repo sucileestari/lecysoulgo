@@ -13,24 +13,65 @@ export type AuthUser = {
 };
 
 /* =========================================
+   PERMISSION NORMALIZER
+========================================= */
+
+function normalizePermission(
+  permission: unknown,
+): string {
+  return String(permission ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+/* =========================================
    GET CURRENT ADMIN USER
 ========================================= */
 
 export function getCurrentAdminUser(): AuthUser | null {
   try {
-    const rawUser = localStorage.getItem("auth_user");
+    const rawUser =
+      localStorage.getItem("auth_user");
 
     if (!rawUser) {
       return null;
     }
 
-    const user = JSON.parse(rawUser);
+    const parsedUser =
+      JSON.parse(rawUser);
 
-    if (!user || typeof user !== "object") {
+    if (
+      !parsedUser ||
+      typeof parsedUser !== "object"
+    ) {
       return null;
     }
 
-    return user as AuthUser;
+    const user =
+      parsedUser as Partial<AuthUser>;
+
+    return {
+      id: String(user.id ?? ""),
+      name: String(user.name ?? ""),
+      username: String(
+        user.username ?? "",
+      ),
+      role_id: String(
+        user.role_id ?? "",
+      ),
+      role: String(user.role ?? ""),
+      permissions: Array.isArray(
+        user.permissions,
+      )
+        ? user.permissions
+            .map(
+              normalizePermission,
+            )
+            .filter(Boolean)
+        : [],
+      is_active:
+        user.is_active === true,
+    };
   } catch {
     return null;
   }
@@ -41,34 +82,32 @@ export function getCurrentAdminUser(): AuthUser | null {
 ========================================= */
 
 export function isSuperAdmin(): boolean {
-  const user = getCurrentAdminUser();
+  const user =
+    getCurrentAdminUser();
 
   if (!user) {
     return false;
   }
 
   /*
-   * Backend bisa mengirim role dalam beberapa format:
+   * Backend mengirim role sebagai:
    *
    * "Super Admin"
+   * atau
    * "super_admin"
    *
-   * Selain itu username super_admin juga
-   * dianggap sebagai Super Admin.
+   * Gunakan role sebagai sumber utama
+   * untuk menentukan Super Admin.
    */
 
-  const role = String(user.role ?? "")
-    .trim()
-    .toLowerCase();
-
-  const username = String(user.username ?? "")
-    .trim()
-    .toLowerCase();
+  const role =
+    String(user.role ?? "")
+      .trim()
+      .toLowerCase();
 
   return (
     role === "super admin" ||
-    role === "super_admin" ||
-    username === "super_admin"
+    role === "super_admin"
   );
 }
 
@@ -77,7 +116,8 @@ export function isSuperAdmin(): boolean {
 ========================================= */
 
 export function getCurrentPermissions(): string[] {
-  const user = getCurrentAdminUser();
+  const user =
+    getCurrentAdminUser();
 
   if (!user) {
     return [];
@@ -86,7 +126,8 @@ export function getCurrentPermissions(): string[] {
   /*
    * SUPER ADMIN
    *
-   * Super Admin mempunyai seluruh permission.
+   * Super Admin mempunyai
+   * seluruh permission.
    */
   if (isSuperAdmin()) {
     return ["*"];
@@ -95,14 +136,126 @@ export function getCurrentPermissions(): string[] {
   /*
    * ADMIN / ROLE LAIN
    *
-   * Gunakan permission yang diberikan
-   * oleh backend.
+   * Gunakan permission yang
+   * diberikan oleh backend.
    */
-  if (Array.isArray(user.permissions)) {
-    return user.permissions;
+  return Array.isArray(
+    user.permissions,
+  )
+    ? user.permissions
+        .map(
+          normalizePermission,
+        )
+        .filter(Boolean)
+    : [];
+}
+
+/* =========================================
+   GET REGISTERED PERMISSION CODES
+========================================= */
+
+export function getRegisteredPermissionCodes():
+  Set<string> | null {
+  try {
+    const storedPermissions =
+      localStorage.getItem(
+        "auth_registered_permissions",
+      );
+
+    /*
+     * Registry seharusnya selalu tersedia
+     * setelah admin berhasil login.
+     */
+    if (!storedPermissions) {
+      return null;
+    }
+
+    const permissions =
+      JSON.parse(
+        storedPermissions,
+      );
+
+    if (!Array.isArray(permissions)) {
+      return null;
+    }
+
+    return new Set<string>(
+      permissions
+        .map(
+          normalizePermission,
+        )
+        .filter(Boolean),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/* =========================================
+   CHECK CONFIGURED PERMISSION
+========================================= */
+
+export function canAccessPermission(
+  permission?: string,
+): boolean {
+  /*
+   * Menu / button / route tidak
+   * mempunyai permission.
+   *
+   * Berarti tidak dibatasi permission.
+   */
+  if (!permission?.trim()) {
+    return true;
   }
 
-  return [];
+  const normalizedPermission =
+    normalizePermission(
+      permission,
+    );
+
+  /*
+   * Registry permission harus sudah
+   * tersedia setelah login.
+   *
+   * LoginPage akan membatalkan login
+   * jika registry gagal dimuat.
+   *
+   * Jadi kondisi ini dianggap sebagai
+   * session permission yang tidak valid.
+   */
+  const registeredPermissionCodes =
+    getRegisteredPermissionCodes();
+
+  if (!registeredPermissionCodes) {
+    return false;
+  }
+
+  /*
+   * Permission belum terdaftar
+   * di database.
+   *
+   * Sesuai rule aplikasi:
+   * permission yang belum terdaftar
+   * tidak membatasi UI.
+   */
+  if (
+    !registeredPermissionCodes.has(
+      normalizedPermission,
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * Permission sudah terdaftar
+   * di database.
+   *
+   * Sekarang cek apakah user
+   * benar-benar memiliki permission.
+   */
+  return hasPermission(
+    normalizedPermission,
+  );
 }
 
 /* =========================================
@@ -110,30 +263,42 @@ export function getCurrentPermissions(): string[] {
 ========================================= */
 
 export function hasPermission(
-  permission: string
+  permission: string,
 ): boolean {
-  const permissions = getCurrentPermissions();
+  const normalizedPermission =
+    normalizePermission(
+      permission,
+    );
 
   /*
-   * Tidak ada permission
+   * Permission kosong.
    */
-  if (!permission) {
+  if (!normalizedPermission) {
     return false;
   }
+
+  const permissions =
+    getCurrentPermissions();
 
   /*
    * Wildcard (*)
    *
-   * Berarti user mempunyai seluruh permission.
+   * Berarti user mempunyai
+   * seluruh permission.
    */
   if (permissions.includes("*")) {
     return true;
   }
 
   /*
-   * Permission spesifik
+   * Permission spesifik.
+   *
+   * Keduanya sudah dinormalisasi
+   * ke lowercase.
    */
-  return permissions.includes(permission);
+  return permissions.includes(
+    normalizedPermission,
+  );
 }
 
 /* =========================================
@@ -141,14 +306,15 @@ export function hasPermission(
 ========================================= */
 
 export function hasAnyPermission(
-  permissions: string[]
+  permissions: string[],
 ): boolean {
   if (!Array.isArray(permissions)) {
     return false;
   }
 
-  return permissions.some((permission) =>
-    hasPermission(permission)
+  return permissions.some(
+    (permission) =>
+      hasPermission(permission),
   );
 }
 
@@ -157,13 +323,14 @@ export function hasAnyPermission(
 ========================================= */
 
 export function hasAllPermissions(
-  permissions: string[]
+  permissions: string[],
 ): boolean {
   if (!Array.isArray(permissions)) {
     return false;
   }
 
-  return permissions.every((permission) =>
-    hasPermission(permission)
+  return permissions.every(
+    (permission) =>
+      hasPermission(permission),
   );
 }

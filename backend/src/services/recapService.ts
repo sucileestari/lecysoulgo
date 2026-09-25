@@ -280,6 +280,41 @@ export async function getRecapById(
 }
 
 /* =========================================
+   VALIDATE RECAP MEMBER
+========================================= */
+
+async function validateRecapMember(
+  memberId: string,
+): Promise<void> {
+  const {
+    data: member,
+    error: memberError,
+  } = await supabase
+    .from("members")
+    .select("id, type")
+    .eq("id", memberId)
+    .maybeSingle();
+
+  if (memberError) {
+    throw new Error(
+      `Gagal memeriksa member: ${memberError.message}`,
+    );
+  }
+
+  if (!member) {
+    throw new Error(
+      "Member tidak ditemukan.",
+    );
+  }
+
+  if (member.type === "hnr") {
+    throw new Error(
+      "Member HNR tidak dapat dipilih sebagai pembeli rekapan.",
+    );
+  }
+}
+
+/* =========================================
    CREATE SINGLE RECAP
 ========================================= */
 
@@ -390,30 +425,9 @@ export async function createRecap(
      CHECK MEMBER
   ------------------------------------- */
 
-  const {
-    data: member,
-    error: memberError,
-  } =
-    await supabase
-      .from("members")
-      .select("id")
-      .eq(
-        "id",
-        member_id,
-      )
-      .maybeSingle();
-
-  if (memberError) {
-    throw new Error(
-      `Gagal memeriksa member: ${memberError.message}`,
-    );
-  }
-
-  if (!member) {
-    throw new Error(
-      "Member tidak ditemukan.",
-    );
-  }
+  await validateRecapMember(
+    member_id,
+  );
 
   /* -------------------------------------
      CALCULATE TOTAL
@@ -657,7 +671,7 @@ export async function createRecaps(
   } =
     await supabase
       .from("members")
-      .select("id")
+      .select("id, type")
       .in(
         "id",
         uniqueMemberIds,
@@ -691,6 +705,18 @@ export async function createRecaps(
   if (invalidMember) {
     throw new Error(
       "Salah satu member tidak ditemukan.",
+    );
+  }
+
+  const hasHnrMember =
+    (members ?? []).some(
+      (member) =>
+        member.type === "hnr",
+    );
+
+  if (hasHnrMember) {
+    throw new Error(
+      "Member HNR tidak dapat dipilih sebagai pembeli rekapan.",
     );
   }
 

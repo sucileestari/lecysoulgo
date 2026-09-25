@@ -1,6 +1,10 @@
 import { Router } from "express";
 
 import {
+  authenticate,
+} from "../middleware/authMiddleware.js";
+
+import {
   createManualShipmentHandler,
   deleteManualShipmentHandler,
   getManualShipmentByIdHandler,
@@ -12,6 +16,14 @@ import {
 const router = Router();
 
 /* =========================================
+   ALL ROUTES REQUIRE LOGIN
+========================================= */
+
+router.use(
+  authenticate,
+);
+
+/* =========================================
    GET SHIPMENTS BY BATCH
 ========================================= */
 
@@ -20,6 +32,10 @@ const router = Router();
  *
  * Mengambil seluruh pengiriman
  * berdasarkan batch.
+ *
+ * Tidak menggunakan permission
+ * shipping.view karena permission
+ * tersebut tidak terdaftar di database.
  */
 router.get(
   "/",
@@ -36,6 +52,10 @@ router.get(
  *
  * Digunakan untuk kebutuhan
  * dropdown pada modal Tambah Pengiriman.
+ *
+ * Tidak menggunakan permission
+ * shipping.view karena permission
+ * tersebut tidak terdaftar di database.
  */
 router.get(
   "/options",
@@ -50,6 +70,10 @@ router.get(
  * GET /api/manual-shipments/:id
  *
  * Mengambil satu data pengiriman.
+ *
+ * Tidak menggunakan permission
+ * shipping.view karena permission
+ * tersebut tidak terdaftar di database.
  */
 router.get(
   "/:id",

@@ -65,6 +65,25 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    PARSE RESPONSE
 ========================================= */
 
@@ -108,13 +127,20 @@ async function parseResponse<T>(
 export async function getProductCosts(): Promise<
   ProductCost[]
 > {
+  const token =
+    getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs`,
     {
       method: "GET",
 
       headers: {
-        Accept: "application/json",
+        Accept:
+          "application/json",
+
+        Authorization:
+          `Bearer ${token}`,
       },
     },
   );
@@ -137,6 +163,9 @@ export async function getProductCostByBatchId(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs/batch/${encodeURIComponent(
       batchId.trim(),
@@ -145,7 +174,11 @@ export async function getProductCostByBatchId(
       method: "GET",
 
       headers: {
-        Accept: "application/json",
+        Accept:
+          "application/json",
+
+        Authorization:
+          `Bearer ${token}`,
       },
     },
   );
@@ -200,6 +233,9 @@ export async function createProductCost(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs`,
     {
@@ -211,6 +247,9 @@ export async function createProductCost(
 
         Accept:
           "application/json",
+
+        Authorization:
+          `Bearer ${token}`,
       },
 
       body: JSON.stringify({
@@ -282,6 +321,9 @@ export async function updateProductCost(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs/${encodeURIComponent(
       id.trim(),
@@ -295,6 +337,9 @@ export async function updateProductCost(
 
         Accept:
           "application/json",
+
+        Authorization:
+          `Bearer ${token}`,
       },
 
       body: JSON.stringify({
@@ -330,6 +375,9 @@ export async function deleteProductCost(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs/${encodeURIComponent(
       id.trim(),
@@ -338,7 +386,11 @@ export async function deleteProductCost(
       method: "DELETE",
 
       headers: {
-        Accept: "application/json",
+        Accept:
+          "application/json",
+
+        Authorization:
+          `Bearer ${token}`,
       },
     },
   );

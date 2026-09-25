@@ -61,7 +61,7 @@ import type {
   FlagComponent,
 } from "country-flag-icons/react/3x2";
 
-import { hasPermission } from "../utils/permissions";
+import { canAccessPermission } from "../utils/permissions";
 
 /* =========================================
    TYPES
@@ -1214,7 +1214,7 @@ export default function ModalDanKeuntunganPage() {
 
             {/* TAMBAH MODAL */}
 
-            {hasPermission("modal.create") && (
+            {canAccessPermission("modal.create") && (
               <button
                 type="button"
                 onClick={() =>
@@ -1639,41 +1639,43 @@ export default function ModalDanKeuntunganPage() {
                     {/* ACTION */}
                     <div className="mt-4 flex items-center gap-2 border-t border-[#edf0f6] pt-4">
 
-                      <button
-                        type="button"
-                        aria-label={`Edit ${row.batchName}`}
-                        title={`Edit ${row.batchName}`}
-                        onClick={() => {
-                          const productCost =
-                            productCosts.find(
-                              (item) =>
-                                item.id ===
-                                row.id,
-                            );
+                      {canAccessPermission("modal.edit") && (
+                        <button
+                          type="button"
+                          aria-label={`Edit ${row.batchName}`}
+                          title={`Edit ${row.batchName}`}
+                          onClick={() => {
+                            const productCost =
+                              productCosts.find(
+                                (item) =>
+                                  item.id ===
+                                  row.id,
+                              );
 
-                          if (
-                            productCost
-                          ) {
-                            handleOpenEditModal(
-                              productCost,
-                            );
-                          }
-                        }}
-                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </button>
+                            if (productCost) {
+                              handleOpenEditModal(
+                                productCost,
+                              );
+                            }
+                          }}
+                          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        aria-label={`Hapus ${row.batchName}`}
-                        title={`Hapus ${row.batchName}`}
-                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Hapus
-                      </button>
+                      {canAccessPermission("modal.delete") && (
+                        <button
+                          type="button"
+                          aria-label={`Hapus ${row.batchName}`}
+                          title={`Hapus ${row.batchName}`}
+                          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Hapus
+                        </button>
+                      )}
 
                     </div>
 
@@ -2080,35 +2082,39 @@ export default function ModalDanKeuntunganPage() {
 
                             <div className="flex items-center justify-center gap-2">
 
-                              <button
-                                type="button"
-                                aria-label={`Edit ${row.batchName}`}
-                                title={`Edit ${row.batchName}`}
-                                onClick={() => {
-                                  const productCost =
-                                    productCosts.find(
-                                      (item) => item.id === row.id,
-                                    );
+                              {canAccessPermission("modal.edit") && (
+                                <button
+                                  type="button"
+                                  aria-label={`Edit ${row.batchName}`}
+                                  title={`Edit ${row.batchName}`}
+                                  onClick={() => {
+                                    const productCost =
+                                      productCosts.find(
+                                        (item) => item.id === row.id,
+                                      );
 
-                                  if (productCost) {
-                                    handleOpenEditModal(
-                                      productCost,
-                                    );
-                                  }
-                                }}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
+                                    if (productCost) {
+                                      handleOpenEditModal(
+                                        productCost,
+                                      );
+                                    }
+                                  }}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              )}
 
-                              <button
-                                type="button"
-                                aria-label={`Hapus ${row.batchName}`}
-                                title={`Hapus ${row.batchName}`}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {canAccessPermission("modal.delete") && (
+                                <button
+                                  type="button"
+                                  aria-label={`Hapus ${row.batchName}`}
+                                  title={`Hapus ${row.batchName}`}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
 
                             </div>
 

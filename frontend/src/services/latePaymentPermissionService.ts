@@ -188,6 +188,25 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    PARSE RESPONSE
 ========================================= */
 
@@ -253,6 +272,9 @@ async function parseResponse<T>(
 export async function getLatePaymentPermissions(): Promise<
   LatePaymentPermission[]
 > {
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/late-payment-permissions`,
@@ -262,6 +284,9 @@ export async function getLatePaymentPermissions(): Promise<
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -317,6 +342,9 @@ export async function getLatePaymentPermissions(): Promise<
  *    disabled.
  */
 export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOptionsResponse> {
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/late-payment-permissions/recap-options`,
@@ -326,6 +354,9 @@ export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOpti
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -478,6 +509,9 @@ export async function createLatePaymentPermission(
      CREATE REQUEST
   --------------------------------------- */
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/late-payment-permissions`,
@@ -490,6 +524,9 @@ export async function createLatePaymentPermission(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify({

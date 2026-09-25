@@ -1,6 +1,4 @@
-import {
-  Router,
-} from "express";
+import { Router } from "express";
 
 import {
   getNotificationLogsHandler,
@@ -11,6 +9,8 @@ import {
 
 import { authenticate } from "../middleware/authMiddleware.js";
 
+import { requirePermission } from "../middleware/permissionMiddleware.js";
+
 const router = Router();
 
 /* =========================================
@@ -20,6 +20,7 @@ const router = Router();
 router.get(
   "/logs",
   authenticate,
+  requirePermission("notification_log.view"),
   getNotificationLogsHandler,
 );
 
@@ -30,6 +31,7 @@ router.get(
 router.get(
   "/logs/summary",
   authenticate,
+  requirePermission("notification_log.view"),
   getNotificationLogSummaryHandler,
 );
 
@@ -40,6 +42,7 @@ router.get(
 router.post(
   "/logs/:id/retry",
   authenticate,
+  requirePermission("notification_log.manage"),
   retryNotificationLogHandler,
 );
 
@@ -52,6 +55,14 @@ router.post(
  *
  * Dipanggil oleh Vercel Cron
  * untuk memproses automation WhatsApp.
+ *
+ * Endpoint ini tidak menggunakan authenticate()
+ * karena dipanggil oleh cron, bukan user session.
+ *
+ * IMPORTANT:
+ * Endpoint harus tetap melakukan validasi khusus
+ * untuk memastikan request benar-benar berasal
+ * dari Vercel Cron / trusted scheduler.
  */
 
 router.get(

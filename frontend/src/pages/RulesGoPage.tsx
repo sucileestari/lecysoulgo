@@ -11,8 +11,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 
 import {
-  getMembers,
-  type Member,
+  getHnrMembers,
+  type HnrMember,
 } from "../services/memberService";
 
 type RuleCategory =
@@ -252,21 +252,19 @@ export default function RulesGoPage() {
     useState<RuleCategory>("general");
 
   const {
-    data: members = [],
-    isLoading: isMembersLoading,
-    isError: isMembersError,
-    error: membersError,
-  } = useQuery<Member[], Error>({
-    queryKey: ["members"],
-    queryFn: () => getMembers(),
+    data: hnrMembers = [],
+    isLoading: isHnrLoading,
+    isError: isHnrError,
+    error: hnrError,
+  } = useQuery<HnrMember[], Error>({
+    queryKey: ["hnr-members"],
+    queryFn: () => getHnrMembers(),
     staleTime: 5 * 60 * 1000,
+    enabled: activeCategory === "hnr",
   });
 
-  const hnrMembers = members.filter(
-    (member) => member.type === "hnr",
-  );
-
-  const activeRules = rules[activeCategory];
+  const activeRules =
+    rules[activeCategory];
 
   return (
     <div className="min-h-screen bg-[#f8faff] text-left">
@@ -303,7 +301,9 @@ export default function RulesGoPage() {
                 key={category.id}
                 type="button"
                 onClick={() =>
-                  setActiveCategory(category.id)
+                  setActiveCategory(
+                    category.id,
+                  )
                 }
                 className={[
                   "flex min-h-[60px] items-center gap-3 rounded-xl border bg-white px-4 text-left text-sm font-medium shadow-sm transition-all",
@@ -321,7 +321,9 @@ export default function RulesGoPage() {
                   ].join(" ")}
                 />
 
-                <span>{category.label}</span>
+                <span>
+                  {category.label}
+                </span>
               </button>
             );
           })}
@@ -332,17 +334,20 @@ export default function RulesGoPage() {
         ========================== */}
 
         <div className="mt-0 hidden lg:grid lg:grid-cols-6 lg:gap-2">
-          {ruleCategories.map((category) => (
-            <div
-              key={category.id}
-              className={[
-                "h-1 rounded-b-full transition-all",
-                activeCategory === category.id
-                  ? "bg-[#1457ff]"
-                  : "bg-transparent",
-              ].join(" ")}
-            />
-          ))}
+          {ruleCategories.map(
+            (category) => (
+              <div
+                key={category.id}
+                className={[
+                  "h-1 rounded-b-full transition-all",
+                  activeCategory ===
+                  category.id
+                    ? "bg-[#1457ff]"
+                    : "bg-transparent",
+                ].join(" ")}
+              />
+            ),
+          )}
         </div>
 
         {/* =========================
@@ -355,25 +360,34 @@ export default function RulesGoPage() {
               GENERAL / PAYMENT / SHIPPING
           ========================== */}
 
-          {activeCategory !== "behavior" &&
-          activeCategory !== "information" &&
+          {activeCategory !==
+            "behavior" &&
+          activeCategory !==
+            "information" &&
           activeCategory !== "hnr" &&
           "items" in activeRules ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
-                {activeRules.description}
+                {
+                  activeRules.description
+                }
               </p>
 
               <ul className="mt-4 space-y-4">
                 {activeRules.items.map(
-                  (item, index) => (
+                  (
+                    item,
+                    index,
+                  ) => (
                     <li
                       key={`${activeCategory}-${index}`}
                       className="flex items-start gap-4 text-sm leading-7 text-[#20366f]"
                     >
                       <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1457ff]" />
 
-                      <span>{item}</span>
+                      <span>
+                        {item}
+                      </span>
                     </li>
                   ),
                 )}
@@ -385,10 +399,14 @@ export default function RulesGoPage() {
               BEHAVIOR
           ========================== */}
 
-          {activeCategory === "behavior" ? (
+          {activeCategory ===
+          "behavior" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
-                {rules.behavior.description}
+                {
+                  rules.behavior
+                    .description
+                }
               </p>
 
               <div className="mt-6 space-y-8">
@@ -406,14 +424,19 @@ export default function RulesGoPage() {
 
                   <ul className="space-y-4">
                     {rules.behavior.allowed.map(
-                      (item, index) => (
+                      (
+                        item,
+                        index,
+                      ) => (
                         <li
                           key={`allowed-${index}`}
                           className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
                         >
                           <ListChecks className="mt-1.5 h-5 w-5 shrink-0 text-green-600" />
 
-                          <span>{item}</span>
+                          <span>
+                            {item}
+                          </span>
                         </li>
                       ),
                     )}
@@ -433,14 +456,19 @@ export default function RulesGoPage() {
 
                   <ul className="space-y-4">
                     {rules.behavior.prohibited.map(
-                      (item, index) => (
+                      (
+                        item,
+                        index,
+                      ) => (
                         <li
                           key={`prohibited-${index}`}
                           className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
                         >
                           <X className="mt-1.5 h-5 w-5 shrink-0 text-red-500" />
 
-                          <span>{item}</span>
+                          <span>
+                            {item}
+                          </span>
                         </li>
                       ),
                     )}
@@ -455,10 +483,14 @@ export default function RulesGoPage() {
               INFORMATION
           ========================== */}
 
-          {activeCategory === "information" ? (
+          {activeCategory ===
+          "information" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
-                {rules.information.description}
+                {
+                  rules.information
+                    .description
+                }
               </p>
 
               <div className="mt-5 space-y-5">
@@ -472,21 +504,31 @@ export default function RulesGoPage() {
 
                   <div className="mt-4 space-y-4">
                     {rules.information.contactPersons.map(
-                      (person) => (
+                      (
+                        person,
+                      ) => (
                         <div
-                          key={person.role}
+                          key={
+                            person.role
+                          }
                           className="rounded-lg bg-white px-5 py-4"
                         >
                           <h4 className="text-base font-semibold text-[#10245c]">
-                            {person.role}
+                            {
+                              person.role
+                            }
                           </h4>
 
                           <p className="mt-1.5 text-sm font-medium text-[#20366f]">
-                            {person.name}
+                            {
+                              person.name
+                            }
                           </p>
 
                           <p className="mt-1.5 text-sm leading-6 text-[#20366f]">
-                            {person.description}
+                            {
+                              person.description
+                            }
                           </p>
                         </div>
                       ),
@@ -503,17 +545,25 @@ export default function RulesGoPage() {
 
                   <div className="mt-4 space-y-4">
                     {rules.information.paymentMethods.map(
-                      (payment) => (
+                      (
+                        payment,
+                      ) => (
                         <div
-                          key={payment.method}
+                          key={
+                            payment.method
+                          }
                           className="rounded-lg bg-white px-5 py-4"
                         >
                           <p className="text-base font-semibold text-[#10245c]">
-                            {payment.method}
+                            {
+                              payment.method
+                            }
                           </p>
 
                           <p className="mt-1.5 text-sm leading-6 text-[#20366f]">
-                            {payment.detail}
+                            {
+                              payment.detail
+                            }
                           </p>
                         </div>
                       ),
@@ -529,7 +579,10 @@ export default function RulesGoPage() {
                   </h3>
 
                   <p className="mt-4 whitespace-pre-line text-sm leading-7 text-[#20366f]">
-                    {rules.information.recapNotice}
+                    {
+                      rules.information
+                        .recapNotice
+                    }
                   </p>
 
                   <div className="mt-6 rounded-lg border border-[#f0dca8] bg-[#fffaf0] px-5 py-4">
@@ -538,7 +591,10 @@ export default function RulesGoPage() {
                     </p>
 
                     <p className="mt-2 text-sm leading-7 text-[#6f5730]">
-                      {rules.information.recapNote}
+                      {
+                        rules.information
+                          .recapNote
+                      }
                     </p>
                   </div>
                 </section>
@@ -552,7 +608,10 @@ export default function RulesGoPage() {
 
                   <ol className="mt-4 space-y-3">
                     {rules.information.latePaymentSteps.map(
-                      (step, index) => (
+                      (
+                        step,
+                        index,
+                      ) => (
                         <li
                           key={`late-payment-${index}`}
                           className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
@@ -575,7 +634,10 @@ export default function RulesGoPage() {
                     </p>
 
                     <p className="mt-2 text-sm leading-7 text-[#6f5730]">
-                      {rules.information.latePaymentNote}
+                      {
+                        rules.information
+                          .latePaymentNote
+                      }
                     </p>
                   </div>
                 </section>
@@ -589,7 +651,10 @@ export default function RulesGoPage() {
 
                   <div className="mt-4 space-y-4">
                     {rules.information.shippingNotice.map(
-                      (notice, index) => (
+                      (
+                        notice,
+                        index,
+                      ) => (
                         <p
                           key={`shipping-notice-${index}`}
                           className="text-sm leading-7 text-[#20366f]"
@@ -610,7 +675,10 @@ export default function RulesGoPage() {
 
                   <ol className="mt-4 space-y-3">
                     {rules.information.manualCoSteps.map(
-                      (step, index) => (
+                      (
+                        step,
+                        index,
+                      ) => (
                         <li
                           key={`manual-co-${index}`}
                           className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
@@ -637,7 +705,10 @@ export default function RulesGoPage() {
 
                   <ol className="mt-4 space-y-3">
                     {rules.information.shopeeCoSteps.map(
-                      (step, index) => (
+                      (
+                        step,
+                        index,
+                      ) => (
                         <li
                           key={`shopee-co-${index}`}
                           className="flex items-start gap-3 text-sm leading-7 text-[#20366f]"
@@ -663,29 +734,34 @@ export default function RulesGoPage() {
               HNR
           ========================== */}
 
-          {activeCategory === "hnr" ? (
+          {activeCategory ===
+          "hnr" ? (
             <>
               <p className="text-sm leading-7 text-[#20366f]">
-                {rules.hnr.description}
+                {
+                  rules.hnr
+                    .description
+                }
               </p>
 
-              {isMembersLoading ? (
+              {isHnrLoading ? (
                 <div className="mt-6 rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-8 text-center">
                   <p className="text-sm text-[#7a89ad]">
                     Memuat daftar HNR...
                   </p>
                 </div>
-              ) : isMembersError ? (
+              ) : isHnrError ? (
                 <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-6 py-5">
                   <p className="text-sm font-medium text-red-500">
                     Gagal mengambil daftar HNR.
                   </p>
 
                   <p className="mt-1 text-sm text-red-400">
-                    {membersError.message}
+                    {hnrError.message}
                   </p>
                 </div>
-              ) : hnrMembers.length === 0 ? (
+              ) : hnrMembers.length ===
+                0 ? (
                 <div className="mt-6 rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-6 py-8 text-center">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#edf3ff]">
                     <UserRound className="h-5 w-5 text-[#1457ff]" />
@@ -697,32 +773,32 @@ export default function RulesGoPage() {
                 </div>
               ) : (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {hnrMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-5 py-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf3ff]">
-                          <UserRound className="h-5 w-5 text-[#1457ff]" />
-                        </div>
+                  {hnrMembers.map(
+                    (
+                      member,
+                    ) => (
+                      <div
+                        key={member.id}
+                        className="rounded-xl border border-[#dfe6f5] bg-[#fbfcff] px-5 py-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf3ff]">
+                            <UserRound className="h-5 w-5 text-[#1457ff]" />
+                          </div>
 
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[#10245c]">
-                            {member.name}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[#10245c]">
+                              {member.name}
+                            </p>
 
-                          <p className="mt-0.5 text-xs text-[#7a89ad]">
-                            {member.phone}
-                          </p>
-
-                          <p className="mt-0.5 text-[11px] text-[#9aa6bf]">
-                            HNR
-                          </p>
+                            <p className="mt-0.5 text-[11px] text-[#9aa6bf]">
+                              HNR
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </>

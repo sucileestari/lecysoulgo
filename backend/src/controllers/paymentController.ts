@@ -54,9 +54,7 @@ export async function getRecapPaymentSummaryHandler(
     return res.status(500).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil summary pembayaran.",
+        "Gagal mengambil summary pembayaran.",
     });
   }
 }
@@ -103,9 +101,7 @@ export async function getPaymentsByRecapHandler(
     return res.status(500).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil riwayat pembayaran.",
+        "Gagal mengambil riwayat pembayaran.",
     });
   }
 }
@@ -152,9 +148,7 @@ export async function getManualShipmentPaymentHandler(
     return res.status(500).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil pembayaran manual shipment.",
+        "Gagal mengambil pembayaran manual shipment.",
     });
   }
 }
@@ -201,9 +195,7 @@ export async function getManualShipmentPaymentSummaryHandler(
     return res.status(500).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil summary pembayaran manual shipment.",
+        "Gagal mengambil summary pembayaran manual shipment.",
     });
   }
 }
@@ -343,7 +335,8 @@ export async function createPaymentHandler(
 
     return res.status(500).json({
       success: false,
-      message,
+      message:
+        "Gagal memproses permintaan pembayaran.",
     });
   }
 }
@@ -422,7 +415,8 @@ export async function generatePaymentLinkHandler(
 
     return res.status(500).json({
       success: false,
-      message,
+      message:
+        "Gagal membuat Payment Link Midtrans.",
     });
   }
 }
@@ -438,18 +432,6 @@ export async function midtransWebhookHandler(
   try {
     const notification =
       req.body as MidtransNotification;
-
-    console.log(
-      "Midtrans webhook received:",
-      {
-        order_id:
-          notification?.order_id,
-        transaction_status:
-          notification?.transaction_status,
-        transaction_id:
-          notification?.transaction_id,
-      },
-    );
 
     const payment =
       await handleMidtransNotification(
@@ -524,7 +506,8 @@ export async function midtransWebhookHandler(
 
     return res.status(500).json({
       success: false,
-      message,
+      message:
+        "Gagal memproses notification Midtrans.",
     });
   }
 }

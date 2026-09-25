@@ -10,6 +10,7 @@ if (!API_BASE_URL) {
     "VITE_API_BASE_URL belum diatur di environment variables.",
   );
 }
+
 /* =========================================
    TYPES
 ========================================= */
@@ -96,6 +97,25 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    PARSE RESPONSE
 ========================================= */
 
@@ -146,6 +166,9 @@ export async function getRecaps(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/recaps?batch_id=${encodeURIComponent(
@@ -157,6 +180,9 @@ export async function getRecaps(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -261,6 +287,9 @@ export async function createRecaps(
      Request
   ------------------------------------- */
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/recaps`,
@@ -273,6 +302,9 @@ export async function createRecaps(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify({
@@ -356,6 +388,9 @@ export async function markRecapAsCheckedOut(
      Request
   ------------------------------------- */
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/recaps/${encodeURIComponent(
@@ -367,6 +402,9 @@ export async function markRecapAsCheckedOut(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -409,6 +447,9 @@ export async function deleteRecap(
     );
   }
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/recaps/${encodeURIComponent(
@@ -420,6 +461,9 @@ export async function deleteRecap(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );

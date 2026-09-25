@@ -25,16 +25,33 @@ export type ManualShipmentPayment = {
   updated_at: string;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "";
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const data = await response.json().catch(() => null);
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem("auth_token");
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+async function parseResponse<T>(
+  response: Response,
+): Promise<T> {
+  const data =
+    await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(
       data?.message ||
         data?.error ||
-        "Terjadi kesalahan pada pembayaran"
+        "Terjadi kesalahan pada pembayaran",
     );
   }
 
@@ -45,16 +62,31 @@ async function parseResponse<T>(response: Response): Promise<T> {
  * Ambil payment berdasarkan manual shipment.
  */
 export async function getManualShipmentPayment(
-  shipmentId: string
+  shipmentId: string,
 ): Promise<ManualShipmentPayment | null> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/manual-shipment-payments/shipment/${shipmentId}`
-  );
+  const token =
+    getAuthToken();
 
-  const result = await parseResponse<{
-    success: boolean;
-    data: ManualShipmentPayment | null;
-  }>(response);
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/manual-shipment-payments/shipment/${shipmentId}`,
+      {
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<{
+      success: boolean;
+      data:
+        | ManualShipmentPayment
+        | null;
+    }>(response);
 
   return result.data;
 }
@@ -66,25 +98,35 @@ export async function getManualShipmentPayment(
  * Pembayaran = PELUNASAN 100%.
  */
 export async function createManualShipmentPayment(
-  shipmentId: string
+  shipmentId: string,
 ): Promise<ManualShipmentPayment> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/manual-shipment-payments`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        shipment_id: shipmentId,
-      }),
-    }
-  );
+  const token =
+    getAuthToken();
 
-  const result = await parseResponse<{
-    success: boolean;
-    data: ManualShipmentPayment;
-  }>(response);
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/manual-shipment-payments`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          shipment_id: shipmentId,
+        }),
+      },
+    );
+
+  const result =
+    await parseResponse<{
+      success: boolean;
+      data: ManualShipmentPayment;
+    }>(response);
 
   return result.data;
 }
@@ -93,40 +135,57 @@ export async function createManualShipmentPayment(
  * Generate payment link Midtrans.
  */
 export async function generateManualShipmentPaymentLink(
-  paymentId: string
+  paymentId: string,
 ): Promise<ManualShipmentPayment> {
-  const validPaymentId = paymentId?.trim();
+  const validPaymentId =
+    paymentId?.trim();
 
   if (!validPaymentId) {
-    throw new Error("ID pembayaran wajib diisi.");
+    throw new Error(
+      "ID pembayaran wajib diisi.",
+    );
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/manual-shipment-payments/${encodeURIComponent(
-      validPaymentId
-    )}/generate-link`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/manual-shipment-payments/${encodeURIComponent(
+        validPaymentId,
+      )}/generate-link`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
       },
-    }
-  );
+    );
 
-  const result = await parseResponse<{
-    success: boolean;
-    data?: {
-      payment?: ManualShipmentPayment;
-      paymentUrl?: string;
-      expiresAt?: string;
-    };
-  }>(response);
+  const result =
+    await parseResponse<{
+      success: boolean;
+      data?: {
+        payment?:
+          | ManualShipmentPayment
+          | null;
+        paymentUrl?: string;
+        expiresAt?: string;
+      };
+    }>(response);
 
-  const payment = result.data?.payment;
+  const payment =
+    result.data?.payment;
 
   if (!payment) {
-    throw new Error("Data pembayaran pengiriman tidak ditemukan.");
+    throw new Error(
+      "Data pembayaran pengiriman tidak ditemukan.",
+    );
   }
 
   return {
@@ -146,16 +205,31 @@ export async function generateManualShipmentPaymentLink(
  * Ambil detail payment berdasarkan ID.
  */
 export async function getManualShipmentPaymentById(
-  paymentId: string
+  paymentId: string,
 ): Promise<ManualShipmentPayment | null> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/manual-shipment-payments/${paymentId}`
-  );
+  const token =
+    getAuthToken();
 
-  const result = await parseResponse<{
-    success: boolean;
-    data: ManualShipmentPayment | null;
-  }>(response);
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/manual-shipment-payments/${paymentId}`,
+      {
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<{
+      success: boolean;
+      data:
+        | ManualShipmentPayment
+        | null;
+    }>(response);
 
   return result.data;
 }

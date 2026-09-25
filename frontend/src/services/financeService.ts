@@ -71,12 +71,27 @@ export type CreateFinanceTransactionInput = {
 };
 
 /* =========================================
+   AUTH TOKEN
+========================================= */
+
+function getAuthToken(): string {
+  const token = localStorage.getItem("auth_token");
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    GET FINANCE DATA
 ========================================= */
 
 export async function getFinanceData(): Promise<FinanceData> {
-  const token =
-    localStorage.getItem("auth_token");
+  const token = getAuthToken();
 
   const response = await fetch(
     `${API_BASE_URL}/api/finance`,
@@ -85,11 +100,7 @@ export async function getFinanceData(): Promise<FinanceData> {
       headers: {
         "Content-Type":
           "application/json",
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
+        Authorization: `Bearer ${token}`,
       },
     },
   );
@@ -114,8 +125,7 @@ export async function getFinanceData(): Promise<FinanceData> {
 export async function createFinanceTransaction(
   input: CreateFinanceTransactionInput,
 ): Promise<FinanceTransaction> {
-  const token =
-    localStorage.getItem("auth_token");
+  const token = getAuthToken();
 
   const response = await fetch(
     `${API_BASE_URL}/api/finance`,
@@ -124,11 +134,7 @@ export async function createFinanceTransaction(
       headers: {
         "Content-Type":
           "application/json",
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(input),
     },

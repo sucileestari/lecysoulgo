@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
+
 import {
   calculateCurrentPaymentAmount,
   createPayment,
   generatePaymentLink,
   getManualShipmentPaymentSummary,
 } from "../services/paymentService.js";
+
 import { sendWhatsApp } from "../services/whatsappService.js";
 
 /* =========================================
@@ -92,20 +94,11 @@ export async function sendWhatsAppHandler(
 
   try {
     const {
-      target,
       payment_id,
       recap_id,
       manual_shipment_id,
       payment_type,
     } = req.body;
-
-    if (!target) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Nomor tujuan wajib diisi.",
-      });
-    }
 
     /* -------------------------------------
        Payment ID aktif
@@ -235,7 +228,8 @@ export async function sendWhatsAppHandler(
             : {}),
           payment_type:
             normalizedPaymentType as
-              "DP" | "PELUNASAN",
+              | "DP"
+              | "PELUNASAN",
         });
 
       payment =
@@ -280,6 +274,7 @@ export async function sendWhatsAppHandler(
     let batchName = "-";
     let countryName = "-";
     let buyerName = "Kak";
+    let target: string | null = null;
 
     let dueDate: string | null = null;
 
@@ -302,7 +297,8 @@ export async function sendWhatsAppHandler(
             last_payment_pelunasan
           ),
           member:members (
-            name
+            name,
+            phone
           )
         `)
         .eq(
@@ -379,6 +375,18 @@ export async function sendWhatsAppHandler(
         member.name.trim()
           ? member.name.trim()
           : "Kak";
+
+      /* -------------------------------------
+         Buyer WhatsApp
+      ------------------------------------- */
+
+      target =
+        member &&
+        typeof member.phone ===
+          "string" &&
+        member.phone.trim()
+          ? member.phone.trim()
+          : null;
 
       /* -------------------------------------
          Payment Due Date
@@ -464,7 +472,7 @@ export async function sendWhatsAppHandler(
         error: memberError,
       } = await supabase
         .from("members")
-        .select("name")
+        .select("name, phone")
         .eq(
           "id",
           manualShipment.member_id,
@@ -491,6 +499,28 @@ export async function sendWhatsAppHandler(
             "Data member manual shipment tidak ditemukan.",
         });
       }
+
+      /* -------------------------------------
+         Buyer Name
+      ------------------------------------- */
+
+      buyerName =
+        typeof member.name ===
+          "string" &&
+        member.name.trim()
+          ? member.name.trim()
+          : "Kak";
+
+      /* -------------------------------------
+         Buyer WhatsApp
+      ------------------------------------- */
+
+      target =
+        typeof member.phone ===
+          "string" &&
+        member.phone.trim()
+          ? member.phone.trim()
+          : null;
 
       /* -------------------------------------
          Get Manual Shipping Batch
@@ -559,17 +589,6 @@ export async function sendWhatsAppHandler(
       countryName = "-";
 
       /* -------------------------------------
-         Buyer Name
-      ------------------------------------- */
-
-      buyerName =
-        typeof member.name ===
-          "string" &&
-        member.name.trim()
-          ? member.name.trim()
-          : "Kak";
-
-      /* -------------------------------------
          Manual Shipping Due Date
       ------------------------------------- */
 
@@ -587,6 +606,18 @@ export async function sendWhatsAppHandler(
         success: false,
         message:
           "Payment tidak memiliki sumber data yang valid.",
+      });
+    }
+
+    /* -------------------------------------
+       Validate Buyer WhatsApp
+    ------------------------------------- */
+
+    if (!target) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Nomor WhatsApp pembeli tidak ditemukan.",
       });
     }
 
@@ -652,7 +683,8 @@ export async function sendWhatsAppHandler(
         await calculateCurrentPaymentAmount(
           payment.recap_id,
           payment.payment_type as
-            "DP" | "PELUNASAN",
+            | "DP"
+            | "PELUNASAN",
         );
 
       paymentBaseAmount =
@@ -864,6 +896,8 @@ export async function sendWhatsAppHandler(
           member_id: memberId,
           recap_id:
             payment.recap_id ?? null,
+          manual_shipment_id:
+            payment.manual_shipment_id ?? null,
           payment_id: payment.id,
           notification_type:
             notificationType,
@@ -1082,4 +1116,3 @@ export async function getWhatsAppPaymentStatusHandler(
     });
   }
 }
-

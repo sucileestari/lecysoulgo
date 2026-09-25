@@ -23,7 +23,6 @@ import RolesPermissionPage from "../pages/RolesPermissionPage";
 import PesananMarketplacePage from "../pages/PesananMarketplacePage";
 
 import ProtectedRoute from "./ProtectedRoute";
-import PermissionRoute from "./PermissionRoute";
 
 /* =========================================
    RULES GO ACCESS
@@ -137,13 +136,7 @@ export default function AppRoutes() {
 
           <Route
             path="/members"
-            element={
-              <PermissionRoute
-                permission="members.view"
-              >
-                <MembersPage />
-              </PermissionRoute>
-            }
+            element={<MembersPage />}
           />
 
           {/* =========================================
@@ -165,13 +158,9 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/china"
             element={
-              <PermissionRoute
-                permission="recaps.view"
-              >
-                <RekapPage
-                  country="china"
-                />
-              </PermissionRoute>
+              <RekapPage
+                country="china"
+              />
             }
           />
 
@@ -185,13 +174,9 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/indonesia"
             element={
-              <PermissionRoute
-                permission="recaps.view"
-              >
-                <RekapPage
-                  country="indonesia"
-                />
-              </PermissionRoute>
+              <RekapPage
+                country="indonesia"
+              />
             }
           />
 
@@ -205,13 +190,9 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/jepang"
             element={
-              <PermissionRoute
-                permission="recaps.view"
-              >
-                <RekapPage
-                  country="jepang"
-                />
-              </PermissionRoute>
+              <RekapPage
+                country="jepang"
+              />
             }
           />
 
@@ -225,13 +206,9 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/korea"
             element={
-              <PermissionRoute
-                permission="recaps.view"
-              >
-                <RekapPage
-                  country="korea"
-                />
-              </PermissionRoute>
+              <RekapPage
+                country="korea"
+              />
             }
           />
 
@@ -245,13 +222,9 @@ export default function AppRoutes() {
           <Route
             path="/rekapan/thailand"
             element={
-              <PermissionRoute
-                permission="recaps.view"
-              >
-                <RekapPage
-                  country="thailand"
-                />
-              </PermissionRoute>
+              <RekapPage
+                country="thailand"
+              />
             }
           />
 
@@ -264,31 +237,22 @@ export default function AppRoutes() {
 
           <Route
             path="/ijin-telat-bayar"
-            element={
-              <PermissionRoute
-                permission="late_payment_permissions.view"
-              >
-                <IjinTelatBayarPage />
-              </PermissionRoute>
-            }
+            element={<IjinTelatBayarPage />}
           />
 
           {/* =========================================
               PENGIRIMAN MANUAL
 
-              Admin permission:
+              Permission:
               shipping.view
+
+              Permission is handled by AdminLayout
+              for menu visibility only.
           ========================================= */}
 
           <Route
             path="/pengiriman-manual"
-            element={
-              <PermissionRoute
-                permission="shipping.view"
-              >
-                <PengirimanManualPage />
-              </PermissionRoute>
-            }
+            element={<PengirimanManualPage />}
           />
 
           {/* =========================================
@@ -299,7 +263,7 @@ export default function AppRoutes() {
               - Super Admin
               - Role lain yang masuk aplikasi
 
-              Tidak menggunakan PermissionRoute.
+              Tidak menggunakan permission admin.
           ========================================= */}
 
           <Route
@@ -353,13 +317,7 @@ export default function AppRoutes() {
 
           <Route
             path="/roles-permissions"
-            element={
-              <PermissionRoute
-                permission="roles.view"
-              >
-                <RolesPermissionPage />
-              </PermissionRoute>
-            }
+            element={<RolesPermissionPage />}
           />
 
           {/* =========================================

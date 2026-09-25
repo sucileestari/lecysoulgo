@@ -1,6 +1,14 @@
 import { Router } from "express";
 
 import {
+  authenticate,
+} from "../middleware/authMiddleware.js";
+
+import {
+  requirePermission,
+} from "../middleware/permissionMiddleware.js";
+
+import {
   createRecapsHandler,
   deleteRecapHandler,
   listRecaps,
@@ -8,6 +16,14 @@ import {
 } from "../controllers/recapController.js";
 
 const router = Router();
+
+/* =========================================
+   ALL ROUTES REQUIRE LOGIN
+========================================= */
+
+router.use(
+  authenticate,
+);
 
 /* =========================================
    GET RECAPS BY BATCH
@@ -21,6 +37,9 @@ const router = Router();
  */
 router.get(
   "/",
+  requirePermission(
+    "recaps.view",
+  ),
   listRecaps,
 );
 
@@ -38,6 +57,9 @@ router.get(
  */
 router.post(
   "/",
+  requirePermission(
+    "recaps.create",
+  ),
   createRecapsHandler,
 );
 
@@ -75,6 +97,9 @@ router.patch(
  */
 router.delete(
   "/:id",
+  requirePermission(
+    "recaps.delete",
+  ),
   deleteRecapHandler,
 );
 

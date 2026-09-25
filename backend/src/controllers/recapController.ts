@@ -291,9 +291,16 @@ export async function createRecapsHandler(
       message ===
         "Batch tidak ditemukan." ||
       message ===
-        "Member tidak ditemukan."
+        "Member tidak ditemukan." ||
+      message ===
+        "Member HNR tidak dapat dipilih sebagai pembeli rekapan."
     ) {
-      return res.status(404).json({
+      return res.status(
+        message ===
+          "Batch tidak ditemukan."
+          ? 404
+          : 400,
+      ).json({
         success: false,
         message,
       });
@@ -339,9 +346,11 @@ export async function markRecapAsCheckedOutHandler(
   res: Response,
 ) {
   try {
-    const id = Array.isArray(req.params.id)
-  ? req.params.id[0]
-  : req.params.id;
+    const id = Array.isArray(
+      req.params.id,
+    )
+      ? req.params.id[0]
+      : req.params.id;
 
     /* -------------------------------------
        VALIDATE ID
@@ -375,7 +384,7 @@ export async function markRecapAsCheckedOutHandler(
     });
   } catch (error) {
     console.error(
-      "markRecapAsCheckedOutHandler error:",
+      "markRecapAsCheckedOut error:",
       error,
     );
 
@@ -410,7 +419,7 @@ export async function markRecapAsCheckedOutHandler(
 
     if (
       message ===
-        "Rekapan tidak ditemukan."
+      "Rekapan tidak ditemukan."
     ) {
       return res.status(404).json({
         success: false,
@@ -443,9 +452,11 @@ export async function deleteRecapHandler(
   res: Response,
 ) {
   try {
-    const id = Array.isArray(req.params.id)
-  ? req.params.id[0]
-  : req.params.id;
+    const id = Array.isArray(
+      req.params.id,
+    )
+      ? req.params.id[0]
+      : req.params.id;
 
     /* -------------------------------------
        Validate ID

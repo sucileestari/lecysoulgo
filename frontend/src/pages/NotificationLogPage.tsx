@@ -26,7 +26,7 @@ import {
   type NotificationType,
 } from "@/services/notificationLogService";
 
-import { hasPermission } from "@/utils/permissions";
+import { canAccessPermission } from "@/utils/permissions";
 
 /* =========================================
    CONSTANTS
@@ -957,7 +957,7 @@ export default function NotificationLogPage() {
                         {/* ACTION */}
                         {item.status ===
                           "failed" &&
-                        hasPermission(
+                        canAccessPermission(
                           "notification_log.manage",
                         ) && (
                           <div className="mt-4 border-t border-[#edf0f6] pt-4">
@@ -1176,7 +1176,7 @@ export default function NotificationLogPage() {
 
                               {item.status ===
                               "failed" ? (
-                                hasPermission(
+                                canAccessPermission(
                                   "notification_log.manage",
                                 ) ? (
                                   <button

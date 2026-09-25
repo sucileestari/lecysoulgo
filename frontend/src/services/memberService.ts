@@ -25,6 +25,26 @@ export type Member = {
   updated_at: string;
 };
 
+export type HnrMember = {
+  id: string;
+  name: string;
+  type: "hnr";
+};
+
+export type BatchMemberOption = {
+  id: string;
+  name: string;
+  phone: string;
+  type: MemberType;
+};
+
+export type RecapMemberOption = {
+  id: string;
+  name: string;
+  phone: string;
+  type: MemberType;
+};
+
 export type CreateMemberInput = {
   name: string;
   phone: string;
@@ -49,9 +69,25 @@ type ApiError = {
   errors?: unknown;
 };
 
-type MembersResponse = ApiSuccess<Member[]> | ApiError;
+type MembersResponse =
+  | ApiSuccess<Member[]>
+  | ApiError;
 
-type MemberResponse = ApiSuccess<Member> | ApiError;
+type BatchMemberOptionsResponse =
+  | ApiSuccess<BatchMemberOption[]>
+  | ApiError;
+
+type RecapMemberOptionsResponse =
+  | ApiSuccess<RecapMemberOption[]>
+  | ApiError;
+
+type HnrMembersResponse =
+  | ApiSuccess<HnrMember[]>
+  | ApiError;
+
+type MemberResponse =
+  | ApiSuccess<Member>
+  | ApiError;
 
 type DeleteMemberResponse =
   | {
@@ -63,6 +99,21 @@ type DeleteMemberResponse =
 // ==============================
 // Helper
 // ==============================
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
 
 async function parseResponse<T>(
   response: Response,
@@ -78,7 +129,8 @@ async function parseResponse<T>(
   }
 
   if (!response.ok) {
-    const errorResponse = result as ApiError;
+    const errorResponse =
+      result as ApiError;
 
     throw new Error(
       errorResponse.message ||
@@ -96,31 +148,174 @@ async function parseResponse<T>(
 export async function getMembers(
   search?: string,
 ): Promise<Member[]> {
-  const params = new URLSearchParams();
+  const params =
+    new URLSearchParams();
 
   if (search?.trim()) {
-    params.set("search", search.trim());
+    params.set(
+      "search",
+      search.trim(),
+    );
   }
 
-  const query = params.toString();
+  const query =
+    params.toString();
 
-  const url = `${API_BASE_URL}/api/members${
-    query ? `?${query}` : ""
-  }`;
+  const url =
+    `${API_BASE_URL}/api/members${
+      query ? `?${query}` : ""
+    }`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept:
+          "application/json",
+        Authorization:
+          `Bearer ${token}`,
+      },
+    });
 
   const result =
-    await parseResponse<MembersResponse>(response);
+    await parseResponse<MembersResponse>(
+      response,
+    );
 
   if (!result.success) {
     throw new Error(
-      result.message || "Gagal mengambil data anggota",
+      result.message ||
+        "Gagal mengambil data anggota",
+    );
+  }
+
+  return result.data;
+}
+
+// ==============================
+// Get Members for Add Batch
+// ==============================
+
+export async function getMembersForBatch(): Promise<
+  BatchMemberOption[]
+> {
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members/batch-options`,
+      {
+        method: "GET",
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<BatchMemberOptionsResponse>(
+      response,
+    );
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil data admin untuk batch",
+    );
+  }
+
+  return result.data;
+}
+
+// ==============================
+// Get Members for Add Recap
+// ==============================
+
+export async function getMembersForRecap(): Promise<
+  RecapMemberOption[]
+> {
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members/recap-options`,
+      {
+        method: "GET",
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<RecapMemberOptionsResponse>(
+      response,
+    );
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil data pembeli untuk rekapan",
+    );
+  }
+
+  return result.data;
+}
+
+// ==============================
+// Get HNR Members
+// ==============================
+
+export async function getHnrMembers(
+  search?: string,
+): Promise<HnrMember[]> {
+  const params =
+    new URLSearchParams();
+
+  if (search?.trim()) {
+    params.set(
+      "search",
+      search.trim(),
+    );
+  }
+
+  const query =
+    params.toString();
+
+  const url =
+    `${API_BASE_URL}/api/members/hnr${
+      query ? `?${query}` : ""
+    }`;
+
+  const response =
+    await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept:
+          "application/json",
+      },
+    });
+
+  const result =
+    await parseResponse<HnrMembersResponse>(
+      response,
+    );
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil daftar HNR",
     );
   }
 
@@ -135,25 +330,37 @@ export async function getMemberById(
   id: string,
 ): Promise<Member> {
   if (!id.trim()) {
-    throw new Error("ID anggota wajib diisi");
+    throw new Error(
+      "ID anggota wajib diisi",
+    );
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
+      {
+        method: "GET",
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
       },
-    },
-  );
+    );
 
   const result =
-    await parseResponse<MemberResponse>(response);
+    await parseResponse<MemberResponse>(
+      response,
+    );
 
   if (!result.success) {
     throw new Error(
-      result.message || "Gagal mengambil data anggota",
+      result.message ||
+        "Gagal mengambil data anggota",
     );
   }
 
@@ -167,24 +374,35 @@ export async function getMemberById(
 export async function createMember(
   input: CreateMemberInput,
 ): Promise<Member> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/members`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+        body: JSON.stringify(input),
       },
-      body: JSON.stringify(input),
-    },
-  );
+    );
 
   const result =
-    await parseResponse<MemberResponse>(response);
+    await parseResponse<MemberResponse>(
+      response,
+    );
 
   if (!result.success) {
     throw new Error(
-      result.message || "Gagal menambahkan anggota",
+      result.message ||
+        "Gagal menambahkan anggota",
     );
   }
 
@@ -200,7 +418,9 @@ export async function updateMember(
   input: UpdateMemberInput,
 ): Promise<Member> {
   if (!id.trim()) {
-    throw new Error("ID anggota wajib diisi");
+    throw new Error(
+      "ID anggota wajib diisi",
+    );
   }
 
   if (
@@ -213,24 +433,35 @@ export async function updateMember(
     );
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
+        body: JSON.stringify(input),
       },
-      body: JSON.stringify(input),
-    },
-  );
+    );
 
   const result =
-    await parseResponse<MemberResponse>(response);
+    await parseResponse<MemberResponse>(
+      response,
+    );
 
   if (!result.success) {
     throw new Error(
-      result.message || "Gagal memperbarui anggota",
+      result.message ||
+        "Gagal memperbarui data anggota",
     );
   }
 
@@ -245,25 +476,37 @@ export async function deleteMember(
   id: string,
 ): Promise<void> {
   if (!id.trim()) {
-    throw new Error("ID anggota wajib diisi");
+    throw new Error(
+      "ID anggota wajib diisi",
+    );
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-      headers: {
-        Accept: "application/json",
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/members/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Accept:
+            "application/json",
+          Authorization:
+            `Bearer ${token}`,
+        },
       },
-    },
-  );
+    );
 
   const result =
-    await parseResponse<DeleteMemberResponse>(response);
+    await parseResponse<DeleteMemberResponse>(
+      response,
+    );
 
   if (!result.success) {
     throw new Error(
-      result.message || "Gagal menghapus anggota",
+      result.message ||
+        "Gagal menghapus anggota",
     );
   }
 }

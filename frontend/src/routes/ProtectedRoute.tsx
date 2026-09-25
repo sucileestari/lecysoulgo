@@ -9,6 +9,10 @@ import {
   useLocation,
 } from "react-router-dom";
 
+import {
+  getPermissions,
+} from "../services/rolePermissionService";
+
 /* =========================================
    API CONFIG
 ========================================= */
@@ -38,6 +42,108 @@ function buildApiUrl(
 type ProtectedRouteProps = {
   children: ReactNode;
 };
+
+/* =========================================
+   HELPERS
+========================================= */
+
+async function syncAdminSession(
+  response: Response,
+): Promise<void> {
+  /*
+   * /auth/me mengembalikan:
+   *
+   * {
+   *   user: {
+   *     ...,
+   *     permissions: string[]
+   *   }
+   * }
+   *
+   * Sinkronkan auth_user dari backend
+   * supaya permission terbaru dari role
+   * ikut tersimpan di localStorage.
+   */
+
+  try {
+    const data = await response.json();
+
+    if (
+      data &&
+      typeof data === "object" &&
+      "user" in data &&
+      data.user &&
+      typeof data.user === "object"
+    ) {
+      localStorage.setItem(
+        "auth_user",
+        JSON.stringify(data.user),
+      );
+    }
+  } catch (error) {
+    /*
+     * Jangan membuat session menjadi invalid
+     * hanya karena parsing response gagal.
+     */
+    console.error(
+      "Gagal membaca response /auth/me:",
+      error,
+    );
+  }
+
+  /*
+   * Refresh seluruh permission yang
+   * terdaftar di database.
+   *
+   * auth_user.permissions
+   * = permission yang dimiliki user.
+   *
+   * auth_registered_permissions
+   * = seluruh permission yang terdaftar
+   *   di database.
+   */
+  try {
+    const permissions =
+      await getPermissions();
+
+    const registeredPermissionCodes =
+      Array.isArray(permissions)
+        ? permissions
+            .map(
+              (permission) =>
+                String(
+                  permission.code ??
+                    "",
+                )
+                  .trim()
+                  .toLowerCase(),
+            )
+            .filter(
+              (code) =>
+                Boolean(code),
+            )
+        : [];
+
+    localStorage.setItem(
+      "auth_registered_permissions",
+      JSON.stringify(
+        registeredPermissionCodes,
+      ),
+    );
+  } catch (error) {
+    /*
+     * Jangan menghapus session hanya karena
+     * registry permission gagal di-refresh.
+     *
+     * auth_registered_permissions lama
+     * tetap dipertahankan jika ada.
+     */
+    console.error(
+      "Gagal mengambil registered permissions:",
+      error,
+    );
+  }
+}
 
 /* =========================================
    PROTECTED ROUTE
@@ -87,7 +193,9 @@ export default function ProtectedRoute({
           !customerToken
         ) {
           if (!cancelled) {
-            setIsAuthenticated(false);
+            setIsAuthenticated(
+              false,
+            );
             setIsChecking(false);
           }
 
@@ -106,7 +214,6 @@ export default function ProtectedRoute({
               ),
               {
                 method: "GET",
-
                 headers: {
                   Authorization:
                     `Bearer ${adminToken}`,
@@ -115,23 +222,38 @@ export default function ProtectedRoute({
             );
 
           if (response.ok) {
+            /*
+             * Sinkronkan user + registry
+             * permission dari backend.
+             */
+            await syncAdminSession(
+              response,
+            );
+
             if (!cancelled) {
-              setIsAuthenticated(true);
+              setIsAuthenticated(
+                true,
+              );
               setIsChecking(false);
             }
 
             return;
           }
 
-          /*
-           * Admin token tidak valid.
-           */
+          /* =====================================
+             ADMIN TOKEN INVALID
+          ===================================== */
+
           localStorage.removeItem(
             "auth_token",
           );
 
           localStorage.removeItem(
             "auth_user",
+          );
+
+          localStorage.removeItem(
+            "auth_registered_permissions",
           );
         }
 
@@ -147,7 +269,6 @@ export default function ProtectedRoute({
               ),
               {
                 method: "GET",
-
                 headers: {
                   Authorization:
                     `Bearer ${customerToken}`,
@@ -157,16 +278,19 @@ export default function ProtectedRoute({
 
           if (response.ok) {
             if (!cancelled) {
-              setIsAuthenticated(true);
+              setIsAuthenticated(
+                true,
+              );
               setIsChecking(false);
             }
 
             return;
           }
 
-          /*
-           * Customer token tidak valid.
-           */
+          /* =====================================
+             CUSTOMER TOKEN INVALID
+          ===================================== */
+
           localStorage.removeItem(
             "customer_token",
           );
@@ -181,7 +305,9 @@ export default function ProtectedRoute({
         ===================================== */
 
         if (!cancelled) {
-          setIsAuthenticated(false);
+          setIsAuthenticated(
+            false,
+          );
           setIsChecking(false);
         }
       } catch (error) {
@@ -194,18 +320,25 @@ export default function ProtectedRoute({
          * Jangan langsung menghapus token
          * jika terjadi network error.
          *
-         * Bisa saja backend sedang
-         * sementara tidak dapat diakses.
+         * Token tetap disimpan sehingga
+         * session tidak dihancurkan hanya
+         * karena backend sedang tidak bisa
+         * diakses.
+         *
+         * Namun component tetap dianggap
+         * belum dapat divalidasi pada
+         * request ini.
          */
-
         if (!cancelled) {
-          setIsAuthenticated(false);
+          setIsAuthenticated(
+            false,
+          );
           setIsChecking(false);
         }
       }
     }
 
-    validateSession();
+    void validateSession();
 
     return () => {
       cancelled = true;

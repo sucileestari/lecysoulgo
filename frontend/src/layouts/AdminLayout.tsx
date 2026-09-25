@@ -10,7 +10,6 @@ import {
 } from "react-router-dom";
 
 import {
-  Banknote,
   Bell,
   ChevronDown,
   ChevronRight,
@@ -25,6 +24,7 @@ import {
   ChartNoAxesCombined,
   WalletCards,
   ShoppingBag,
+  Banknote,
   Menu,
   X,
 } from "lucide-react";
@@ -38,7 +38,7 @@ import {
 } from "country-flag-icons/react/3x2";
 
 import {
-  hasPermission,
+  canAccessPermission,
 } from "../utils/permissions";
 
 /* =========================================
@@ -97,13 +97,11 @@ const adminMenuItems: MenuItem[] = [
     label: "Peraturan GO",
     path: "/rules-go",
     icon: FileText,
-
     /*
-     * Semua admin yang memiliki
-     * dashboard.view dapat melihat
-     * Peraturan GO.
+     * Peraturan GO tidak memiliki
+     * permission yang terdaftar di database,
+     * sehingga menu selalu ditampilkan.
      */
-    permission: "dashboard.view",
   },
 
   {
@@ -174,7 +172,7 @@ const adminMenuItems: MenuItem[] = [
     label: "Ijin Telat Bayar",
     path: "/ijin-telat-bayar",
     icon: Clock3,
-
+  
     permission:
       "late_payment_permissions.view",
   },
@@ -184,7 +182,7 @@ const adminMenuItems: MenuItem[] = [
     label: "Pengiriman Manual",
     path: "/pengiriman-manual",
     icon: Package,
-
+  
     permission: "shipping.view",
   },
 
@@ -325,22 +323,11 @@ function getCustomerMember(): CustomerMember | null {
 
 function getVisibleAdminMenuItems(): MenuItem[] {
   return adminMenuItems
-    .filter((item) => {
-      /*
-       * Kalau menu tidak mempunyai
-       * permission, tampilkan.
-       */
-      if (!item.permission) {
-        return true;
-      }
-
-      /*
-       * Cek permission parent.
-       */
-      return hasPermission(
+    .filter((item) =>
+      canAccessPermission(
         item.permission,
-      );
-    })
+      ),
+    )
     .map((item) => {
       /*
        * Kalau menu mempunyai submenu,
@@ -349,19 +336,10 @@ function getVisibleAdminMenuItems(): MenuItem[] {
       if (item.children) {
         const visibleChildren =
           item.children.filter(
-            (subItem) => {
-              /*
-               * Kalau submenu tidak mempunyai
-               * permission, tampilkan.
-               */
-              if (!subItem.permission) {
-                return true;
-              }
-
-              return hasPermission(
+            (subItem) =>
+              canAccessPermission(
                 subItem.permission,
-              );
-            },
+              ),
           );
 
         /*
@@ -453,7 +431,7 @@ export default function AdminLayout({
 
   /* =======================================
      CURRENT USER
-  ======================================= */
+  ======================================== */
 
   const currentUser =
     isCustomer
@@ -468,7 +446,7 @@ export default function AdminLayout({
 
   /* =======================================
      MENU
-  ======================================= */
+  ======================================== */
 
   const menuItems =
     isCustomerRulesOnly
@@ -479,7 +457,7 @@ export default function AdminLayout({
 
   /* =======================================
      AVATAR
-  ======================================= */
+  ======================================== */
 
   const avatarInitial =
     currentUser.name
@@ -488,7 +466,7 @@ export default function AdminLayout({
 
   /* =======================================
      CLOSE MOBILE SIDEBAR
-  ======================================= */
+  ======================================== */
 
   function closeMobileSidebar() {
     setIsMobileSidebarOpen(false);
@@ -496,7 +474,7 @@ export default function AdminLayout({
 
   /* =======================================
      LOGOUT
-  ======================================= */
+  ======================================== */
 
   function handleLogout() {
     /*
@@ -526,6 +504,10 @@ export default function AdminLayout({
 
       localStorage.removeItem(
         "auth_user",
+      );
+
+      localStorage.removeItem(
+        "auth_registered_permissions",
       );
     }
 

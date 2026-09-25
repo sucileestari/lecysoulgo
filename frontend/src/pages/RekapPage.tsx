@@ -43,6 +43,7 @@ import {
 
 import {
   createPayment,
+  generatePaymentLink,
   getPaymentSummary,
   type Payment,
   type PaymentSummary,
@@ -55,7 +56,7 @@ import {
 } from "@/services/memberService";
 
 import {
-  hasPermission,
+  canAccessPermission,
 } from "../utils/permissions";
 
 import {
@@ -1077,6 +1078,10 @@ const handleEditBatchFromList = (
         `${recap.id}-${paymentType}`,
       );
 
+      /* ===============================
+         CREATE PAYMENT
+      =============================== */
+
       const payment =
         await createPayment({
           recap_id:
@@ -1086,8 +1091,36 @@ const handleEditBatchFromList = (
             paymentType,
         });
 
+      /* ===============================
+         GENERATE PAYMENT LINK
+      =============================== */
+
+      const paymentLink =
+        await generatePaymentLink(
+          payment.id,
+        );
+
+      /*
+       * Gunakan payment hasil dari
+       * endpoint generate-link karena
+       * backend bisa mengembalikan payment
+       * yang sama atau payment baru ketika
+       * link lama sudah tidak dapat digunakan.
+       *
+       * paymentUrl dan expiresAt juga
+       * dipastikan masuk ke object payment
+       * yang diteruskan ke PaymentDialog.
+       */
+      const paymentWithLink: Payment = {
+        ...paymentLink.payment,
+        payment_url:
+          paymentLink.paymentUrl,
+        expires_at:
+          paymentLink.expiresAt,
+      };
+
       setSelectedPayment(
-        payment,
+        paymentWithLink,
       );
 
       /* ===============================
@@ -1104,19 +1137,23 @@ const handleEditBatchFromList = (
           null,
       });
 
+      /*
+       * PaymentDialog dibuka setelah
+       * Payment Link berhasil dibuat.
+       */
       setIsPaymentDialogOpen(
         true,
       );
     } catch (error) {
       console.error(
-        "create payment error:",
+        "generate payment link error:",
         error,
       );
 
       setPaymentError(
         error instanceof Error
           ? error.message
-          : "Gagal membuat pembayaran.",
+          : "Gagal membuat Payment Link.",
       );
     } finally {
       setIsCreatingPayment(
@@ -1157,7 +1194,6 @@ const handlePaymentSuccess =
             queryKey: [
               "recap-payment-summaries",
               activeBatch?.id,
-              recapIds,
             ],
           },
         );
@@ -1167,7 +1203,6 @@ const handlePaymentSuccess =
             queryKey: [
               "recap-payment-summaries",
               activeBatch?.id,
-              recapIds,
             ],
             type: "active",
           },
@@ -1335,7 +1370,7 @@ const handlePaymentSuccess =
 
             {/* Tambah Batch */}
 
-            {hasPermission("batches.create") && (
+            {canAccessPermission("batches.create") && (
               <button
                 type="button"
                 onClick={() =>
@@ -1606,9 +1641,9 @@ const handlePaymentSuccess =
 
                           {/* Nama */}
 
-                          <td className="px-6 py-5">
+                          <td className="px-6 py-5 text-center">
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-center gap-4">
 
                               <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#edf2f9]">
 
@@ -1664,7 +1699,7 @@ const handlePaymentSuccess =
 
                           {/* Type */}
 
-                          <td className="px-6 py-5">
+                          <td className="px-6 py-5 text-center">
 
                             <span className="inline-flex rounded-full bg-[#eef4ff] px-3 py-1 text-sm font-medium text-[#1457ff]">
                               {
@@ -1751,7 +1786,7 @@ const handlePaymentSuccess =
 
                               {batch.status !== "Sudah sampai di Admin" && (
                                 <>
-                                  {hasPermission("batches.edit") && (
+                                  {canAccessPermission("batches.edit") && (
                                     <button
                                       type="button"
                                       onClick={(
@@ -1774,7 +1809,7 @@ const handlePaymentSuccess =
                                     </button>
                                   )}
 
-                                  {hasPermission("batches.delete") && (
+                                  {canAccessPermission("batches.delete") && (
                                     <button
                                       type="button"
                                       onClick={(
@@ -2055,7 +2090,7 @@ const handlePaymentSuccess =
                   {batch.status !== "Sudah sampai di Admin" && (
                     <div className="mt-4 flex justify-end gap-2 border-t border-[#edf0f6] pt-4">
 
-                      {hasPermission("batches.edit") && (
+                      {canAccessPermission("batches.edit") && (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -2070,7 +2105,7 @@ const handlePaymentSuccess =
                         </button>
                       )}
 
-                      {hasPermission("batches.delete") && (
+                      {canAccessPermission("batches.delete") && (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -2216,7 +2251,7 @@ const handlePaymentSuccess =
                     {activeBatch.status !== "Sudah sampai di Admin" && (
                       <div className="flex shrink-0 items-center justify-end gap-3">
 
-                        {hasPermission("batches.edit") && (
+                        {canAccessPermission("batches.edit") && (
                           <button
                             type="button"
                             onClick={
@@ -2232,7 +2267,7 @@ const handlePaymentSuccess =
                           </button>
                         )}
 
-                        {hasPermission("recaps.create") && (
+                        {canAccessPermission("recaps.create") && (
                           <button
                             type="button"
                             onClick={
@@ -2397,11 +2432,11 @@ const handlePaymentSuccess =
 
                       <tr className="border-b border-[#e8ecf4]">
 
-                        <th className="px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Nama Pembeli
                         </th>
 
-                        <th className="px-6 py-5 text-left text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Detail Barang
                         </th>
 
@@ -2409,19 +2444,19 @@ const handlePaymentSuccess =
                           Qty
                         </th>
 
-                        <th className="px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Harga Barang
                         </th>
 
-                        <th className="px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Total Harga
                         </th>
 
-                        <th className="px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Down Payment
                         </th>
 
-                        <th className="px-6 py-5 text-right text-sm font-semibold text-[#17285d]">
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-[#17285d]">
                           Pelunasan
                         </th>
 
@@ -2650,11 +2685,11 @@ const handlePaymentSuccess =
 
                                 {/* Pembeli */}
 
-                                <td className="px-6 py-6">
+                                <td className="px-6 py-6 text-center">
 
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center justify-center gap-2">
 
-                                    <p className="text-base font-medium text-[#20366f]">
+                                    <p className="text-center text-base font-medium text-[#20366f]">
 
                                       {
                                         item
@@ -2673,7 +2708,7 @@ const handlePaymentSuccess =
 
                                   </div>
 
-                                  <p className="mt-1 text-sm text-[#7a89ad]">
+                                  <p className="mt-1 text-center text-sm text-[#7a89ad]">
 
                                     {
                                       item
@@ -2688,7 +2723,7 @@ const handlePaymentSuccess =
 
                                 {/* Detail */}
 
-                                <td className="px-6 py-6 text-base text-[#20366f]">
+                                <td className="px-6 py-6 text-center text-base text-[#20366f]">
 
                                   {
                                     item.detail_barang
@@ -2708,7 +2743,7 @@ const handlePaymentSuccess =
 
                                 {/* Harga */}
 
-                                <td className="px-6 py-6 text-right text-base text-[#20366f]">
+                                <td className="px-6 py-6 text-center text-base text-[#20366f]">
 
                                   {formatRupiah(
                                     Number(
@@ -2721,7 +2756,7 @@ const handlePaymentSuccess =
 
                                 {/* Total */}
 
-                                <td className="px-6 py-6 text-right text-base font-semibold text-[#20366f]">
+                                <td className="px-6 py-6 text-center text-base font-semibold text-[#20366f]">
 
                                   {formatRupiah(
                                     totalHarga,
@@ -2733,19 +2768,19 @@ const handlePaymentSuccess =
                                     DOWN PAYMENT
                                 ================================== */}
 
-                                <td className="px-6 py-6">
+                                <td className="px-6 py-6 text-center">
 
-                                  <div className="flex flex-col items-end">
+                                  <div className="flex flex-col items-center">
 
                                     {isLoadingPayments ? (
 
-                                      <span className="text-right text-sm text-[#7a89ad]">
+                                      <span className="text-center text-sm text-[#7a89ad]">
                                         Memuat...
                                       </span>
 
                                     ) : paymentSummary ? (
 
-                                      <p className="text-right text-base font-medium text-[#20366f]">
+                                      <p className="text-center text-base font-medium text-[#20366f]">
                                         {formatRupiah(
                                           Number(
                                             dpSummary?.amount ??
@@ -2756,7 +2791,7 @@ const handlePaymentSuccess =
 
                                     ) : (
 
-                                      <span className="text-right text-sm text-red-500">
+                                      <span className="text-center text-sm text-red-500">
                                         -
                                       </span>
 
@@ -2765,7 +2800,7 @@ const handlePaymentSuccess =
                                     {!isLoadingPayments &&
                                       paymentSummary &&
                                       !dpPaid &&
-                                      hasPermission("payments.create") && (
+                                      canAccessPermission("payments.create") && (
                                         <button
                                           type="button"
                                           disabled={
@@ -2781,7 +2816,7 @@ const handlePaymentSuccess =
                                         >
                                           {isCreatingDp
                                             ? "Memproses..."
-                                            : "Pembayaran"}
+                                            : "Generate Payment Link"}
                                         </button>
                                       )}
 
@@ -2795,7 +2830,7 @@ const handlePaymentSuccess =
                                         </span>
 
                                         {dpSummary?.paid_at && (
-                                          <p className="mt-1 text-right text-xs text-[#7a89ad]">
+                                          <p className="mt-1 text-center text-xs text-[#7a89ad]">
                                             {formatPaymentDate(
                                               dpSummary.paid_at,
                                             )}
@@ -2813,7 +2848,7 @@ const handlePaymentSuccess =
                                           0,
                                       ) > 0 && (
 
-                                      <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
+                                      <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
 
                                         <p className="font-semibold text-red-600">
                                           Terlambat{" "}
@@ -2871,7 +2906,7 @@ const handlePaymentSuccess =
                                       dpSummary
                                         ?.late_payment_permission && (
 
-                                      <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
+                                      <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
 
                                         <p>
                                           Sedang mengajukan ijin telat
@@ -2898,20 +2933,20 @@ const handlePaymentSuccess =
                                     PELUNASAN
                                 ================================== */}
 
-                                <td className="px-6 py-6">
+                                <td className="px-6 py-6 text-center">
 
-                                  <div className="flex flex-col items-end">
+                                  <div className="flex flex-col items-center">
 
                                     {isLoadingPayments ? (
 
-                                      <span className="text-right text-sm text-[#7a89ad]">
+                                      <span className="text-center text-sm text-[#7a89ad]">
                                         Memuat...
                                       </span>
 
                                     ) : dpPaid &&
                                       paymentSummary ? (
 
-                                      <p className="text-right text-base font-medium text-[#20366f]">
+                                      <p className="text-center text-base font-medium text-[#20366f]">
                                         {formatRupiah(
                                           Number(
                                             pelunasanSummary?.amount ??
@@ -2922,7 +2957,7 @@ const handlePaymentSuccess =
 
                                     ) : (
 
-                                      <span className="text-right text-sm text-[#7a89ad]">
+                                      <span className="text-center text-sm text-[#7a89ad]">
                                         -
                                       </span>
 
@@ -2939,7 +2974,7 @@ const handlePaymentSuccess =
                                         </span>
 
                                         {pelunasanSummary?.paid_at && (
-                                          <p className="mt-1 text-right text-xs text-[#7a89ad]">
+                                          <p className="mt-1 text-center text-xs text-[#7a89ad]">
                                             {formatPaymentDate(
                                               pelunasanSummary.paid_at,
                                             )}
@@ -2955,7 +2990,7 @@ const handlePaymentSuccess =
                                       !pelunasanPaid && (
 
                                       <>
-                                        {hasPermission("payments.create") && (
+                                        {canAccessPermission("payments.create") && (
                                           <button
                                             type="button"
                                             disabled={
@@ -2971,7 +3006,7 @@ const handlePaymentSuccess =
                                           >
                                             {isCreatingPelunasan
                                               ? "Memproses..."
-                                              : "Pembayaran"}
+                                              : "Generate Payment Link"}
                                           </button>
                                         )}
 
@@ -2980,7 +3015,7 @@ const handlePaymentSuccess =
                                             0,
                                         ) > 0 && (
 
-                                          <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
+                                          <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
 
                                             <p className="font-semibold text-red-600">
                                               Terlambat{" "}
@@ -3035,7 +3070,7 @@ const handlePaymentSuccess =
                                           pelunasanSummary
                                             ?.late_payment_permission && (
 
-                                          <div className="mt-2 text-right text-xs leading-5 text-[#7a89ad]">
+                                          <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
 
                                             <p>
                                               Sedang mengajukan ijin telat
@@ -3118,7 +3153,7 @@ const handlePaymentSuccess =
 
                                   <div className="flex items-center justify-center">
 
-                                    {hasPermission("recaps.delete") && (
+                                    {canAccessPermission("recaps.delete") && (
                                       isHnr ? (
                                         <button
                                           type="button"
@@ -3467,7 +3502,7 @@ const handlePaymentSuccess =
                           {!isLoadingPayments &&
                             paymentSummary &&
                             !dpPaid &&
-                            hasPermission("payments.create") && (
+                            canAccessPermission("payments.create") && (
                               <button
                                 type="button"
                                 disabled={isCreatingDp}
@@ -3481,7 +3516,7 @@ const handlePaymentSuccess =
                               >
                                 {isCreatingDp
                                   ? "Memproses..."
-                                  : "Pembayaran"}
+                                  : "Generate Payment Link"}
                               </button>
                             )}
 
@@ -3585,7 +3620,7 @@ const handlePaymentSuccess =
                             dpPaid &&
                             paymentSummary &&
                             !pelunasanPaid &&
-                            hasPermission("payments.create") && (
+                            canAccessPermission("payments.create") && (
                               <button
                                 type="button"
                                 disabled={isCreatingPelunasan}
@@ -3599,7 +3634,7 @@ const handlePaymentSuccess =
                               >
                                 {isCreatingPelunasan
                                   ? "Memproses..."
-                                  : "Pembayaran"}
+                                  : "Generate Payment Link"}
                               </button>
                             )}
 
@@ -3725,7 +3760,7 @@ const handlePaymentSuccess =
                         </div>
 
                         {/* ACTION */}
-                        {hasPermission("recaps.delete") && (
+                        {canAccessPermission("recaps.delete") && (
                           <div className="mt-4 flex justify-end border-t border-[#edf0f6] pt-4">
                             {isHnr ? (
                               <button

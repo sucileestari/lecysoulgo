@@ -50,6 +50,11 @@ export type Payment = {
    */
   amount: number;
 
+  /**
+   * Nominal pembayaran terbaru yang harus dibayar.
+   */
+  current_amount?: number;
+
   status: Exclude<
     PaymentStatus,
     "unpaid"
@@ -325,6 +330,25 @@ type ApiResponse<T> =
   | ApiError;
 
 /* =========================================
+   AUTH
+========================================= */
+
+function getAuthToken(): string {
+  const token =
+    localStorage.getItem(
+      "auth_token",
+    );
+
+  if (!token) {
+    throw new Error(
+      "Token tidak ditemukan. Silakan login kembali.",
+    );
+  }
+
+  return token;
+}
+
+/* =========================================
    VALIDATION
 ========================================= */
 
@@ -397,6 +421,9 @@ async function parseResponse<T>(
 export async function getPaymentSummary(
   recapId: string,
 ): Promise<PaymentSummary> {
+  const token =
+    getAuthToken();
+
   const validRecapId =
     validateStringId(
       recapId,
@@ -414,6 +441,9 @@ export async function getPaymentSummary(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -436,6 +466,9 @@ export async function getPaymentSummary(
 export async function getPaymentsByRecap(
   recapId: string,
 ): Promise<Payment[]> {
+  const token =
+    getAuthToken();
+
   const validRecapId =
     validateStringId(
       recapId,
@@ -453,6 +486,9 @@ export async function getPaymentsByRecap(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -476,6 +512,9 @@ export async function getPaymentsByRecap(
 export async function getManualShipmentPayment(
   manualShipmentId: string,
 ): Promise<Payment | null> {
+  const token =
+    getAuthToken();
+
   const validShipmentId =
     validateStringId(
       manualShipmentId,
@@ -493,6 +532,9 @@ export async function getManualShipmentPayment(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -516,6 +558,9 @@ export async function getManualShipmentPayment(
 export async function getManualShipmentPaymentSummary(
   manualShipmentId: string,
 ): Promise<ManualShipmentPaymentSummary> {
+  const token =
+    getAuthToken();
+
   const validShipmentId =
     validateStringId(
       manualShipmentId,
@@ -533,6 +578,9 @@ export async function getManualShipmentPaymentSummary(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -640,6 +688,13 @@ export async function createPayment(
   }
 
   /* -------------------------------------
+     AUTH TOKEN
+  ------------------------------------- */
+
+  const token =
+    getAuthToken();
+
+  /* -------------------------------------
      Request
   ------------------------------------- */
 
@@ -655,6 +710,9 @@ export async function createPayment(
 
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
 
         body: JSON.stringify({
@@ -704,6 +762,13 @@ export async function generatePaymentLink(
       "ID pembayaran",
     );
 
+  /* -------------------------------------
+     AUTH TOKEN
+  ------------------------------------- */
+
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/payments/${encodeURIComponent(
@@ -715,6 +780,9 @@ export async function generatePaymentLink(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );
@@ -750,6 +818,9 @@ export async function simulatePaymentSuccess(
       "ID pembayaran",
     );
 
+  const token =
+    getAuthToken();
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/payments/${encodeURIComponent(
@@ -761,6 +832,9 @@ export async function simulatePaymentSuccess(
         headers: {
           Accept:
             "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
         },
       },
     );

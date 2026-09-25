@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import crypto from "node:crypto";
 
 import {
   processWhatsAppAutomations,
@@ -11,13 +12,74 @@ import {
 } from "../services/notificationService.js";
 
 /* =========================================
+   VERIFY VERCEL CRON
+========================================= */
+
+function isValidCronRequest(
+  req: Request,
+): boolean {
+  const cronSecret =
+    process.env.CRON_SECRET?.trim();
+
+  if (!cronSecret) {
+    console.error(
+      "CRON_SECRET is not configured.",
+    );
+
+    return false;
+  }
+
+  const authorization =
+    req.headers.authorization;
+
+  if (
+    typeof authorization !== "string" ||
+    !authorization.startsWith("Bearer ")
+  ) {
+    return false;
+  }
+
+  const providedToken =
+    authorization.slice("Bearer ".length).trim();
+
+  if (!providedToken) {
+    return false;
+  }
+
+  const expectedBuffer =
+    Buffer.from(cronSecret, "utf8");
+
+  const providedBuffer =
+    Buffer.from(providedToken, "utf8");
+
+  if (
+    expectedBuffer.length !==
+    providedBuffer.length
+  ) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    expectedBuffer,
+    providedBuffer,
+  );
+}
+
+/* =========================================
    PROCESS WHATSAPP AUTOMATIONS
 ========================================= */
 
 export async function processWhatsAppAutomationsHandler(
-  _req: Request,
+  req: Request,
   res: Response,
 ) {
+  if (!isValidCronRequest(req)) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized.",
+    });
+  }
+
   try {
     const result =
       await processWhatsAppAutomations();

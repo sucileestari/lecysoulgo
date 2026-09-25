@@ -23,6 +23,7 @@ export type Role = {
 export type Permission = {
   id: string;
   name: string;
+  code?: string;
   description: string | null;
 };
 

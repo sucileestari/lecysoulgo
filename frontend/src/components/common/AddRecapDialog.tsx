@@ -17,8 +17,8 @@ import {
 } from "@/services/recapService";
 
 import {
-  getMembers,
-  type Member,
+  getMembersForRecap,
+  type RecapMemberOption,
 } from "@/services/memberService";
 
 import type {
@@ -45,7 +45,7 @@ export default function AddRecapDialog({
   const [
     members,
     setMembers,
-  ] = useState<Member[]>([]);
+  ] = useState<RecapMemberOption[]>([]);
 
   const [
     selectedMemberIds,
@@ -120,15 +120,10 @@ export default function AddRecapDialog({
           setError("");
 
           const data =
-            await getMembers("");
+            await getMembersForRecap();
 
           if (!cancelled) {
-            setMembers(
-              data.filter(
-                (member) =>
-                  member.type !== "hnr",
-              ),
-            );
+            setMembers(data);
           }
         } catch (error) {
           console.error(
@@ -298,29 +293,48 @@ export default function AddRecapDialog({
     ).format(value);
   };
 
+  const handleHargaBarangChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const numericValue = event.target.value
+      .replace(/\D/g, "");
+
+    setHargaBarang(numericValue);
+  };
+
+  const hargaBarangDisplay = hargaBarang
+    ? formatRupiah(
+        Number(hargaBarang),
+      )
+    : "";
+
   /* =========================================
      TOGGLE MEMBER
   ========================================= */
 
   const toggleMember = (
-    memberId: string,
+    member: RecapMemberOption,
   ) => {
+    if (member.type === "hnr") {
+      return;
+    }
+
     setSelectedMemberIds(
       (current) => {
         if (
           current.includes(
-            memberId,
+            member.id,
           )
         ) {
           return current.filter(
             (id) =>
-              id !== memberId,
+              id !== member.id,
           );
         }
 
         return [
           ...current,
-          memberId,
+          member.id,
         ];
       },
     );
@@ -661,27 +675,57 @@ export default function AddRecapDialog({
                                 member.id,
                               );
 
+                            const isHnr =
+                              member.type ===
+                              "hnr";
+
                             return (
                               <button
                                 key={
                                   member.id
                                 }
                                 type="button"
+                                disabled={isHnr}
                                 onClick={() =>
                                   toggleMember(
-                                    member.id,
+                                    member,
                                   )
                                 }
-                                className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#f7f9fd]"
+                                className={[
+                                  "flex w-full items-center justify-between px-4 py-3 text-left transition",
+                                  isHnr
+                                    ? "cursor-not-allowed bg-[#fafafa] opacity-60"
+                                    : "hover:bg-[#f7f9fd]",
+                                ].join(
+                                  " ",
+                                )}
                               >
-                                <div>
-                                  <p className="text-sm font-medium text-[#20366f]">
-                                    {
-                                      member.name
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className={
+                                      isHnr
+                                        ? "truncate text-sm font-medium text-[#8a96b4]"
+                                        : "truncate text-sm font-medium text-[#20366f]"
                                     }
-                                  </p>
+                                    >
+                                      {
+                                        member.name
+                                      }
+                                    </p>
 
-                                  <p className="mt-0.5 text-xs text-[#8a96b4]">
+                                    {isHnr && (
+                                      <span className="shrink-0 text-xs font-semibold text-red-500">
+                                        HNR
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className={
+                                    isHnr
+                                      ? "mt-0.5 text-xs text-[#b0b7c5]"
+                                      : "mt-0.5 text-xs text-[#8a96b4]"
+                                  }
+                                  >
                                     {
                                       member.phone
                                     }
@@ -778,19 +822,13 @@ export default function AddRecapDialog({
                 </label>
 
                 <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={hargaBarang}
-                  onChange={(
-                    event,
-                  ) =>
-                    setHargaBarang(
-                      event.target
-                        .value,
-                    )
+                  type="text"
+                  inputMode="numeric"
+                  value={hargaBarangDisplay}
+                  onChange={
+                    handleHargaBarangChange
                   }
-                  placeholder="0"
+                  placeholder="Rp0"
                   className="h-11 w-full rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#8a96b4] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10"
                 />
               </div>

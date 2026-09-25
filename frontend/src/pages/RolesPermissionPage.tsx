@@ -33,7 +33,7 @@ import {
 } from "../services/rolePermissionService";
 
 import {
-  hasPermission,
+  canAccessPermission,
 } from "../utils/permissions";
 
 /* =========================================
@@ -963,7 +963,7 @@ export default function RolesPermissionPage() {
      */
     if (
       isSuperAdmin ||
-      !hasPermission("roles.manage")
+      !canAccessPermission("roles.manage")
     ) {
       return;
     }
@@ -1002,7 +1002,7 @@ export default function RolesPermissionPage() {
      */
     if (
       isSuperAdmin ||
-      !hasPermission("roles.manage")
+      !canAccessPermission("roles.manage")
     ) {
       return;
     }
@@ -1352,7 +1352,7 @@ export default function RolesPermissionPage() {
           </p>
         </div>
 
-        {hasPermission("roles.create") && (
+        {canAccessPermission("roles.create") && (
           <button
             type="button"
             onClick={
@@ -1604,7 +1604,7 @@ export default function RolesPermissionPage() {
 
                           {!isProtected && (
                             <>
-                              {hasPermission(
+                              {canAccessPermission(
                                 "roles.edit",
                               ) && (
                                 <button
@@ -1625,7 +1625,7 @@ export default function RolesPermissionPage() {
                                 </button>
                               )}
 
-                              {hasPermission(
+                              {canAccessPermission(
                                 "roles.delete",
                               ) && (
                                 <button
@@ -1812,7 +1812,7 @@ export default function RolesPermissionPage() {
 
                             {!isProtected && (
                               <>
-                                {hasPermission("roles.edit") && (
+                                {canAccessPermission("roles.edit") && (
                                   <button
                                     type="button"
                                     title="Edit role"
@@ -1831,7 +1831,7 @@ export default function RolesPermissionPage() {
                                   </button>
                                 )}
 
-                                {hasPermission("roles.delete") && (
+                                {canAccessPermission("roles.delete") && (
                                   <button
                                     type="button"
                                     title="Hapus role"
@@ -2050,7 +2050,7 @@ export default function RolesPermissionPage() {
                                     className={[
                                       "flex items-start gap-3 px-4 py-3",
                                       isSuperAdmin ||
-                                      !hasPermission("roles.manage")
+                                      !canAccessPermission("roles.manage")
                                         ? "cursor-not-allowed"
                                         : "cursor-pointer",
                                     ].join(" ")}
@@ -2062,7 +2062,7 @@ export default function RolesPermissionPage() {
                                       }
                                       disabled={
                                         isSuperAdmin ||
-                                        !hasPermission("roles.manage")
+                                        !canAccessPermission("roles.manage")
                                       }
                                       onChange={() =>
                                         togglePermission(
@@ -2196,7 +2196,7 @@ export default function RolesPermissionPage() {
                             }
                             disabled={
                               isSuperAdmin ||
-                              !hasPermission(
+                              !canAccessPermission(
                                 "roles.manage"
                               )
                             }
@@ -2263,7 +2263,7 @@ export default function RolesPermissionPage() {
                     disabled={
                       saving ||
                       !selectedRole ||
-                      !hasPermission(
+                      !canAccessPermission(
                         "roles.manage"
                       )
                     }

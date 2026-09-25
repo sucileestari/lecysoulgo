@@ -2,6 +2,14 @@ import { Router } from "express";
 import multer from "multer";
 
 import {
+  authenticate,
+} from "../middleware/authMiddleware.js";
+
+import {
+  requirePermission,
+} from "../middleware/permissionMiddleware.js";
+
+import {
   createBatchHandler,
   deleteBatchHandler,
   listBatches,
@@ -66,6 +74,14 @@ const upload = multer({
 });
 
 /* =========================================
+   ALL ROUTES REQUIRE LOGIN
+========================================= */
+
+router.use(
+  authenticate,
+);
+
+/* =========================================
    GET ALL BATCHES
 ========================================= */
 
@@ -75,8 +91,9 @@ const upload = multer({
  * Mengambil semua batch berdasarkan
  * negara.
  *
- * Data diurutkan dari batch terbaru
- * ke batch terlama oleh service.
+ * Tidak menggunakan permission batches.view
+ * karena permission tersebut tidak terdaftar
+ * di database.
  */
 router.get(
   "/",
@@ -91,6 +108,10 @@ router.get(
  * GET /api/batches/:id
  *
  * Mengambil satu batch berdasarkan UUID.
+ *
+ * Tidak menggunakan permission batches.view
+ * karena permission tersebut tidak terdaftar
+ * di database.
  */
 router.get(
   "/:id",
@@ -118,6 +139,9 @@ router.get(
  */
 router.post(
   "/",
+  requirePermission(
+    "batches.create",
+  ),
   upload.single("image"),
   createBatchHandler,
 );
@@ -144,6 +168,9 @@ router.post(
  */
 router.put(
   "/:id",
+  requirePermission(
+    "batches.edit",
+  ),
   upload.single("image"),
   updateBatchHandler,
 );
@@ -161,6 +188,9 @@ router.put(
  */
 router.delete(
   "/:id",
+  requirePermission(
+    "batches.delete",
+  ),
   deleteBatchHandler,
 );
 
