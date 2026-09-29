@@ -29,6 +29,7 @@ export type CustomerAccessResult = {
     id: string;
     name: string;
     phone: string;
+    type: string;
   };
 };
 
@@ -199,7 +200,8 @@ export async function loginCustomerByPhone(
       `
         id,
         name,
-        phone
+        phone,
+        type
       `,
     )
     .in(
@@ -288,6 +290,9 @@ export async function loginCustomerByPhone(
 
       phone:
         member.phone,
+
+      type:
+        member.type,
     },
   };
 }

@@ -192,18 +192,35 @@ type ApiResponse<T> =
 ========================================= */
 
 function getAuthToken(): string {
-  const token =
+  const customerToken =
+    localStorage.getItem(
+      "customer_token",
+    );
+
+  if (customerToken) {
+    return customerToken;
+  }
+
+  const adminToken =
     localStorage.getItem(
       "auth_token",
     );
 
-  if (!token) {
+  if (!adminToken) {
     throw new Error(
       "Token tidak ditemukan. Silakan login kembali.",
     );
   }
 
-  return token;
+  return adminToken;
+}
+
+function getLatePaymentPermissionPath(): string {
+  return localStorage.getItem(
+    "customer_token",
+  )
+    ? "/api/customer/late-payment-permissions"
+    : "/api/late-payment-permissions";
 }
 
 /* =========================================
@@ -277,7 +294,7 @@ export async function getLatePaymentPermissions(): Promise<
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/late-payment-permissions`,
+      `${API_BASE_URL}${getLatePaymentPermissionPath()}`,
       {
         method: "GET",
 
@@ -347,7 +364,7 @@ export async function getLatePaymentRecapOptions(): Promise<LatePaymentRecapOpti
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/late-payment-permissions/recap-options`,
+      `${API_BASE_URL}${getLatePaymentPermissionPath()}/recap-options`,
       {
         method: "GET",
 
@@ -514,7 +531,7 @@ export async function createLatePaymentPermission(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/late-payment-permissions`,
+      `${API_BASE_URL}${getLatePaymentPermissionPath()}`,
       {
         method: "POST",
 

@@ -5,12 +5,22 @@ import {
 } from "../middleware/authMiddleware.js";
 
 import {
+  authenticateCustomer,
+} from "../middleware/customerAuthMiddleware.js";
+
+import {
   createManualShipmentHandler,
   deleteManualShipmentHandler,
   getManualShipmentByIdHandler,
   getManualShipmentOptionsHandler,
   listManualShipmentsHandler,
   updateManualShipmentHandler,
+  createCustomerManualShipmentHandler,
+  deleteCustomerManualShipmentHandler,
+  getCustomerManualShipmentByIdHandler,
+  getCustomerManualShipmentOptionsHandler,
+  listCustomerManualShipmentsHandler,
+  updateCustomerManualShipmentHandler,
 } from "../controllers/manualShippingController.js";
 
 const router = Router();
@@ -120,6 +130,89 @@ router.put(
 router.delete(
   "/:id",
   deleteManualShipmentHandler,
+);
+
+/* =========================================
+   CUSTOMER ROUTES
+========================================= */
+
+export const customerManualShippingRoutes = Router();
+
+customerManualShippingRoutes.use(
+  authenticateCustomer,
+);
+
+/* =========================================
+   CUSTOMER - GET SHIPMENTS BY BATCH
+========================================= */
+
+/**
+ * GET /api/customer/manual-shipments?batch_id=UUID
+ */
+customerManualShippingRoutes.get(
+  "/manual-shipments",
+  listCustomerManualShipmentsHandler,
+);
+
+/* =========================================
+   CUSTOMER - GET OPTIONS
+========================================= */
+
+/**
+ * GET /api/customer/manual-shipments/options
+ * GET /api/customer/manual-shipments/options?batch_id=UUID
+ */
+customerManualShippingRoutes.get(
+  "/manual-shipments/options",
+  getCustomerManualShipmentOptionsHandler,
+);
+
+/* =========================================
+   CUSTOMER - GET SHIPMENT BY ID
+========================================= */
+
+/**
+ * GET /api/customer/manual-shipments/:id
+ */
+customerManualShippingRoutes.get(
+  "/manual-shipments/:id",
+  getCustomerManualShipmentByIdHandler,
+);
+
+/* =========================================
+   CUSTOMER - CREATE SHIPMENT
+========================================= */
+
+/**
+ * POST /api/customer/manual-shipments
+ */
+customerManualShippingRoutes.post(
+  "/manual-shipments",
+  createCustomerManualShipmentHandler,
+);
+
+/* =========================================
+   CUSTOMER - UPDATE SHIPMENT
+========================================= */
+
+/**
+ * PUT /api/customer/manual-shipments/:id
+ */
+customerManualShippingRoutes.put(
+  "/manual-shipments/:id",
+  updateCustomerManualShipmentHandler,
+);
+
+/* =========================================
+   CUSTOMER - DELETE SHIPMENT
+========================================= */
+
+/**
+ * DELETE /api/customer/manual-shipments/:id
+ */
+customerManualShippingRoutes.delete(
+  "/manual-shipments/:id",
+  deleteCustomerManualShipmentHandler,
 );
 
 /* =========================================

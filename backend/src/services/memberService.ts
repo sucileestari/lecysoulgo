@@ -104,6 +104,10 @@ export async function getMembers(
       .select(
         "id, name, type",
       )
+      .eq(
+        "type",
+        "hnr",
+      )
       .order("updated_at", {
         ascending: false,
       });

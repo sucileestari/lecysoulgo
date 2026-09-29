@@ -21,6 +21,11 @@ import {
   type LatePaymentPermission,
 } from "@/services/latePaymentPermissionService";
 
+import {
+  getCustomerRecaps,
+  type CustomerRecap,
+} from "@/services/customerRecapService";
+
 import AjukanIjinTelatBayarDialog from "@/components/common/AjukanIjinTelatBayarDialog";
 
 /* =========================================
@@ -145,6 +150,62 @@ export default function IjinTelatBayarPage() {
       refetchOnWindowFocus: true,
       refetchInterval: 60_000,
     });
+
+  const {
+    data: customerRecaps = [],
+  } = useQuery<
+    CustomerRecap[],
+    Error
+  >({
+    queryKey: [
+      "customer",
+      "recaps",
+    ],
+    queryFn:
+      getCustomerRecaps,
+  });
+
+  /*
+   * HNR CUSTOMER
+   *
+   * Jika customer yang login bertipe HNR,
+   * seluruh page akan dibuat disabled.
+   * Status HNR diambil dari data customer
+   * yang sedang login, bukan dari data ijin
+   * telat bayar.
+   */
+  function getCustomerMemberType(): string | null {
+    try {
+      const raw =
+        localStorage.getItem(
+          "customer_member",
+        );
+
+      if (!raw) {
+        return null;
+      }
+
+      const member =
+        JSON.parse(raw);
+
+      if (
+        typeof member?.type !==
+        "string"
+      ) {
+        return null;
+      }
+
+      return member.type
+        .trim()
+        .toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  const isHnr =
+    getCustomerMemberType() ===
+    "hnr";
 
   /* =======================================
      SEARCH
@@ -275,7 +336,14 @@ export default function IjinTelatBayarPage() {
   return (
     <div className="min-h-screen bg-[#f8faff] text-left">
 
-      <div className="w-full px-6 py-8 lg:px-8">
+      <div
+        className={[
+          "w-full px-6 py-8 lg:px-8 transition",
+          isHnr
+            ? "pointer-events-none opacity-50"
+            : "",
+        ].join(" ")}
+      >
 
         {/* =================================
             HEADER
@@ -292,6 +360,12 @@ export default function IjinTelatBayarPage() {
             <p className="mt-2 text-sm text-[#5d6f9f]">
               Kelola permintaan ijin keterlambatan pembayaran dari pelanggan
             </p>
+
+            {isHnr && (
+              <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+                Status Member: HNR
+              </div>
+            )}
 
           </div>
 
@@ -371,7 +445,9 @@ export default function IjinTelatBayarPage() {
           !isError &&
           paginatedPermissions.length > 0 && (
             <div className="mt-7 space-y-4 md:hidden">
+
               {paginatedPermissions.map((item) => {
+
                 const isPaid =
                   item.payment_status ===
                   "paid";
@@ -393,10 +469,15 @@ export default function IjinTelatBayarPage() {
                         : "",
                     ].join(" ")}
                   >
+
                     {/* PEMBELI */}
+
                     <div className="flex items-start justify-between gap-3">
+
                       <div className="min-w-0">
+
                         <div className="flex flex-wrap items-center gap-2">
+
                           <p className="text-base font-semibold text-[#20366f]">
                             {item.member?.name ??
                               "-"}
@@ -407,6 +488,7 @@ export default function IjinTelatBayarPage() {
                               HNR
                             </span>
                           )}
+
                         </div>
 
                         {item.member?.phone && (
@@ -414,27 +496,35 @@ export default function IjinTelatBayarPage() {
                             {item.member.phone}
                           </p>
                         )}
+
                       </div>
 
                       {isPaid ? (
                         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-green-50 px-2.5 py-1.5 text-[11px] font-semibold text-green-600">
+
                           <CheckCircle2 className="h-4 w-4" />
+
                           Sudah Dibayar
+
                         </span>
                       ) : (
                         <span className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-600">
                           Belum Dibayar
                         </span>
                       )}
+
                     </div>
 
                     {/* DETAIL BARANG */}
+
                     <div className="mt-4 border-t border-gray-100 pt-4">
+
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
                         Detail Barang
                       </p>
 
                       <div className="space-y-3">
+
                         {item.items &&
                         item.items.length > 0 ? (
                           item.items.map(
@@ -445,11 +535,13 @@ export default function IjinTelatBayarPage() {
                                 }
                                 className="flex items-start gap-2"
                               >
+
                                 <span className="mt-0.5 shrink-0 text-sm text-[#7a89ad]">
                                   •
                                 </span>
 
                                 <div className="min-w-0">
+
                                   <p className="text-sm font-semibold text-[#20366f]">
                                     {permissionItem
                                       .recap
@@ -470,9 +562,13 @@ export default function IjinTelatBayarPage() {
                                   </p>
 
                                   <p className="mt-1 text-xs text-[#7a89ad]">
-                                    {permissionItem.payment_type}
+                                    {
+                                      permissionItem.payment_type
+                                    }
                                   </p>
+
                                 </div>
+
                               </div>
                             ),
                           )
@@ -481,11 +577,15 @@ export default function IjinTelatBayarPage() {
                             -
                           </p>
                         )}
+
                       </div>
+
                     </div>
 
                     {/* ALASAN */}
+
                     <div className="mt-4 border-t border-gray-100 pt-4">
+
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
                         Alasan Telat
                       </p>
@@ -493,11 +593,15 @@ export default function IjinTelatBayarPage() {
                       <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-[#20366f]">
                         {item.reason || "-"}
                       </p>
+
                     </div>
 
                     {/* TANGGAL */}
+
                     <div className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2">
+
                       <div>
+
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
                           Tanggal Pembayaran
                         </p>
@@ -507,9 +611,11 @@ export default function IjinTelatBayarPage() {
                             item.payment_date,
                           )}
                         </p>
+
                       </div>
 
                       <div>
+
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#7a89ad]">
                           Waktu Dibayar
                         </p>
@@ -521,11 +627,15 @@ export default function IjinTelatBayarPage() {
                               )
                             : "—"}
                         </p>
+
                       </div>
+
                     </div>
+
                   </article>
                 );
               })}
+
             </div>
           )}
 
@@ -537,6 +647,7 @@ export default function IjinTelatBayarPage() {
           !isError &&
           paginatedPermissions.length === 0 && (
             <div className="mt-7 rounded-xl border border-[#edf0f6] bg-white px-6 py-16 text-center md:hidden">
+
               <p className="text-base font-medium text-[#20366f]">
                 {search
                   ? "Data tidak ditemukan"
@@ -548,6 +659,7 @@ export default function IjinTelatBayarPage() {
                   ? "Coba gunakan kata kunci pencarian lain."
                   : "Klik Ajukan Ijin untuk membuat pengajuan baru."}
               </p>
+
             </div>
           )}
 
@@ -559,24 +671,32 @@ export default function IjinTelatBayarPage() {
           !isError &&
           filteredPermissions.length > 0 && (
             <div className="mt-4 flex items-center justify-between rounded-xl border border-[#edf0f6] bg-white px-4 py-4 md:hidden">
+
               <p className="text-xs text-[#7a89ad]">
+
                 {Math.min(
                   (currentPage - 1) *
                     itemsPerPage +
                     1,
                   filteredPermissions.length,
                 )}
+
                 {" - "}
+
                 {Math.min(
                   currentPage *
                     itemsPerPage,
                   filteredPermissions.length,
                 )}
+
                 {" dari "}
+
                 {filteredPermissions.length}
+
               </p>
 
               <div className="flex items-center gap-2">
+
                 <button
                   type="button"
                   disabled={
@@ -624,7 +744,9 @@ export default function IjinTelatBayarPage() {
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
+
               </div>
+
             </div>
           )}
 
@@ -759,6 +881,7 @@ export default function IjinTelatBayarPage() {
                     (
                       item,
                     ) => {
+
                       const isPaid =
                         item.payment_status ===
                         "paid";
@@ -791,6 +914,7 @@ export default function IjinTelatBayarPage() {
                             <div>
 
                               <div className="flex items-center gap-2">
+
                                 <p className="text-base font-medium text-[#20366f]">
                                   {item.member
                                     ?.name ??
@@ -802,6 +926,7 @@ export default function IjinTelatBayarPage() {
                                     HNR
                                   </span>
                                 )}
+
                               </div>
 
                               {item.member

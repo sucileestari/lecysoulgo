@@ -5,6 +5,10 @@ import {
 } from "../middleware/authMiddleware.js";
 
 import {
+  authenticateCustomer,
+} from "../middleware/customerAuthMiddleware.js";
+
+import {
   createManualShippingBatchHandler,
   deleteManualShippingBatchHandler,
   getManualShippingBatchByIdHandler,
@@ -15,7 +19,7 @@ import {
 const router = Router();
 
 /* =========================================
-   ALL ROUTES REQUIRE LOGIN
+   ADMIN ROUTES
 ========================================= */
 
 router.use(
@@ -57,7 +61,7 @@ router.get(
 ========================================= */
 
 /**
- * POST /api/manual-shipping-batches
+ * GET /api/manual-shipping-batches
  *
  * Membuat batch pengiriman manual baru.
  */
@@ -92,6 +96,47 @@ router.put(
 router.delete(
   "/:id",
   deleteManualShippingBatchHandler,
+);
+
+/* =========================================
+   CUSTOMER ROUTES
+========================================= */
+
+export const customerManualShippingBatchRoutes =
+  Router();
+
+customerManualShippingBatchRoutes.use(
+  authenticateCustomer,
+);
+
+/* =========================================
+   CUSTOMER - GET ALL BATCHES
+========================================= */
+
+/**
+ * GET /api/customer/manual-shipping-batches
+ *
+ * Customer hanya membutuhkan daftar batch.
+ *
+ * Batch tidak memiliki member_id,
+ * sehingga tidak ada filtering member
+ * pada level batch.
+ */
+customerManualShippingBatchRoutes.get(
+  "/manual-shipping-batches",
+  getManualShippingBatchesHandler,
+);
+
+/* =========================================
+   CUSTOMER - GET BATCH BY ID
+========================================= */
+
+/**
+ * GET /api/customer/manual-shipping-batches/:id
+ */
+customerManualShippingBatchRoutes.get(
+  "/manual-shipping-batches/:id",
+  getManualShippingBatchByIdHandler,
 );
 
 /* =========================================

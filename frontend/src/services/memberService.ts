@@ -319,7 +319,9 @@ export async function getHnrMembers(
     );
   }
 
-  return result.data;
+  return result.data.filter(
+    (member) => member.type === "hnr",
+  );
 }
 
 // ==============================

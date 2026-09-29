@@ -9,9 +9,15 @@ import batchRoutes from "./routes/batchRoutes.js";
 import productCostRoutes from "./routes/productCostRoutes.js";
 import recapRoutes from "./routes/recapRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import latePaymentPermissionRoutes from "./routes/latePaymentPermissionRoutes.js";
-import manualShippingBatchRoutes from "./routes/manualShippingBatchRoutes.js";
-import manualShippingRoutes from "./routes/manualShippingRoutes.js";
+import latePaymentPermissionRoutes, {
+  customerLatePaymentPermissionRoutes,
+} from "./routes/latePaymentPermissionRoutes.js";
+import manualShippingBatchRoutes, {
+  customerManualShippingBatchRoutes,
+} from "./routes/manualShippingBatchRoutes.js";
+import manualShippingRoutes, {
+  customerManualShippingRoutes,
+} from "./routes/manualShippingRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import rolePermissionRoutes from "./routes/rolePermissionRoutes.js";
@@ -145,6 +151,21 @@ app.get(
 app.use(
   "/api/customer",
   customerRoutes,
+);
+
+app.use(
+  "/api/customer",
+  customerLatePaymentPermissionRoutes,
+);
+
+app.use(
+  "/api/customer",
+  customerManualShippingBatchRoutes,
+);
+
+app.use(
+  "/api/customer",
+  customerManualShippingRoutes,
 );
 
 /*

@@ -1849,6 +1849,130 @@ export async function createLatePaymentPermission(
 }
 
 /* =========================================
+   CUSTOMER - GET OWN PERMISSIONS
+========================================= */
+
+/**
+ * Mengambil hanya data ijin telat bayar
+ * milik customer yang sedang login.
+ *
+ * Filter member_id dilakukan di backend
+ * berdasarkan member_id dari JWT customer
+ * yang diberikan oleh controller.
+ */
+export async function getCustomerLatePaymentPermissions(
+  memberId: string,
+) {
+  const normalizedMemberId =
+    memberId?.trim();
+
+  if (!normalizedMemberId) {
+    throw new Error(
+      "ID member customer wajib diisi.",
+    );
+  }
+
+  const permissions =
+    await getLatePaymentPermissions();
+
+  return permissions.filter(
+    (permission) =>
+      permission.member_id ===
+      normalizedMemberId,
+  );
+}
+
+/* =========================================
+   CUSTOMER - GET RECAP OPTIONS
+========================================= */
+
+/**
+ * Mengambil hanya member dan item rekapan
+ * yang terkait dengan customer yang sedang login.
+ *
+ * Business rule eligibility tetap menggunakan
+ * getLatePaymentRecapOptions() yang sama
+ * dengan admin.
+ */
+export async function getCustomerLatePaymentRecapOptions(
+  memberId: string,
+): Promise<LatePaymentRecapOptionsResponse> {
+  const normalizedMemberId =
+    memberId?.trim();
+
+  if (!normalizedMemberId) {
+    throw new Error(
+      "ID member customer wajib diisi.",
+    );
+  }
+
+  const options =
+    await getLatePaymentRecapOptions();
+
+  const members =
+    options.members.filter(
+      (member) =>
+        member.id ===
+        normalizedMemberId,
+    );
+
+  const items =
+    options.items.filter(
+      (item) =>
+        item.member_id ===
+        normalizedMemberId,
+    );
+
+  return {
+    members,
+    items,
+  };
+}
+
+/* =========================================
+   CUSTOMER - CREATE PERMISSION
+========================================= */
+
+/**
+ * Membuat pengajuan ijin telat bayar
+ * atas nama customer yang sedang login.
+ *
+ * member_id tidak berasal dari body request.
+ * Controller mengirim member_id yang berasal
+ * dari JWT customer.
+ */
+export async function createCustomerLatePaymentPermission(
+  memberId: string,
+  input: Omit<
+    CreateLatePaymentPermissionInput,
+    "member_id"
+  >,
+) {
+  const normalizedMemberId =
+    memberId?.trim();
+
+  if (!normalizedMemberId) {
+    throw new Error(
+      "ID member customer wajib diisi.",
+    );
+  }
+
+  return createLatePaymentPermission({
+    member_id:
+      normalizedMemberId,
+
+    items:
+      input.items,
+
+    reason:
+      input.reason,
+
+    payment_date:
+      input.payment_date,
+  });
+}
+
+/* =========================================
    SYNC PERMISSION STATUS
 ========================================= */
 

@@ -37,9 +37,10 @@ import type {
    COUNTRY CONFIG
 ========================================= */
 
-type CustomerRecapWithMaxTimbun = CustomerRecap & {
-  max_timbun?: string | null;
-};
+type CustomerRecapWithMaxTimbun =
+  CustomerRecap & {
+    max_timbun?: string | null;
+  };
 
 const countryConfig: Record<
   string,
@@ -156,9 +157,15 @@ function formatMaxTimbun(
     return null;
   }
 
-  const date = new Date(`${value}T00:00:00`);
+  const date = new Date(
+    `${value}T00:00:00`,
+  );
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return null;
   }
 
@@ -176,13 +183,47 @@ function isRecapPaid(
   recap: CustomerRecap,
 ): boolean {
   return (
-    recap.down_payment.status === "paid" &&
-    recap.pelunasan.status === "paid"
+    recap.down_payment.status ===
+      "paid" &&
+    recap.pelunasan.status ===
+      "paid"
   );
 }
 
+function getCustomerMemberType(): string | null {
+  try {
+    const raw =
+      localStorage.getItem(
+        "customer_member",
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const member =
+      JSON.parse(raw);
+
+    if (
+      typeof member?.type !==
+      "string"
+    ) {
+      return null;
+    }
+
+    return member.type
+      .trim()
+      .toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 function getCountryInfo(
-  country: string | null | undefined,
+  country:
+    | string
+    | null
+    | undefined,
 ): {
   name: string;
   flag: FlagComponent | null;
@@ -215,7 +256,8 @@ function PaymentInfo({
   payment,
   showDueDate = true,
 }: {
-  payment: CustomerRecap["down_payment"];
+  payment:
+    CustomerRecap["down_payment"];
   showDueDate?: boolean;
 }) {
   const isPaid =
@@ -261,13 +303,16 @@ function PaymentInfo({
         )}
 
       {!isPaid &&
-        Number(payment.penalty_days ?? 0) > 0 && (
+        Number(
+          payment.penalty_days ?? 0,
+        ) > 0 && (
           <div className="text-xs leading-5">
             <p className="text-red-500">
               Terlambat{" "}
               {payment.penalty_days}{" "}
               hari
             </p>
+
             <p className="text-gray-900">
               Denda +{" "}
               {formatCurrency(
@@ -321,7 +366,10 @@ function CheckoutStatus({
 function CountryDisplay({
   country,
 }: {
-  country: string | null | undefined;
+  country:
+    | string
+    | null
+    | undefined;
 }) {
   const info =
     getCountryInfo(country);
@@ -419,9 +467,9 @@ export default function RekapanSaya() {
   const [
     paymentFilter,
     setPaymentFilter,
-  ] = useState<"all" | "paid" | "unpaid">(
-    "all",
-  );
+  ] = useState<
+    "all" | "paid" | "unpaid"
+  >("all");
 
   const [
     isCountryDropdownOpen,
@@ -462,11 +510,33 @@ export default function RekapanSaya() {
   });
 
   const isHnr =
-    recaps.some(
-      (recap) =>
-        recap.member_type ===
-        "hnr",
-    );
+    getCustomerMemberType() ===
+    "hnr";
+
+  /* -------------------------------------
+     HIDE "AKAN DI ORDER"
+  ------------------------------------- */
+
+  /*
+   * BE sekarang mengembalikan seluruh
+   * recap customer, termasuk batch dengan
+   * status "Akan di Order".
+   *
+   * Untuk halaman Rekapan Saya,
+   * status tersebut tidak ditampilkan.
+   *
+   * Data aslinya tetap tersedia di `recaps`
+   * sehingga halaman lain seperti Dashboard
+   * tetap dapat menggunakannya.
+   */
+  const displayRecaps =
+    useMemo(() => {
+      return recaps.filter(
+        (recap) =>
+          recap.status_barang !==
+          "Akan di Order",
+      );
+    }, [recaps]);
 
   /* -------------------------------------
      FILTER
@@ -479,95 +549,117 @@ export default function RekapanSaya() {
           .trim()
           .toLowerCase();
 
-      const filtered = recaps.filter(
-        (recap) => {
-          const matchesSearch =
-            !keyword ||
-            recap.batch_name
-              ?.toLowerCase()
-              .includes(
-                keyword,
-              ) ||
-            recap.detail_barang
-              ?.toLowerCase()
-              .includes(
-                keyword,
-              );
+      const filtered =
+        displayRecaps.filter(
+          (recap) => {
+            const matchesSearch =
+              !keyword ||
+              recap.batch_name
+                ?.toLowerCase()
+                .includes(
+                  keyword,
+                ) ||
+              recap.detail_barang
+                ?.toLowerCase()
+                .includes(
+                  keyword,
+                );
 
-          const matchesCountry =
-            selectedCountry ===
-              "all" ||
-            recap.country
-              ?.toLowerCase() ===
-              selectedCountry;
+            const matchesCountry =
+              selectedCountry ===
+                "all" ||
+              recap.country
+                ?.toLowerCase() ===
+                selectedCountry;
 
-          const recapIsPaid =
-            isRecapPaid(recap);
+            const recapIsPaid =
+              isRecapPaid(recap);
 
-          const matchesPaymentStatus =
-            paymentFilter === "all" ||
-            (paymentFilter === "paid" &&
-              recapIsPaid) ||
-            (paymentFilter === "unpaid" &&
-              !recapIsPaid);
+            const matchesPaymentStatus =
+              paymentFilter ===
+                "all" ||
+              (paymentFilter ===
+                "paid" &&
+                recapIsPaid) ||
+              (paymentFilter ===
+                "unpaid" &&
+                !recapIsPaid);
 
-          return (
-            matchesSearch &&
-            matchesCountry &&
-            matchesPaymentStatus
-          );
-        },
-      );
+            return (
+              matchesSearch &&
+              matchesCountry &&
+              matchesPaymentStatus
+            );
+          },
+        );
 
-      if (paymentFilter !== "unpaid") {
+      if (
+        paymentFilter !==
+        "unpaid"
+      ) {
         return filtered;
       }
 
       return filtered.sort(
         (a, b) => {
-          const aPendingPayments = [
-            {
-              status:
-                a.down_payment.status,
-              dueDate:
-                a.down_payment.due_date,
-            },
-            {
-              status:
-                a.pelunasan.status,
-              dueDate:
-                a.pelunasan.due_date,
-            },
-          ].filter(
-            (payment) =>
-              payment.status !== "paid" &&
-              payment.dueDate,
-          );
+          const aPendingPayments =
+            [
+              {
+                status:
+                  a.down_payment
+                    .status,
+                dueDate:
+                  a.down_payment
+                    .due_date,
+              },
+              {
+                status:
+                  a.pelunasan
+                    .status,
+                dueDate:
+                  a.pelunasan
+                    .due_date,
+              },
+            ].filter(
+              (payment) =>
+                payment.status !==
+                  "paid" &&
+                payment.dueDate,
+            );
 
-          const bPendingPayments = [
-            {
-              status:
-                b.down_payment.status,
-              dueDate:
-                b.down_payment.due_date,
-            },
-            {
-              status:
-                b.pelunasan.status,
-              dueDate:
-                b.pelunasan.due_date,
-            },
-          ].filter(
-            (payment) =>
-              payment.status !== "paid" &&
-              payment.dueDate,
-          );
+          const bPendingPayments =
+            [
+              {
+                status:
+                  b.down_payment
+                    .status,
+                dueDate:
+                  b.down_payment
+                    .due_date,
+              },
+              {
+                status:
+                  b.pelunasan
+                    .status,
+                dueDate:
+                  b.pelunasan
+                    .due_date,
+              },
+            ].filter(
+              (payment) =>
+                payment.status !==
+                  "paid" &&
+                payment.dueDate,
+            );
 
           const aNearestDueDate =
-            aPendingPayments.length > 0
+            aPendingPayments.length >
+            0
               ? Math.min(
                   ...aPendingPayments.map(
-                    (payment) =>
+                    (
+                      payment,
+                    ) =>
                       new Date(
                         payment.dueDate!,
                       ).getTime(),
@@ -576,10 +668,13 @@ export default function RekapanSaya() {
               : Number.POSITIVE_INFINITY;
 
           const bNearestDueDate =
-            bPendingPayments.length > 0
+            bPendingPayments.length >
+            0
               ? Math.min(
                   ...bPendingPayments.map(
-                    (payment) =>
+                    (
+                      payment,
+                    ) =>
                       new Date(
                         payment.dueDate!,
                       ).getTime(),
@@ -594,7 +689,7 @@ export default function RekapanSaya() {
         },
       );
     }, [
-      recaps,
+      displayRecaps,
       search,
       selectedCountry,
       paymentFilter,
@@ -608,7 +703,7 @@ export default function RekapanSaya() {
     useMemo(() => {
       const unique =
         new Set(
-          recaps
+          displayRecaps
             .map(
               (recap) =>
                 recap.country
@@ -626,7 +721,7 @@ export default function RekapanSaya() {
       return Array.from(
         unique,
       );
-    }, [recaps]);
+    }, [displayRecaps]);
 
   /* -------------------------------------
      CLOSE FILTER DROPDOWNS
@@ -636,7 +731,8 @@ export default function RekapanSaya() {
     function handleClickOutside(
       event: MouseEvent,
     ) {
-      const target = event.target as Node;
+      const target =
+        event.target as Node;
 
       if (
         countryDropdownRef.current &&
@@ -716,167 +812,94 @@ export default function RekapanSaya() {
 
   return (
     <>
-      <div className="space-y-6 p-6">
+      <div
+        className={[
+          "w-full px-4 py-5 sm:px-6 sm:py-8 lg:px-8 transition",
+          isHnr
+            ? "pointer-events-none opacity-50"
+            : "",
+        ].join(" ")}
+      >
 
         {/* HEADER */}
 
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Rekapan Saya
-          </h1>
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Rekapan Saya
+            </h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Berikut adalah seluruh
-            rekapan pembelian kamu.
-          </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Berikut adalah seluruh
+              rekapan pembelian kamu.
+            </p>
 
-          {isHnr && (
-            <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
-              Status Member: HNR
-            </div>
-          )}
-        </div>
-
-        {/* FILTER */}
-
-        <div className="flex flex-col gap-3 md:flex-row">
-
-          {/* SEARCH */}
-
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value,
-                )
-              }
-              placeholder="Cari nama batch..."
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-gray-400"
-            />
+            {isHnr && (
+              <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+                Status Member: HNR
+              </div>
+            )}
           </div>
 
-          {/* COUNTRY */}
+          <div className="flex flex-col gap-3 md:flex-row">
 
-          <div
-            ref={countryDropdownRef}
-            className="relative w-full md:w-[220px]"
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setIsCountryDropdownOpen(
-                  (current) => !current,
-                )
-              }
-              className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                {selectedCountry ===
-                "all" ? (
-                  <span className="truncate font-medium text-[#20366f]">
-                    Semua Negara
-                  </span>
-                ) : (
-                  (() => {
-                    const info =
-                      getCountryInfo(
-                        selectedCountry,
-                      );
-                    const Flag =
-                      info.flag;
+            {/* SEARCH */}
 
-                    return (
-                      <>
-                        {Flag ? (
-                          <Flag
-                            title={
-                              info.name
-                            }
-                            className="h-5 w-7 shrink-0"
-                          />
-                        ) : null}
-
-                        <span className="truncate font-medium text-[#20366f]">
-                          {info.name}
-                        </span>
-                      </>
-                    );
-                  })()
-                )}
-              </div>
-
-              <ChevronDown
-                className={[
-                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
-                  isCountryDropdownOpen
-                    ? "rotate-180"
-                    : "",
-                ].join(" ")}
+            <div className="relative flex-1">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               />
-            </button>
 
-            {isCountryDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
-                <div className="max-h-56 overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCountry(
-                        "all",
-                      );
-                      setIsCountryDropdownOpen(
-                        false,
-                      );
-                    }}
-                    className={[
-                      "flex h-11 w-full items-center px-4 text-left text-sm transition",
-                      selectedCountry ===
-                      "all"
-                        ? "bg-[#edf3ff] text-[#1457ff]"
-                        : "text-[#20366f] hover:bg-[#f8faff]",
-                    ].join(" ")}
-                  >
-                    Semua Negara
-                  </button>
+              <input
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(
+                    event.target.value,
+                  )
+                }
+                placeholder="Cari nama batch..."
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-gray-400"
+              />
+            </div>
 
-                  {countries.map(
-                    (country) => {
+            {/* COUNTRY */}
+
+            <div
+              ref={
+                countryDropdownRef
+              }
+              className="relative w-full md:w-[220px]"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setIsCountryDropdownOpen(
+                    (current) =>
+                      !current,
+                  )
+                }
+                className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  {selectedCountry ===
+                  "all" ? (
+                    <span className="truncate font-medium text-[#20366f]">
+                      Semua Negara
+                    </span>
+                  ) : (
+                    (() => {
                       const info =
                         getCountryInfo(
-                          country,
+                          selectedCountry,
                         );
+
                       const Flag =
                         info.flag;
-                      const isSelected =
-                        country ===
-                        selectedCountry;
 
                       return (
-                        <button
-                          key={country}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCountry(
-                              country,
-                            );
-                            setIsCountryDropdownOpen(
-                              false,
-                            );
-                          }}
-                          className={[
-                            "flex h-12 w-full items-center gap-3 px-4 text-left transition",
-                            isSelected
-                              ? "bg-[#edf3ff]"
-                              : "hover:bg-[#f8faff]",
-                          ].join(" ")}
-                        >
+                        <>
                           {Flag ? (
                             <Flag
                               title={
@@ -884,175 +907,285 @@ export default function RekapanSaya() {
                               }
                               className="h-5 w-7 shrink-0"
                             />
-                          ) : (
-                            <div className="h-5 w-7 shrink-0 rounded bg-gray-100" />
-                          )}
+                          ) : null}
 
-                          <span
-                            className={[
-                              "text-sm",
-                              isSelected
-                                ? "font-medium text-[#1457ff]"
-                                : "text-[#20366f]",
-                            ].join(" ")}
-                          >
+                          <span className="truncate font-medium text-[#20366f]">
                             {info.name}
                           </span>
-
-                          {isSelected && (
-                            <span className="ml-auto text-xs font-medium text-[#1457ff]">
-                              Dipilih
-                            </span>
-                          )}
-                        </button>
+                        </>
                       );
-                    },
+                    })()
                   )}
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* PAYMENT STATUS */}
+                <ChevronDown
+                  className={[
+                    "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                    isCountryDropdownOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
+              </button>
 
-          <div
-            ref={paymentDropdownRef}
-            className="relative w-full md:w-[220px]"
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setIsPaymentDropdownOpen(
-                  (current) => !current,
-                )
-              }
-              className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate font-medium text-[#20366f]">
-                  {paymentFilter === "all"
-                    ? "Semua Pembayaran"
-                    : paymentFilter === "paid"
-                      ? "Paid"
-                      : "Unpaid"}
-                </span>
-              </div>
+              {isCountryDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCountry(
+                          "all",
+                        );
 
-              <ChevronDown
-                className={[
-                  "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
-                  isPaymentDropdownOpen
-                    ? "rotate-180"
-                    : "",
-                ].join(" ")}
-              />
-            </button>
+                        setIsCountryDropdownOpen(
+                          false,
+                        );
+                      }}
+                      className={[
+                        "flex h-11 w-full items-center px-4 text-left text-sm transition",
+                        selectedCountry ===
+                        "all"
+                          ? "bg-[#edf3ff] text-[#1457ff]"
+                          : "text-[#20366f] hover:bg-[#f8faff]",
+                      ].join(" ")}
+                    >
+                      Semua Negara
+                    </button>
 
-            {isPaymentDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
-                <div className="max-h-56 overflow-y-auto">
-                  {[
-                    {
-                      value: "all" as const,
-                      label: "Semua Pembayaran",
-                    },
-                    {
-                      value: "paid" as const,
-                      label: "Paid",
-                    },
-                    {
-                      value: "unpaid" as const,
-                      label: "Unpaid",
-                    },
-                  ].map((option) => {
-                    const isSelected =
-                      paymentFilter ===
-                      option.value;
-
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => {
-                          setPaymentFilter(
-                            option.value,
+                    {countries.map(
+                      (country) => {
+                        const info =
+                          getCountryInfo(
+                            country,
                           );
-                          setIsPaymentDropdownOpen(
-                            false,
-                          );
-                        }}
-                        className={[
-                          "flex h-12 w-full items-center px-4 text-left transition",
-                          isSelected
-                            ? "bg-[#edf3ff] text-[#1457ff]"
-                            : "text-[#20366f] hover:bg-[#f8faff]",
-                        ].join(" ")}
-                      >
-                        <span
-                          className={[
-                            "text-sm",
-                            isSelected
-                              ? "font-medium text-[#1457ff]"
-                              : "text-[#20366f]",
-                          ].join(" ")}
-                        >
-                          {option.label}
-                        </span>
 
-                        {isSelected && (
-                          <span className="ml-auto text-xs font-medium text-[#1457ff]">
-                            Dipilih
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        const Flag =
+                          info.flag;
+
+                        const isSelected =
+                          country ===
+                          selectedCountry;
+
+                        return (
+                          <button
+                            key={country}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCountry(
+                                country,
+                              );
+
+                              setIsCountryDropdownOpen(
+                                false,
+                              );
+                            }}
+                            className={[
+                              "flex h-12 w-full items-center gap-3 px-4 text-left transition",
+                              isSelected
+                                ? "bg-[#edf3ff]"
+                                : "hover:bg-[#f8faff]",
+                            ].join(" ")}
+                          >
+                            {Flag ? (
+                              <Flag
+                                title={
+                                  info.name
+                                }
+                                className="h-5 w-7 shrink-0"
+                              />
+                            ) : (
+                              <div className="h-5 w-7 shrink-0 rounded bg-gray-100" />
+                            )}
+
+                            <span
+                              className={[
+                                "text-sm",
+                                isSelected
+                                  ? "font-medium text-[#1457ff]"
+                                  : "text-[#20366f]",
+                              ].join(" ")}
+                            >
+                              {info.name}
+                            </span>
+
+                            {isSelected && (
+                              <span className="ml-auto text-xs font-medium text-[#1457ff]">
+                                Dipilih
+                              </span>
+                            )}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* PAYMENT STATUS */}
+
+            <div
+              ref={
+                paymentDropdownRef
+              }
+              className="relative w-full md:w-[220px]"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setIsPaymentDropdownOpen(
+                    (current) =>
+                      !current,
+                  )
+                }
+                className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff]"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium text-[#20366f]">
+                    {paymentFilter ===
+                    "all"
+                      ? "Semua Pembayaran"
+                      : paymentFilter ===
+                          "paid"
+                        ? "Paid"
+                        : "Unpaid"}
+                  </span>
+                </div>
+
+                <ChevronDown
+                  className={[
+                    "h-4 w-4 shrink-0 text-[#7a89ad] transition-transform",
+                    isPaymentDropdownOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
+              </button>
+
+              {isPaymentDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto">
+                    {[
+                      {
+                        value:
+                          "all" as const,
+                        label:
+                          "Semua Pembayaran",
+                      },
+                      {
+                        value:
+                          "paid" as const,
+                        label:
+                          "Paid",
+                      },
+                      {
+                        value:
+                          "unpaid" as const,
+                        label:
+                          "Unpaid",
+                      },
+                    ].map(
+                      (option) => {
+                        const isSelected =
+                          paymentFilter ===
+                          option.value;
+
+                        return (
+                          <button
+                            key={
+                              option.value
+                            }
+                            type="button"
+                            onClick={() => {
+                              setPaymentFilter(
+                                option.value,
+                              );
+
+                              setIsPaymentDropdownOpen(
+                                false,
+                              );
+                            }}
+                            className={[
+                              "flex h-12 w-full items-center px-4 text-left transition",
+                              isSelected
+                                ? "bg-[#edf3ff] text-[#1457ff]"
+                                : "text-[#20366f] hover:bg-[#f8faff]",
+                            ].join(" ")}
+                          >
+                            <span
+                              className={[
+                                "text-sm",
+                                isSelected
+                                  ? "font-medium text-[#1457ff]"
+                                  : "text-[#20366f]",
+                              ].join(" ")}
+                            >
+                              {
+                                option.label
+                              }
+                            </span>
+
+                            {isSelected && (
+                              <span className="ml-auto text-xs font-medium text-[#1457ff]">
+                                Dipilih
+                              </span>
+                            )}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* EMPTY */}
+        {/* CONTENT */}
 
-        {recaps.length === 0 && (
-          <div className="rounded-xl border border-gray-200 bg-white py-16 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
-              <ImageIcon
-                size={24}
-              />
-            </div>
+        <div className="mt-6">
 
-            <h2 className="mt-4 text-base font-semibold text-gray-900">
-              Belum Ada Rekapan
-            </h2>
+          {/* EMPTY */}
 
-            <p className="mt-1 text-sm text-gray-500">
-              Saat ini belum ada
-              rekapan pembelian
-              yang tersedia untuk
-              kamu.
-            </p>
-          </div>
-        )}
-
-        {/* NO FILTER RESULT */}
-
-        {recaps.length > 0 &&
-          filteredRecaps.length ===
+          {displayRecaps.length ===
             0 && (
-            <div className="rounded-xl border border-gray-200 bg-white py-12 text-center">
-              <p className="text-sm text-gray-500">
-                Rekapan tidak
-                ditemukan.
+            <div className="rounded-xl border border-gray-200 bg-white py-16 text-center md:hidden">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                <ImageIcon
+                  size={24}
+                />
+              </div>
+
+              <h2 className="mt-4 text-base font-semibold text-gray-900">
+                Belum Ada Rekapan
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Saat ini belum ada
+                rekapan pembelian
+                yang tersedia untuk
+                kamu.
               </p>
             </div>
           )}
 
-        {/* DESKTOP TABLE */}
+          {/* NO FILTER RESULT */}
 
-        {filteredRecaps.length >
-          0 && (
+          {displayRecaps.length >
+            0 &&
+            filteredRecaps.length ===
+              0 && (
+              <div className="rounded-xl border border-gray-200 bg-white py-12 text-center md:hidden">
+                <p className="text-sm text-gray-500">
+                  Rekapan tidak
+                  ditemukan.
+                </p>
+              </div>
+            )}
+
+          {/* DESKTOP TABLE */}
+
           <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white md:block">
             <table className="w-full min-w-[1100px]">
 
@@ -1065,6 +1198,10 @@ export default function RekapanSaya() {
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Nama Batch
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Status Barang
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1103,330 +1240,400 @@ export default function RekapanSaya() {
               </thead>
 
               <tbody>
-                {filteredRecaps.map(
-                  (recap) => {
-                    return (
-                      <tr
-                        key={
-                          recap.id
-                        }
-                        className={[
-                          "border-b border-gray-100 last:border-b-0 transition",
-                          recap.member_type === "hnr"
-                            ? "bg-gray-50 opacity-60"
-                            : "bg-white",
-                        ].join(" ")}
-                      >
+                {filteredRecaps.length ===
+                0 ? (
+                  <tr>
+                    <td
+                      colSpan={11}
+                      className="px-6 py-16 text-center"
+                    >
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                        <ImageIcon
+                          size={24}
+                        />
+                      </div>
 
-                        {/* COUNTRY */}
+                      <h2 className="mt-4 text-base font-semibold text-gray-900">
+                        {displayRecaps.length ===
+                        0
+                          ? "Belum Ada Rekapan"
+                          : "Rekapan tidak ditemukan."}
+                      </h2>
 
-                        <td className="px-5 py-5">
-                          <CountryDisplay
-                            country={
-                              recap.country
-                            }
-                          />
-                        </td>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {displayRecaps.length ===
+                        0
+                          ? "Saat ini belum ada rekapan pembelian yang tersedia untuk kamu."
+                          : "Coba ubah kata kunci pencarian atau filter yang dipilih."}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecaps.map(
+                    (recap) => {
+                      return (
+                        <tr
+                          key={
+                            recap.id
+                          }
+                          className={[
+                            "border-b border-gray-100 last:border-b-0 transition",
+                            recap.member_type ===
+                              "hnr"
+                              ? "bg-gray-50 opacity-60"
+                              : "bg-white",
+                          ].join(" ")}
+                        >
 
-                        {/* BATCH */}
+                          {/* COUNTRY */}
 
-                        <td className="px-5 py-5">
-                          <div className="max-w-[180px]">
+                          <td className="px-5 py-5">
+                            <CountryDisplay
+                              country={
+                                recap.country
+                              }
+                            />
+                          </td>
 
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-gray-900">
+                          {/* BATCH */}
+
+                          <td className="px-5 py-5">
+                            <div className="max-w-[180px]">
+
+                              <div className="flex items-center gap-2">
+                                <div className="font-semibold text-gray-900">
+                                  {
+                                    recap.batch_name
+                                  }
+                                </div>
+
+                                {recap.member_type ===
+                                  "hnr" && (
+                                  <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                    HNR
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="mt-1 text-xs text-gray-500">
                                 {
-                                  recap.batch_name
+                                  recap.detail_barang
                                 }
                               </div>
 
-                              {recap.member_type === "hnr" && (
-                                <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
-                                  HNR
-                                </span>
-                              )}
                             </div>
+                          </td>
 
-                            <div className="mt-1 text-xs text-gray-500">
+                          {/* STATUS BARANG */}
+
+                          <td className="px-5 py-5">
+                            <span className="inline-flex rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">
                               {
-                                recap.detail_barang
+                                recap.status_barang ??
+                                "—"
                               }
+                            </span>
+                          </td>
+
+                          {/* PRODUCT IMAGE */}
+
+                          <td className="px-5 py-5">
+                            <ProductImage
+                              recap={
+                                recap
+                              }
+                              disabled={
+                                recap.member_type ===
+                                "hnr"
+                              }
+                              onPreview={(
+                                image,
+                                title,
+                              ) =>
+                                setPreview(
+                                  {
+                                    image,
+                                    title,
+                                  },
+                                )
+                              }
+                            />
+                          </td>
+
+                          {/* TOTAL */}
+
+                          <td className="px-5 py-5">
+                            <span className="font-semibold text-gray-900">
+                              {formatCurrency(
+                                recap.total_harga,
+                              )}
+                            </span>
+                          </td>
+
+                          {/* MAKSIMAL DP */}
+
+                          <td className="px-5 py-5">
+                            <div className="text-sm font-medium text-gray-800">
+                              {formatDueDate(
+                                recap
+                                  .down_payment
+                                  .due_date,
+                              ) ??
+                                "—"}
                             </div>
+                          </td>
 
-                          </div>
-                        </td>
+                          {/* DOWN PAYMENT */}
 
-                        {/* PRODUCT IMAGE */}
+                          <td className="px-5 py-5">
+                            <PaymentInfo
+                              payment={
+                                recap.down_payment
+                              }
+                              showDueDate={
+                                false
+                              }
+                            />
+                          </td>
 
-                        <td className="px-5 py-5">
-                          <ProductImage
-                            recap={
-                              recap
-                            }
-                            disabled={
-                              recap.member_type ===
-                              "hnr"
-                            }
-                            onPreview={(
-                              image,
-                              title,
-                            ) =>
-                              setPreview(
-                                {
-                                  image,
-                                  title,
-                                },
-                              )
-                            }
-                          />
-                        </td>
+                          {/* MAKSIMAL PELUNASAN */}
 
-                        {/* TOTAL */}
+                          <td className="px-5 py-5">
+                            <div className="text-sm font-medium text-gray-800">
+                              {formatDueDate(
+                                recap
+                                  .pelunasan
+                                  .due_date,
+                              ) ??
+                                "—"}
+                            </div>
+                          </td>
 
-                        <td className="px-5 py-5">
-                          <span className="font-semibold text-gray-900">
-                            {formatCurrency(
-                              recap.total_harga,
-                            )}
-                          </span>
-                        </td>
+                          {/* PELUNASAN */}
 
-                        {/* MAKSIMAL DP */}
+                          <td className="px-5 py-5">
+                            <PaymentInfo
+                              payment={
+                                recap.pelunasan
+                              }
+                              showDueDate={
+                                false
+                              }
+                            />
+                          </td>
 
-                        <td className="px-5 py-5">
-                          <div className="text-sm font-medium text-gray-800">
-                            {formatDueDate(
-                              recap.down_payment.due_date,
-                            ) ?? "—"}
-                          </div>
-                        </td>
+                          {/* MAKSIMAL TIMBUN */}
 
-                        {/* DOWN PAYMENT */}
+                          <td className="px-5 py-5">
+                            <div className="text-sm font-medium text-gray-800">
+                              {formatMaxTimbun(
+                                (
+                                  recap as CustomerRecapWithMaxTimbun
+                                )
+                                  .max_timbun,
+                              ) ??
+                                "—"}
+                            </div>
+                          </td>
 
-                        <td className="px-5 py-5">
-                          <PaymentInfo
-                            payment={
-                              recap.down_payment
-                            }
-                            showDueDate={false}
-                          />
-                        </td>
+                          {/* CHECKOUT */}
 
-                        {/* MAKSIMAL PELUNASAN */}
+                          <td className="px-5 py-5">
+                            <CheckoutStatus
+                              checkedOut={
+                                recap.sudah_co
+                              }
+                            />
+                          </td>
 
-                        <td className="px-5 py-5">
-                          <div className="text-sm font-medium text-gray-800">
-                            {formatDueDate(
-                              recap.pelunasan.due_date,
-                            ) ?? "—"}
-                          </div>
-                        </td>
-
-                        {/* PELUNASAN */}
-
-                        <td className="px-5 py-5">
-                          <PaymentInfo
-                            payment={
-                              recap.pelunasan
-                            }
-                            showDueDate={false}
-                          />
-                        </td>
-
-                        {/* MAKSIMAL TIMBUN */}
-
-                        <td className="px-5 py-5">
-                          <div className="text-sm font-medium text-gray-800">
-                            {formatMaxTimbun(
-                              (recap as CustomerRecapWithMaxTimbun)
-                                .max_timbun,
-                            ) ?? "—"}
-                          </div>
-                        </td>
-
-                        {/* CHECKOUT */}
-
-                        <td className="px-5 py-5">
-                          <CheckoutStatus
-                            checkedOut={
-                              recap.sudah_co
-                            }
-                          />
-                        </td>
-
-                      </tr>
-                    );
-                  },
+                        </tr>
+                      );
+                    },
+                  )
                 )}
               </tbody>
 
             </table>
           </div>
-        )}
 
-        {/* MOBILE */}
+          {/* MOBILE */}
 
-        {filteredRecaps.length >
-          0 && (
-          <div className="space-y-4 md:hidden">
+          {filteredRecaps.length >
+            0 && (
+            <div className="mt-4 space-y-4 md:hidden">
 
-            {filteredRecaps.map(
-              (recap) => {
-                return (
-                  <div
-                    key={
-                      recap.id
-                    }
-                    className={[
-                      "rounded-xl border border-gray-200 p-4 transition",
-                      recap.member_type === "hnr"
-                        ? "bg-gray-50 opacity-60"
-                        : "bg-white",
-                    ].join(" ")}
-                  >
-
-                    {/* COUNTRY */}
-
-                    <div className="flex items-center justify-between">
-
-                      <CountryDisplay
-                        country={
-                          recap.country
-                        }
-                      />
-
-                      <CheckoutStatus
-                        checkedOut={
-                          recap.sudah_co
-                        }
-                      />
-
-                    </div>
-
-                    {/* BATCH + IMAGE */}
-
-                    <div className="mt-4 flex gap-3">
-
-                      <ProductImage
-                        recap={
-                          recap
-                        }
-                        disabled={
-                          recap.member_type ===
+              {filteredRecaps.map(
+                (recap) => {
+                  return (
+                    <div
+                      key={
+                        recap.id
+                      }
+                      className={[
+                        "rounded-xl border border-gray-200 p-4 transition",
+                        recap.member_type ===
                           "hnr"
-                        }
-                        onPreview={(
-                          image,
-                          title,
-                        ) =>
-                          setPreview(
-                            {
-                              image,
-                              title,
-                            },
-                          )
-                        }
-                      />
+                          ? "bg-gray-50 opacity-60"
+                          : "bg-white",
+                      ].join(" ")}
+                    >
 
-                      <div className="min-w-0">
+                      {/* COUNTRY */}
 
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">
+                      <div className="flex items-center justify-between">
+
+                        <CountryDisplay
+                          country={
+                            recap.country
+                          }
+                        />
+
+                        <CheckoutStatus
+                          checkedOut={
+                            recap.sudah_co
+                          }
+                        />
+
+                      </div>
+
+                      {/* BATCH + IMAGE */}
+
+                      <div className="mt-4 flex gap-3">
+
+                        <ProductImage
+                          recap={
+                            recap
+                          }
+                          disabled={
+                            recap.member_type ===
+                            "hnr"
+                          }
+                          onPreview={(
+                            image,
+                            title,
+                          ) =>
+                            setPreview(
+                              {
+                                image,
+                                title,
+                              },
+                            )
+                          }
+                        />
+
+                        <div className="min-w-0">
+
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">
+                              {
+                                recap.batch_name
+                              }
+                            </h3>
+
+                            {recap.member_type ===
+                              "hnr" && (
+                              <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                HNR
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-1 text-sm text-gray-500">
                             {
-                              recap.batch_name
+                              recap.detail_barang
                             }
-                          </h3>
+                          </p>
 
-                          {recap.member_type === "hnr" && (
-                            <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
-                              HNR
+                          <div className="mt-2">
+                            <span className="inline-flex rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">
+                              {
+                                recap.status_barang ??
+                                "—"
+                              }
                             </span>
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                      {/* TOTAL */}
+
+                      <div className="mt-5 border-t border-gray-100 pt-4">
+
+                        <div className="text-xs text-gray-500">
+                          Total
+                        </div>
+
+                        <div className="mt-1 text-base font-bold text-gray-900">
+                          {formatCurrency(
+                            recap.total_harga,
                           )}
                         </div>
 
-                        <p className="mt-1 text-sm text-gray-500">
-                          {
-                            recap.detail_barang
-                          }
-                        </p>
-
                       </div>
 
-                    </div>
+                      {/* PAYMENT */}
 
-                    {/* TOTAL */}
+                      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                    <div className="mt-5 border-t border-gray-100 pt-4">
+                        <div>
 
-                      <div className="text-xs text-gray-500">
-                        Total
-                      </div>
+                          <div className="mb-1 text-xs font-medium text-gray-500">
+                            Down Payment
+                          </div>
 
-                      <div className="mt-1 text-base font-bold text-gray-900">
-                        {formatCurrency(
-                          recap.total_harga,
-                        )}
-                      </div>
+                          <PaymentInfo
+                            payment={
+                              recap.down_payment
+                            }
+                          />
 
-                    </div>
-
-                    {/* PAYMENT */}
-
-                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-                      <div>
-
-                        <div className="mb-1 text-xs font-medium text-gray-500">
-                          Down Payment
                         </div>
 
-                        <PaymentInfo
-                          payment={
-                            recap.down_payment
-                          }
-                        />
+                        <div>
 
-                      </div>
+                          <div className="mb-1 text-xs font-medium text-gray-500">
+                            Pelunasan
+                          </div>
 
-                      <div>
+                          <PaymentInfo
+                            payment={
+                              recap.pelunasan
+                            }
+                          />
 
-                        <div className="mb-1 text-xs font-medium text-gray-500">
-                          Pelunasan
                         </div>
 
-                        <PaymentInfo
-                          payment={
-                            recap.pelunasan
-                          }
-                        />
+                        <div>
 
-                      </div>
+                          <div className="mb-1 text-xs font-medium text-gray-500">
+                            Maksimal Timbun
+                          </div>
 
-                      <div>
+                          <div className="text-sm font-medium text-gray-800">
+                            {formatMaxTimbun(
+                              (
+                                recap as CustomerRecapWithMaxTimbun
+                              )
+                                .max_timbun,
+                            ) ??
+                              "—"}
+                          </div>
 
-                        <div className="mb-1 text-xs font-medium text-gray-500">
-                          Maksimal Timbun
-                        </div>
-
-                        <div className="text-sm font-medium text-gray-800">
-                          {formatMaxTimbun(
-                            (recap as CustomerRecapWithMaxTimbun)
-                              .max_timbun,
-                          ) ?? "—"}
                         </div>
 
                       </div>
 
                     </div>
+                  );
+                },
+              )}
 
-                  </div>
-                );
-              },
-            )}
+            </div>
+          )}
 
-          </div>
-        )}
-
+        </div>
       </div>
 
       {/* IMAGE PREVIEW MODAL */}

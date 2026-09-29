@@ -363,7 +363,7 @@ export default function TambahPengirimanDialog({
   const membersQuery = useQuery<Member[], Error>({
     queryKey: ["members"],
     queryFn: () => getMembers(),
-    enabled: open,
+    enabled: open && !isCustomer,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -573,10 +573,31 @@ export default function TambahPengirimanDialog({
       ],
     );
 
+  const customerMember = useMemo(() => {
+    if (!isCustomer) {
+      return null;
+    }
+
+    try {
+      const stored =
+        localStorage.getItem("customer_member");
+
+      if (!stored) {
+        return null;
+      }
+
+      return JSON.parse(stored) as Member;
+    } catch {
+      return null;
+    }
+  }, [isCustomer]);
+
   const selectedMemberFromMembers =
-    membersQuery.data?.find(
-      (member) => member.id === form.member_id,
-    );
+    isCustomer
+      ? customerMember
+      : membersQuery.data?.find(
+          (member) => member.id === form.member_id,
+        );
 
   const isHnrCustomer =
     selectedMemberFromMembers?.type === "hnr";

@@ -38,6 +38,7 @@ export type CustomerRecap = {
     | "employee"
     | "hnr";
   max_timbun: string | null;
+  status_barang: string | null;
   down_payment: CustomerPayment;
   pelunasan: CustomerPayment;
 };

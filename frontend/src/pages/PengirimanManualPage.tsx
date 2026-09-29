@@ -54,6 +54,11 @@ import {
   canAccessPermission,
 } from "@/utils/permissions";
 
+import {
+  getCustomerRecaps,
+  type CustomerRecap,
+} from "@/services/customerRecapService";
+
 /* =========================================
    CONSTANTS
 ========================================= */
@@ -378,6 +383,51 @@ export default function PengirimanManualPage({
 }: Props) {
   const queryClient =
     useQueryClient();
+
+  /* =======================================
+     CUSTOMER MEMBER STATUS
+  ======================================== */
+
+  const { data: customerRecaps = [] } =
+    useQuery<CustomerRecap[], Error>({
+      queryKey: ["customer", "recaps"],
+      queryFn: getCustomerRecaps,
+      enabled: isCustomer,
+      staleTime: 30_000,
+    });
+
+  function getCustomerMemberType(): string | null {
+    try {
+      const raw =
+        localStorage.getItem(
+          "customer_member",
+        );
+
+      if (!raw) {
+        return null;
+      }
+
+      const member =
+        JSON.parse(raw);
+
+      if (
+        typeof member?.type !==
+        "string"
+      ) {
+        return null;
+      }
+
+      return member.type
+        .trim()
+        .toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  const isHnr =
+    getCustomerMemberType() ===
+    "hnr";
 
   /* =======================================
      ACTIVE TAB
@@ -1070,7 +1120,7 @@ export default function PengirimanManualPage({
   ======================================== */
 
   function openAddShipment() {
-    if (!selectedBatch) {
+    if (!selectedBatch || isHnr) {
       return;
     }
 
@@ -1664,7 +1714,14 @@ export default function PengirimanManualPage({
 
   return (
     <div className="min-h-screen bg-[#f8faff] text-left">
-      <div className="w-full px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+      <div
+        className={[
+          "w-full px-4 py-5 sm:px-6 sm:py-8 lg:px-8 transition",
+          isHnr
+            ? "pointer-events-none opacity-50"
+            : "",
+        ].join(" ")}
+      >
         {/* =================================
             HEADER
         ================================== */}
@@ -1679,6 +1736,12 @@ export default function PengirimanManualPage({
               Kelola batch dan pengiriman
               barang yang sudah checkout.
             </p>
+
+            {isHnr && (
+              <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+                Status Member: HNR
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -2531,11 +2594,13 @@ export default function PengirimanManualPage({
                         onClick={
                           openAddShipment
                         }
+                        disabled={isHnr}
                         className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] ${
+                          isHnr ||
                           isBatchExpired ||
                           selectedBatch.status === "Selesai" ||
                           selectedBatch.status === "Dibatalkan"
-                            ? "invisible pointer-events-none"
+                            ? "cursor-not-allowed opacity-50"
                             : ""
                         }`}
                       >
@@ -2613,11 +2678,13 @@ export default function PengirimanManualPage({
                     <button
                       type="button"
                       onClick={openAddShipment}
+                      disabled={isHnr}
                       className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-3 text-sm font-medium text-white transition hover:bg-[#0d4be0] ${
+                        isHnr ||
                         isBatchExpired ||
                         selectedBatch.status === "Selesai" ||
                         selectedBatch.status === "Dibatalkan"
-                          ? "invisible pointer-events-none"
+                          ? "cursor-not-allowed opacity-50"
                           : ""
                       }`}
                     >

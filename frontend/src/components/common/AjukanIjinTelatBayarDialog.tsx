@@ -23,7 +23,6 @@ import {
 } from "@/services/latePaymentPermissionService";
 
 import {
-  getMembers,
   type Member,
 } from "@/services/memberService";
 
@@ -403,8 +402,13 @@ export default function AjukanIjinTelatBayarDialog({
         /*
          * Ambil dua sumber:
          *
-         * 1. Semua member + eligible items
+         * 1. Member + eligible items
          * 2. Semua permission
+         *
+         * Untuk customer, member sudah difilter
+         * oleh endpoint customer berdasarkan JWT.
+         * Untuk admin, endpoint yang sama mengembalikan
+         * daftar member yang relevan dengan rekapan.
          *
          * Permission dipakai untuk menentukan
          * member mana yang sedang blocked.
@@ -419,12 +423,10 @@ export default function AjukanIjinTelatBayarDialog({
         const [
           recapOptions,
           permissions,
-          allMembers,
         ] =
           await Promise.all([
             getLatePaymentRecapOptions(),
             getLatePaymentPermissions(),
-            getMembers(),
           ]);
 
         if (
@@ -442,32 +444,32 @@ export default function AjukanIjinTelatBayarDialog({
             recapOptions.members,
           )
             ? recapOptions.members.map(
-                (member) => {
-                  const memberData =
-                    allMembers.find(
-                      (item) =>
-                        item.id ===
-                        member.id,
-                    );
-
-                  return {
-                    ...member,
-                    type:
-                      memberData?.type ??
-                      "customer",
-                  };
-                },
+                (member) => ({
+                  ...member,
+                  type:
+                    member.type ??
+                    customerMember?.type ??
+                    "customer",
+                }),
               )
             : [];
 
         const customerMemberData =
           resolvedIsCustomer &&
           customerMember?.id
-            ? allMembers.find(
-                (member) =>
-                  member.id ===
+            ? {
+                id:
                   customerMember.id,
-              )
+                name:
+                  customerMember.name ??
+                  "",
+                phone:
+                  customerMember.phone ??
+                  "",
+                type:
+                  customerMember.type ??
+                  "customer",
+              }
             : null;
 
         const normalizedMembers =
@@ -479,16 +481,7 @@ export default function AjukanIjinTelatBayarDialog({
           )
             ? [
                 ...recapMembers,
-                {
-                  id:
-                    customerMemberData.id,
-                  name:
-                    customerMemberData.name,
-                  phone:
-                    customerMemberData.phone,
-                  type:
-                    customerMemberData.type,
-                },
+                customerMemberData,
               ]
             : recapMembers;
 

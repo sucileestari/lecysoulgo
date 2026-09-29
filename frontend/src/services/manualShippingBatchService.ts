@@ -79,18 +79,35 @@ type ApiResponse<T> =
 ========================================= */
 
 function getAuthToken(): string {
-  const token =
+  const customerToken =
+    localStorage.getItem(
+      "customer_token",
+    );
+
+  if (customerToken) {
+    return customerToken;
+  }
+
+  const adminToken =
     localStorage.getItem(
       "auth_token",
     );
 
-  if (!token) {
+  if (!adminToken) {
     throw new Error(
       "Token tidak ditemukan. Silakan login kembali.",
     );
   }
 
-  return token;
+  return adminToken;
+}
+
+function getManualShippingBatchPath(): string {
+  return localStorage.getItem(
+    "customer_token",
+  )
+    ? "/api/customer/manual-shipping-batches"
+    : "/api/manual-shipping-batches";
 }
 
 /* =========================================
@@ -211,6 +228,7 @@ async function parseResponse<T>(
 /**
  * GET
  * /api/manual-shipping-batches
+ * /api/customer/manual-shipping-batches
  */
 export async function getManualShippingBatches(): Promise<
   ManualShippingBatch[]
@@ -220,7 +238,7 @@ export async function getManualShippingBatches(): Promise<
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipping-batches`,
+      `${API_BASE_URL}${getManualShippingBatchPath()}`,
       {
         method: "GET",
 
@@ -246,6 +264,7 @@ export async function getManualShippingBatches(): Promise<
 /**
  * GET
  * /api/manual-shipping-batches/:id
+ * /api/customer/manual-shipping-batches/:id
  */
 export async function getManualShippingBatchById(
   id: string,
@@ -261,7 +280,7 @@ export async function getManualShippingBatchById(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipping-batches/${encodeURIComponent(
+      `${API_BASE_URL}${getManualShippingBatchPath()}/${encodeURIComponent(
         validId,
       )}`,
       {

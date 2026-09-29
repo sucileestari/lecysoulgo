@@ -242,18 +242,35 @@ type ApiResponse<T> =
 ========================================= */
 
 function getAuthToken(): string {
-  const token =
+  const customerToken =
+    localStorage.getItem(
+      "customer_token",
+    );
+
+  if (customerToken) {
+    return customerToken;
+  }
+
+  const adminToken =
     localStorage.getItem(
       "auth_token",
     );
 
-  if (!token) {
+  if (!adminToken) {
     throw new Error(
       "Token tidak ditemukan. Silakan login kembali.",
     );
   }
 
-  return token;
+  return adminToken;
+}
+
+function getManualShipmentPath(): string {
+  return localStorage.getItem(
+    "customer_token",
+  )
+    ? "/api/customer/manual-shipments"
+    : "/api/manual-shipments";
 }
 
 /* =========================================
@@ -325,7 +342,7 @@ export async function getManualShipmentsByBatch(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments?batch_id=${encodeURIComponent(
+      `${API_BASE_URL}${getManualShipmentPath()}?batch_id=${encodeURIComponent(
         batchId.trim(),
       )}`,
       {
@@ -368,7 +385,7 @@ export async function getManualShipmentById(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
+      `${API_BASE_URL}${getManualShipmentPath()}/${encodeURIComponent(
         id.trim(),
       )}`,
       {
@@ -415,7 +432,7 @@ export async function getManualShipmentOptions(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments/options${params}`,
+      `${API_BASE_URL}${getManualShipmentPath()}/options${params}`,
       {
         method: "GET",
 
@@ -522,7 +539,7 @@ export async function createManualShipment(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments`,
+      `${API_BASE_URL}${getManualShipmentPath()}`,
       {
         method: "POST",
 
@@ -613,7 +630,7 @@ export async function updateManualShipment(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
+      `${API_BASE_URL}${getManualShipmentPath()}/${encodeURIComponent(
         id.trim(),
       )}`,
       {
@@ -663,7 +680,7 @@ export async function deleteManualShipment(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/api/manual-shipments/${encodeURIComponent(
+      `${API_BASE_URL}${getManualShipmentPath()}/${encodeURIComponent(
         id.trim(),
       )}`,
       {

@@ -262,6 +262,39 @@ export default function PesananMarketplacePage() {
       5 * 60 * 1000,
   });
 
+  function getCustomerMemberType(): string | null {
+    try {
+      const raw =
+        localStorage.getItem(
+          "customer_member",
+        );
+
+      if (!raw) {
+        return null;
+      }
+
+      const member =
+        JSON.parse(raw);
+
+      if (
+        typeof member?.type !==
+        "string"
+      ) {
+        return null;
+      }
+
+      return member.type
+        .trim()
+        .toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  const isHnr =
+    getCustomerMemberType() ===
+    "hnr";
+
   const memberTypeMap =
     useMemo(() => {
       const map =
@@ -497,7 +530,14 @@ export default function PesananMarketplacePage() {
   ======================================== */
 
   return (
-    <div className="min-h-screen bg-[#f8faff] px-6 py-8 lg:px-8">
+    <div
+      className={[
+        "min-h-screen bg-[#f8faff] px-6 py-8 lg:px-8 transition",
+        isHnr
+          ? "pointer-events-none opacity-50"
+          : "",
+      ].join(" ")}
+    >
 
       {/* =================================
           HEADER
@@ -514,6 +554,12 @@ export default function PesananMarketplacePage() {
             Kelola pesanan barang dari
             Marketplace.
           </p>
+
+          {isHnr && (
+            <div className="mt-3 inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+              Status Member: HNR
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">

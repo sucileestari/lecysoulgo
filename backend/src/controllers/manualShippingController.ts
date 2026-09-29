@@ -17,6 +17,55 @@ import {
   type UpdateManualShipmentInput,
 } from "../services/manualShippingService.js";
 
+type CustomerRequest = Request & {
+  customer?: {
+    member_id?: string | null;
+    user_type?: string | null;
+  };
+};
+
+function getCustomerMemberId(
+  req: CustomerRequest,
+): string {
+  const memberId = req.customer?.member_id;
+
+  if (
+    typeof memberId !== "string" ||
+    !memberId.trim()
+  ) {
+    throw new Error(
+      "Member customer tidak ditemukan.",
+    );
+  }
+
+  return memberId.trim();
+}
+
+async function getCustomerShipmentOrThrow(
+  id: string,
+  memberId: string,
+) {
+  const data =
+    await getManualShipmentById(id);
+
+  const shipmentMemberId =
+    (
+      data as {
+        member_id?: string | null;
+      }
+    ).member_id;
+
+  if (
+    shipmentMemberId !== memberId
+  ) {
+    throw new Error(
+      "Data pengiriman tidak ditemukan.",
+    );
+  }
+
+  return data;
+}
+
 /* =========================================
    GET SHIPMENTS BY BATCH
 ========================================= */
@@ -76,8 +125,8 @@ export async function getManualShipmentByIdHandler(
 ) {
   try {
     const id = Array.isArray(req.params.id)
-  ? req.params.id[0]
-  : req.params.id;
+      ? req.params.id[0]
+      : req.params.id;
 
     if (
       !id ||
@@ -444,8 +493,8 @@ export async function updateManualShipmentHandler(
 ) {
   try {
     const id = Array.isArray(req.params.id)
-  ? req.params.id[0]
-  : req.params.id;
+      ? req.params.id[0]
+      : req.params.id;
 
     if (
       !id ||
@@ -734,8 +783,8 @@ export async function deleteManualShipmentHandler(
 ) {
   try {
     const id = Array.isArray(req.params.id)
-  ? req.params.id[0]
-  : req.params.id;
+      ? req.params.id[0]
+      : req.params.id;
 
     if (
       !id ||
@@ -773,6 +822,478 @@ export async function deleteManualShipmentHandler(
       "ID pengiriman wajib diisi."
     ) {
       return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+
+    if (
+      message ===
+      "Data pengiriman tidak ditemukan."
+    ) {
+      return res.status(404).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - GET SHIPMENTS BY BATCH
+========================================= */
+
+export async function listCustomerManualShipmentsHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const batchId =
+      req.query.batch_id;
+
+    if (
+      typeof batchId !== "string" ||
+      !batchId.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "batch_id wajib diisi.",
+      });
+    }
+
+    const data =
+      await getManualShipmentsByBatch(
+        batchId.trim(),
+      );
+
+    const customerData =
+      data.filter(
+        (item) =>
+          (
+            item as {
+              member_id?: string | null;
+            }
+          ).member_id === memberId,
+      );
+
+    return res.status(200).json({
+      success: true,
+      data: customerData,
+    });
+  } catch (error) {
+    console.error(
+      "listCustomerManualShipmentsHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil data pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - GET SHIPMENT BY ID
+========================================= */
+
+export async function getCustomerManualShipmentByIdHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const id = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    if (
+      !id ||
+      !id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pengiriman wajib diisi.",
+      });
+    }
+
+    const data =
+      await getCustomerShipmentOrThrow(
+        id.trim(),
+        memberId,
+      );
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "getCustomerManualShipmentByIdHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil data pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    if (
+      message ===
+      "Data pengiriman tidak ditemukan."
+    ) {
+      return res.status(404).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - GET OPTIONS
+========================================= */
+
+export async function getCustomerManualShipmentOptionsHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const batchId =
+      req.query.batch_id;
+
+    if (
+      batchId !== undefined &&
+      (
+        typeof batchId !== "string" ||
+        !batchId.trim()
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "batch_id tidak valid.",
+      });
+    }
+
+    const data =
+      await getManualShipmentOptions(
+        typeof batchId === "string"
+          ? batchId.trim()
+          : undefined,
+      );
+
+    const options =
+      data as {
+        members?: Array<Record<string, unknown>>;
+        items?: Array<Record<string, unknown>>;
+        [key: string]: unknown;
+      };
+
+    const members =
+      Array.isArray(options.members)
+        ? options.members.filter(
+            (member) => {
+              const memberOptionId =
+                typeof member.member_id ===
+                "string"
+                  ? member.member_id
+                  : typeof member.id ===
+                      "string"
+                    ? member.id
+                    : null;
+
+              return (
+                memberOptionId ===
+                memberId
+              );
+            },
+          )
+        : [];
+
+    const items =
+      Array.isArray(options.items)
+        ? options.items.filter(
+            (item) =>
+              item.member_id ===
+              memberId,
+          )
+        : [];
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...options,
+        members,
+        items,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "getCustomerManualShipmentOptionsHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil pilihan data pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - CREATE SHIPMENT
+========================================= */
+
+export async function createCustomerManualShipmentHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const originalBody =
+      req.body;
+
+    req.body = {
+      ...(originalBody ?? {}),
+      member_id: memberId,
+    };
+
+    try {
+      return await createManualShipmentHandler(
+        req,
+        res,
+      );
+    } finally {
+      req.body = originalBody;
+    }
+  } catch (error) {
+    console.error(
+      "createCustomerManualShipmentHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal menambahkan pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - UPDATE SHIPMENT
+========================================= */
+
+export async function updateCustomerManualShipmentHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const id = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    if (
+      !id ||
+      !id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pengiriman wajib diisi.",
+      });
+    }
+
+    await getCustomerShipmentOrThrow(
+      id.trim(),
+      memberId,
+    );
+
+    const originalBody =
+      req.body;
+
+    req.body = {
+      ...(originalBody ?? {}),
+      member_id: memberId,
+    };
+
+    try {
+      return await updateManualShipmentHandler(
+        req,
+        res,
+      );
+    } finally {
+      req.body = originalBody;
+    }
+  } catch (error) {
+    console.error(
+      "updateCustomerManualShipmentHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal memperbarui pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    if (
+      message ===
+      "Data pengiriman tidak ditemukan."
+    ) {
+      return res.status(404).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CUSTOMER - DELETE SHIPMENT
+========================================= */
+
+export async function deleteCustomerManualShipmentHandler(
+  req: CustomerRequest,
+  res: Response,
+) {
+  try {
+    const memberId =
+      getCustomerMemberId(req);
+
+    const id = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    if (
+      !id ||
+      !id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID pengiriman wajib diisi.",
+      });
+    }
+
+    await getCustomerShipmentOrThrow(
+      id.trim(),
+      memberId,
+    );
+
+    return await deleteManualShipmentHandler(
+      req,
+      res,
+    );
+  } catch (error) {
+    console.error(
+      "deleteCustomerManualShipmentHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal menghapus pengiriman.";
+
+    if (
+      message ===
+      "Member customer tidak ditemukan."
+    ) {
+      return res.status(401).json({
         success: false,
         message,
       });

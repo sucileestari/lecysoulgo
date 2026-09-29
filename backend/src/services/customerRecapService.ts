@@ -51,6 +51,8 @@ type CustomerRecap = {
 
   max_timbun: string | null;
 
+  status_barang: string | null;
+
   down_payment: {
     amount: number;
 
@@ -140,6 +142,14 @@ function getPaymentStatus(
  *
  * Tidak boleh menerima member_id
  * dari frontend.
+ *
+ * CATATAN:
+ * Semua recap dikembalikan oleh BE,
+ * termasuk recap dengan batch berstatus
+ * "Akan di Order".
+ *
+ * Filtering untuk tampilan dilakukan
+ * oleh masing-masing halaman di FE.
  */
 export async function getCustomerRecaps(
   memberId: string,
@@ -249,29 +259,38 @@ export async function getCustomerRecaps(
     );
   }
 
-  const visibleRecaps =
-    (recaps ?? []).filter((recap) => {
-      const batch =
-        Array.isArray(recap.batch)
-          ? recap.batch[0] ?? null
-          : recap.batch;
+  /*
+   * SEMUA RECAP DIKEMBALIKAN.
+   *
+   * Sebelumnya BE melakukan filter:
+   *
+   * batch.status !== "Akan di Order"
+   *
+   * Filter tersebut sengaja dihapus.
+   *
+   * FE sekarang bertanggung jawab menentukan
+   * recap mana yang ditampilkan pada halaman
+   * tertentu.
+   */
 
-      return (
-        batch?.status !==
-        "Akan di Order"
-      );
-    });
-
-  if (visibleRecaps.length === 0) {
-    return [];
-  }
+  const allRecaps =
+    recaps ?? [];
 
   /* -------------------------------------
      GET PAYMENTS
   ------------------------------------- */
 
+  /*
+   * Tidak ada recap.
+   *
+   * Tidak perlu melakukan query payments.
+   */
+  if (allRecaps.length === 0) {
+    return [];
+  }
+
   const recapIds =
-    visibleRecaps.map(
+    allRecaps.map(
       (recap) =>
         recap.id,
     );
@@ -345,7 +364,7 @@ export async function getCustomerRecaps(
   ------------------------------------- */
 
   return Promise.all(
-    visibleRecaps.map(
+    allRecaps.map(
       async (recap) => {
         const batch =
           Array.isArray(
@@ -384,6 +403,7 @@ export async function getCustomerRecaps(
             recap.id,
             "DP",
           ),
+
           calculateCurrentPaymentAmount(
             recap.id,
             "PELUNASAN",
@@ -456,7 +476,12 @@ export async function getCustomerRecaps(
               | "hnr",
 
           max_timbun:
-            recap.max_timbun ?? null,
+            recap.max_timbun ??
+            null,
+
+          status_barang:
+            batch?.status ??
+            null,
 
           down_payment: {
             amount:
