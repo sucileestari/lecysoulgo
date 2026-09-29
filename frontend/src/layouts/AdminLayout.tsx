@@ -4,6 +4,10 @@ import {
 } from "react";
 
 import {
+  useQueryClient,
+} from "@tanstack/react-query";
+
+import {
   NavLink,
   Outlet,
   useNavigate,
@@ -25,6 +29,7 @@ import {
   WalletCards,
   ShoppingBag,
   Banknote,
+  Home,
   Menu,
   X,
 } from "lucide-react";
@@ -239,6 +244,13 @@ const adminMenuItems: MenuItem[] = [
 const customerMenuItems: MenuItem[] = [
   {
     group: "General",
+    label: "Beranda",
+    path: "/customer/dashboard",
+    icon: Home,
+  },
+
+  {
+    group: "General",
     label: "Rules GO",
     path: "/rules-go",
     icon: FileText,
@@ -274,7 +286,7 @@ const customerMenuItems: MenuItem[] = [
 ];
 
 const customerRulesOnlyMenuItems: MenuItem[] = [
-  customerMenuItems[0],
+  customerMenuItems[1],
 ];
 
 /* =========================================
@@ -381,6 +393,9 @@ export default function AdminLayout({
 }) {
   const navigate =
     useNavigate();
+
+  const queryClient =
+    useQueryClient();
 
   /* =======================================
      MOBILE SIDEBAR STATE
@@ -492,6 +507,13 @@ export default function AdminLayout({
       localStorage.removeItem(
         "customer_rules_only",
       );
+
+      queryClient.removeQueries({
+        queryKey: [
+          "customer",
+          "dashboard",
+        ],
+      });
     }
 
     /*

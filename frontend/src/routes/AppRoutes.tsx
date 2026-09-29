@@ -21,6 +21,7 @@ import GajiKaryawanPage from "../pages/GajiKaryawanPage";
 import RekapanSaya from "../pages/RekapanSayaPage";
 import RolesPermissionPage from "../pages/RolesPermissionPage";
 import PesananMarketplacePage from "../pages/PesananMarketplacePage";
+import CustomerDashboardPage from "../pages/CustomerDashboardPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -318,6 +319,17 @@ export default function AppRoutes() {
           <Route
             path="/roles-permissions"
             element={<RolesPermissionPage />}
+          />
+
+          {/* =========================================
+              CUSTOMER - DASHBOARD
+
+              Tidak menggunakan permission admin
+          ========================================= */}
+
+          <Route
+            path="/customer/dashboard"
+            element={<CustomerDashboardPage />}
           />
 
           {/* =========================================
