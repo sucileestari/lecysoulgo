@@ -21,11 +21,6 @@ import {
   type LatePaymentPermission,
 } from "@/services/latePaymentPermissionService";
 
-import {
-  getCustomerRecaps,
-  type CustomerRecap,
-} from "@/services/customerRecapService";
-
 import AjukanIjinTelatBayarDialog from "@/components/common/AjukanIjinTelatBayarDialog";
 
 /* =========================================
@@ -150,20 +145,6 @@ export default function IjinTelatBayarPage() {
       refetchOnWindowFocus: true,
       refetchInterval: 60_000,
     });
-
-  const {
-    data: customerRecaps = [],
-  } = useQuery<
-    CustomerRecap[],
-    Error
-  >({
-    queryKey: [
-      "customer",
-      "recaps",
-    ],
-    queryFn:
-      getCustomerRecaps,
-  });
 
   /*
    * HNR CUSTOMER

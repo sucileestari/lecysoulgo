@@ -496,6 +496,69 @@ export default function PaymentDialog({
         currentPayment.payment_url,
       );
 
+      /* -------------------------------------
+         RECORD COPY HISTORY
+         Hanya untuk payment yang berasal
+         dari recap, setelah copy berhasil.
+      ------------------------------------- */
+
+      if (
+        !isManualShipment &&
+        currentPayment.recap_id
+      ) {
+        try {
+          const token =
+            getAuthToken();
+
+          const response =
+            await fetch(
+              buildApiUrl(
+                "/recaps/payment-link/copy-history",
+              ),
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  payment_id:
+                    currentPayment.id,
+                }),
+              },
+            );
+
+          const result =
+            (await response.json()) as {
+              success?: boolean;
+              message?: string;
+            };
+
+          if (
+            !response.ok ||
+            !result.success
+          ) {
+            console.error(
+              "Gagal mencatat history Copy Payment Link:",
+              result.message ??
+                "Unknown error",
+            );
+          }
+        } catch (historyError) {
+          /*
+           * Copy sudah berhasil, sehingga
+           * kegagalan audit history tidak
+           * boleh membuat Copy dianggap gagal.
+           */
+          console.error(
+            "record Copy Payment Link history error:",
+            historyError,
+          );
+        }
+      }
+
       setError("");
       setCopySuccess(true);
 

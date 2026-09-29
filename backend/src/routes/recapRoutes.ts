@@ -11,8 +11,11 @@ import {
 import {
   createRecapsHandler,
   deleteRecapHandler,
+  listRecapHistories,
+  listRecapHistoriesByCountry,
   listRecaps,
   markRecapAsCheckedOutHandler,
+  recordCopyPaymentLinkHistoryHandler,
 } from "../controllers/recapController.js";
 
 const router = Router();
@@ -23,6 +26,60 @@ const router = Router();
 
 router.use(
   authenticate,
+);
+
+/* =========================================
+   GET RECAP HISTORIES BY BATCH
+========================================= */
+
+/**
+ * GET /api/recaps/history?batch_id=UUID
+ *
+ * Mengambil seluruh riwayat rekapan
+ * berdasarkan batch.
+ */
+router.get(
+  "/history",
+  requirePermission(
+    "recaps.view",
+  ),
+  listRecapHistories,
+);
+
+/* =========================================
+   GET ALL RECAP HISTORIES BY COUNTRY
+========================================= */
+
+/**
+ * GET /api/recaps/history/country?country=china
+ *
+ * Mengambil seluruh riwayat rekapan
+ * berdasarkan country.
+ */
+router.get(
+  "/history/country",
+  requirePermission(
+    "recaps.view",
+  ),
+  listRecapHistoriesByCountry,
+);
+
+/* =========================================
+   RECORD COPY PAYMENT LINK HISTORY
+========================================= */
+
+/**
+ * POST /api/recaps/payment-link/copy-history
+ *
+ * Mencatat riwayat ketika admin berhasil
+ * menyalin Payment Link.
+ */
+router.post(
+  "/payment-link/copy-history",
+  requirePermission(
+    "recaps.view",
+  ),
+  recordCopyPaymentLinkHistoryHandler,
 );
 
 /* =========================================

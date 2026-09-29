@@ -54,6 +54,77 @@ export type Recap = {
 };
 
 /* =========================================
+   RECAP HISTORY TYPES
+========================================= */
+
+export type RecapHistoryAction =
+  | "CREATE"
+  | "DELETE"
+  | "GENERATE_PAYMENT_LINK"
+  | "COPY_PAYMENT_LINK"
+  | "SEND_WHATSAPP";
+
+export type RecapHistoryData = {
+  id?: string;
+
+  batch_id?: string;
+
+  member_id?: string;
+
+  detail_barang?: string;
+
+  qty?: number;
+
+  harga_barang?: number;
+
+  total_harga?: number;
+
+  persentase_dp?: number;
+
+  total_dp?: number;
+
+  sisa_pelunasan?: number;
+
+  sudah_co?: boolean;
+
+  max_timbun?: string | null;
+
+  public_token?: string;
+
+  created_at?: string;
+
+  updated_at?: string;
+
+  member?: Recap["member"];
+
+  [key: string]: unknown;
+};
+
+export type RecapHistory = {
+  id: string;
+
+  recap_id: string | null;
+
+  batch_id: string | null;
+
+  admin_id: string | null;
+
+  admin_name: string;
+
+  batch_name: string;
+
+  country: string;
+
+  action: RecapHistoryAction;
+
+  old_data: RecapHistoryData | null;
+
+  new_data: RecapHistoryData | null;
+
+  created_at: string;
+};
+
+/* =========================================
    CREATE INPUT
 ========================================= */
 
@@ -196,6 +267,118 @@ export async function getRecaps(
     throw new Error(
       result.message ||
         "Gagal mengambil data rekapan.",
+    );
+  }
+
+  return result.data;
+}
+
+/* =========================================
+   GET RECAP HISTORY BY BATCH
+========================================= */
+
+/**
+ * Mengambil seluruh history rekapan
+ * berdasarkan batch.
+ *
+ * GET:
+ * /api/recaps/history?batch_id=UUID
+ */
+export async function getRecapHistories(
+  batchId: string,
+): Promise<RecapHistory[]> {
+  if (!batchId.trim()) {
+    throw new Error(
+      "ID batch wajib diisi.",
+    );
+  }
+
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/recaps/history?batch_id=${encodeURIComponent(
+        batchId,
+      )}`,
+      {
+        method: "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<
+      RecapHistory[]
+    >(response);
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil riwayat rekapan.",
+    );
+  }
+
+  return result.data;
+}
+
+/* =========================================
+   GET ALL RECAP HISTORIES BY COUNTRY
+========================================= */
+
+/**
+ * Mengambil seluruh history rekapan
+ * berdasarkan country.
+ *
+ * GET:
+ * /api/recaps/history/country?country=china
+ */
+export async function getRecapHistoriesByCountry(
+  country: string,
+): Promise<RecapHistory[]> {
+  if (!country.trim()) {
+    throw new Error(
+      "Country wajib diisi.",
+    );
+  }
+
+  const token =
+    getAuthToken();
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/recaps/history/country?country=${encodeURIComponent(
+        country,
+      )}`,
+      {
+        method: "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
+        },
+      },
+    );
+
+  const result =
+    await parseResponse<
+      RecapHistory[]
+    >(response);
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil seluruh riwayat rekapan.",
     );
   }
 

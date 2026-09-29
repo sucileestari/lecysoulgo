@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 
+import { supabase } from "../config/supabase.js";
+
 import {
   createPayment,
   generatePaymentLink,
@@ -11,6 +13,8 @@ import {
 } from "../services/paymentService.js";
 
 import type { MidtransNotification } from "../services/midtransService.js";
+import type { Country } from "../services/batchService.js";
+import { recordRecapHistory } from "../services/recapHistoryService.js";
 
 /* =========================================
    GET PAYMENT SUMMARY
@@ -365,10 +369,121 @@ export async function generatePaymentLinkHandler(
       });
     }
 
+    const paymentId = idParam.trim();
+
     const data =
       await generatePaymentLink(
-        idParam.trim(),
+        paymentId,
       );
+
+    /* -------------------------------------
+       RECORD RECAP HISTORY
+       Hanya dicatat jika generate berhasil.
+       Manual shipment tidak ikut history recap.
+    ------------------------------------- */
+
+    const admin = req.user;
+
+    if (admin) {
+      try {
+        const {
+          data: paymentAudit,
+          error: paymentAuditError,
+        } = await supabase
+          .from("payments")
+          .select("id, recap_id, payment_type")
+          .eq("id", paymentId)
+          .maybeSingle();
+
+        if (paymentAuditError) {
+          throw new Error(
+            `Gagal mengambil data payment untuk history: ${paymentAuditError.message}`,
+          );
+        }
+
+        if (paymentAudit?.recap_id) {
+          const {
+            data: recapAudit,
+            error: recapAuditError,
+          } = await supabase
+            .from("recaps")
+            .select(`
+              batch_id,
+              detail_barang,
+              qty,
+              harga_barang,
+              total_harga,
+              persentase_dp,
+              total_dp,
+              sisa_pelunasan,
+              batch:batches (
+                name,
+                country
+              ),
+              member:members (
+                name,
+                phone
+              )
+            `)
+            .eq("id", paymentAudit.recap_id)
+            .maybeSingle();
+
+          if (recapAuditError) {
+            throw new Error(
+              `Gagal mengambil data rekapan untuk history: ${recapAuditError.message}`,
+            );
+          }
+
+          if (recapAudit) {
+            const batch =
+              Array.isArray(recapAudit.batch)
+                ? recapAudit.batch[0]
+                : recapAudit.batch;
+
+            const member =
+              Array.isArray(recapAudit.member)
+                ? recapAudit.member[0]
+                : recapAudit.member;
+
+            if (
+              batch &&
+              typeof batch.name === "string" &&
+              batch.name.trim() &&
+              typeof batch.country === "string"
+            ) {
+              await recordRecapHistory({
+                recapId: paymentAudit.recap_id,
+                batchId: recapAudit.batch_id ?? null,
+                batchName: batch.name.trim(),
+                country: batch.country as Country,
+                action: "GENERATE_PAYMENT_LINK",
+                oldData: null,
+                newData: {
+                  payment_id: paymentAudit.id,
+                  payment_type:
+                    paymentAudit.payment_type ?? null,
+                  member_name:
+                    typeof member?.name === "string"
+                      ? member.name
+                      : null,
+                  member_phone:
+                    typeof member?.phone === "string"
+                      ? member.phone
+                      : null,
+                },
+                adminId: admin.id,
+                adminName: admin.name,
+              });
+            }
+          }
+        }
+      } catch (historyError) {
+        console.error(
+          "Gagal mencatat history Generate Payment Link:",
+          historyError,
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,

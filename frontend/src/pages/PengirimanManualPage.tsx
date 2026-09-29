@@ -54,11 +54,6 @@ import {
   canAccessPermission,
 } from "@/utils/permissions";
 
-import {
-  getCustomerRecaps,
-  type CustomerRecap,
-} from "@/services/customerRecapService";
-
 /* =========================================
    CONSTANTS
 ========================================= */
@@ -383,18 +378,6 @@ export default function PengirimanManualPage({
 }: Props) {
   const queryClient =
     useQueryClient();
-
-  /* =======================================
-     CUSTOMER MEMBER STATUS
-  ======================================== */
-
-  const { data: customerRecaps = [] } =
-    useQuery<CustomerRecap[], Error>({
-      queryKey: ["customer", "recaps"],
-      queryFn: getCustomerRecaps,
-      enabled: isCustomer,
-      staleTime: 30_000,
-    });
 
   function getCustomerMemberType(): string | null {
     try {

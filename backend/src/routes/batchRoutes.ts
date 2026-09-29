@@ -12,6 +12,8 @@ import {
 import {
   createBatchHandler,
   deleteBatchHandler,
+  getBatchHistoryHandler,
+  listBatchHistories,
   listBatches,
   showBatch,
   updateBatchHandler,
@@ -101,6 +103,25 @@ router.get(
 );
 
 /* =========================================
+   GET ALL BATCH HISTORIES
+========================================= */
+
+/**
+ * GET /api/batches/history?country=china
+ *
+ * Mengambil seluruh riwayat perubahan batch
+ * berdasarkan negara.
+ *
+ * Tidak menggunakan permission khusus
+ * karena permission history belum
+ * terdaftar di database.
+ */
+router.get(
+  "/history",
+  listBatchHistories,
+);
+
+/* =========================================
    GET BATCH BY ID
 ========================================= */
 
@@ -116,6 +137,25 @@ router.get(
 router.get(
   "/:id",
   showBatch,
+);
+
+/* =========================================
+   GET BATCH HISTORY BY ID
+========================================= */
+
+/**
+ * GET /api/batches/:id/history
+ *
+ * Mengambil seluruh riwayat perubahan
+ * untuk satu batch.
+ *
+ * Tidak menggunakan permission khusus
+ * karena permission history belum
+ * terdaftar di database.
+ */
+router.get(
+  "/:id/history",
+  getBatchHistoryHandler,
 );
 
 /* =========================================

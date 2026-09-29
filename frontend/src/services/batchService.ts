@@ -69,6 +69,71 @@ export type Batch = {
 };
 
 /* =========================================
+   BATCH HISTORY TYPES
+========================================= */
+
+export type BatchHistoryAction =
+  | "CREATE"
+  | "EDIT"
+  | "DELETE";
+
+export type BatchHistoryData = {
+  id?: string;
+
+  country?: Country;
+
+  name?: string;
+
+  type?: string;
+
+  last_payment_dp?: string;
+
+  last_payment_pelunasan?:
+    | string
+    | null;
+
+  status?: BatchStatus;
+
+  image_path?: string | null;
+
+  admin_nyelem_id?: string | null;
+
+  admin_rekap_id?: string | null;
+
+  image_url?: string | null;
+
+  total_order?: number;
+
+  created_at?: string;
+
+  updated_at?: string;
+
+  [key: string]: unknown;
+};
+
+export type BatchHistory = {
+  id: string;
+
+  batch_id: string | null;
+
+  admin_id: string | null;
+
+  admin_name: string;
+
+  batch_name: string;
+
+  country: Country;
+
+  action: BatchHistoryAction;
+
+  old_data: BatchHistoryData | null;
+
+  new_data: BatchHistoryData | null;
+
+  created_at: string;
+};
+
+/* =========================================
    CREATE BATCH INPUT
 ========================================= */
 
@@ -221,6 +286,100 @@ export async function getBatches(
     throw new Error(
       result.message ||
         "Gagal mengambil data batch",
+    );
+  }
+
+  return result.data;
+}
+
+/* =========================================
+   GET BATCH HISTORY BY ID
+========================================= */
+
+/**
+ * GET /api/batches/:id/history
+ *
+ * Mengambil seluruh riwayat
+ * perubahan untuk satu batch.
+ */
+export async function getBatchHistory(
+  id: string,
+): Promise<BatchHistory[]> {
+  if (!id.trim()) {
+    throw new Error(
+      "ID batch wajib diisi",
+    );
+  }
+
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/batches/${encodeURIComponent(
+      id,
+    )}/history`,
+    {
+      method: "GET",
+
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const result =
+    await parseResponse<BatchHistory[]>(
+      response,
+    );
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil riwayat batch",
+    );
+  }
+
+  return result.data;
+}
+
+/* =========================================
+   GET ALL BATCH HISTORIES
+========================================= */
+
+/**
+ * GET /api/batches/history?country=china
+ *
+ * Mengambil seluruh riwayat perubahan
+ * batch berdasarkan country.
+ */
+export async function getBatchHistories(
+  country: Country,
+): Promise<BatchHistory[]> {
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/batches/history?country=${encodeURIComponent(
+      country,
+    )}`,
+    {
+      method: "GET",
+
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const result =
+    await parseResponse<BatchHistory[]>(
+      response,
+    );
+
+  if (!result.success) {
+    throw new Error(
+      result.message ||
+        "Gagal mengambil riwayat batch",
     );
   }
 

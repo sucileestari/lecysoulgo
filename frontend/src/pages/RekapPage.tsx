@@ -13,6 +13,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  History,
   Pencil,
   Plus,
   Search,
@@ -31,14 +32,20 @@ import PaymentDialog from "../components/common/PaymentDialog";
 
 import {
   getBatches,
+  getBatchHistories,
+  getBatchHistory,
   type Batch,
+  type BatchHistory,
   type Country,
 } from "@/services/batchService";
 
 import {
   getRecaps,
+  getRecapHistories,
+  getRecapHistoriesByCountry,
   markRecapAsCheckedOut,
   type Recap,
+  type RecapHistory,
 } from "@/services/recapService";
 
 import {
@@ -244,6 +251,136 @@ function formatPaymentDate(
 }
 
 /* =========================================
+   BATCH HISTORY HELPERS
+========================================= */
+
+const HISTORY_FIELD_LABELS: Record<
+  string,
+  string
+> = {
+  name: "Nama Batch",
+  type: "Jenis Barang",
+  last_payment_dp:
+    "Tanggal Last Payment DP",
+  last_payment_pelunasan:
+    "Tanggal Last Payment Pelunasan",
+  status: "Status",
+  admin_nyelem_id:
+    "Admin Nyelem",
+  admin_rekap_id:
+    "Admin Rekap",
+  image_path:
+    "Gambar Batch",
+};
+
+const HISTORY_FIELDS = [
+  "name",
+  "type",
+  "last_payment_dp",
+  "last_payment_pelunasan",
+  "status",
+  "admin_nyelem_id",
+  "admin_rekap_id",
+  "image_path",
+];
+
+function getHistoryActionLabel(
+  action: BatchHistory["action"],
+): string {
+  switch (action) {
+    case "CREATE":
+      return "Dibuat";
+
+    case "EDIT":
+      return "Diubah";
+
+    case "DELETE":
+      return "Dihapus";
+
+    default:
+      return action;
+  }
+}
+
+function getHistoryActionClassName(
+  action:
+    | BatchHistory["action"]
+    | RecapHistory["action"],
+): string {
+  switch (action) {
+    case "CREATE":
+      return "bg-emerald-50 text-emerald-600 border-emerald-200";
+
+    case "EDIT":
+      return "bg-blue-50 text-blue-600 border-blue-200";
+
+    case "DELETE":
+      return "bg-red-50 text-red-600 border-red-200";
+
+    case "GENERATE_PAYMENT_LINK":
+      return "bg-blue-50 text-blue-600 border-blue-200";
+
+    case "COPY_PAYMENT_LINK":
+      return "bg-violet-50 text-violet-600 border-violet-200";
+
+    case "SEND_WHATSAPP":
+      return "bg-emerald-50 text-emerald-600 border-emerald-200";
+
+    default:
+      return "bg-slate-50 text-slate-600 border-slate-200";
+  }
+}
+
+function getRecapHistoryActionLabel(
+  action: RecapHistory["action"],
+): string {
+  switch (action) {
+    case "CREATE":
+      return "Rekapan Ditambahkan";
+
+    case "DELETE":
+      return "Rekapan Dihapus";
+
+    case "GENERATE_PAYMENT_LINK":
+      return "Generate Payment Link";
+
+    case "COPY_PAYMENT_LINK":
+      return "Copy Payment Link";
+
+    case "SEND_WHATSAPP":
+      return "Kirim WhatsApp";
+
+    default:
+      return action;
+  }
+}
+
+function getRecapHistoryActionDescription(
+  action: RecapHistory["action"],
+): string {
+  switch (action) {
+    case "CREATE":
+      return "Menambahkan rekapan baru.";
+
+    case "DELETE":
+      return "Menghapus rekapan ini.";
+
+    case "GENERATE_PAYMENT_LINK":
+      return "Membuat Payment Link untuk pembayaran.";
+
+    case "COPY_PAYMENT_LINK":
+      return "Menyalin Payment Link.";
+
+    case "SEND_WHATSAPP":
+      return "Mengirim Payment Link melalui WhatsApp.";
+
+    default:
+      return "Aktivitas rekapan.";
+  }
+}
+
+
+/* =========================================
    PAGE
 ========================================= */
 
@@ -321,6 +458,24 @@ export default function RekapPage({
   const [
     selectedDeleteBatch,
     setSelectedDeleteBatch,
+  ] =
+    useState<Batch | null>(
+      null,
+    );
+
+  /* =======================================
+     BATCH HISTORY
+  ======================================= */
+
+  const [
+    isHistoryDialogOpen,
+    setIsHistoryDialogOpen,
+  ] =
+    useState(false);
+
+  const [
+    selectedHistoryBatch,
+    setSelectedHistoryBatch,
   ] =
     useState<Batch | null>(
       null,
@@ -490,6 +645,380 @@ const [
   };
 
   /* =======================================
+     GET BATCH HISTORY
+  ======================================= */
+
+  const {
+    data: batchHistories = [],
+    isLoading:
+      isLoadingBatchHistories,
+    isError:
+      isBatchHistoryError,
+    error:
+      batchHistoryError,
+  } =
+    useQuery<
+      BatchHistory[],
+      Error
+    >({
+      queryKey: [
+        "batch-histories",
+        country,
+        selectedHistoryBatch?.id ??
+          "all",
+      ],
+
+      queryFn: () =>
+        selectedHistoryBatch
+          ? getBatchHistory(
+              selectedHistoryBatch.id,
+            )
+          : getBatchHistories(
+              country,
+            ),
+
+      enabled:
+        isHistoryDialogOpen,
+
+      staleTime: 0,
+
+      refetchOnWindowFocus: true,
+    });
+
+  /* =======================================
+     GET RECAP HISTORY
+  ======================================= */
+
+  const {
+    data: recapHistories = [],
+    isLoading:
+      isLoadingRecapHistories,
+    isError:
+      isRecapHistoryError,
+    error:
+      recapHistoryError,
+  } =
+    useQuery<
+      RecapHistory[],
+      Error
+    >({
+      queryKey: [
+        "recap-histories",
+        country,
+        selectedHistoryBatch?.id ??
+          "all",
+      ],
+
+      queryFn: () =>
+        selectedHistoryBatch
+          ? getRecapHistories(
+              selectedHistoryBatch.id,
+            )
+          : getRecapHistoriesByCountry(
+              country,
+            ),
+
+      enabled:
+        isHistoryDialogOpen,
+
+      staleTime: 0,
+
+      refetchOnWindowFocus: true,
+    });
+
+  const isLoadingHistory =
+    isLoadingBatchHistories ||
+    isLoadingRecapHistories;
+
+  const isHistoryError =
+    isBatchHistoryError ||
+    isRecapHistoryError;
+
+  const historyError =
+    batchHistoryError ??
+    recapHistoryError ??
+    null;
+
+  type CombinedHistory =
+    | {
+        type: "batch";
+        history: BatchHistory;
+      }
+    | {
+        type: "recap";
+        history: RecapHistory;
+      };
+
+  const combinedHistories =
+    useMemo<CombinedHistory[]>(() => {
+      return [
+        ...batchHistories.map(
+          (history) => ({
+            type: "batch" as const,
+            history,
+          }),
+        ),
+        ...recapHistories.map(
+          (history) => ({
+            type: "recap" as const,
+            history,
+          }),
+        ),
+      ].sort(
+        (a, b) =>
+          new Date(
+            b.history.created_at,
+          ).getTime() -
+          new Date(
+            a.history.created_at,
+          ).getTime(),
+      );
+    }, [
+      batchHistories,
+      recapHistories,
+    ]);
+
+  /* =======================================
+     HISTORY VALUE FORMAT
+  ======================================= */
+
+  const getHistoryValue = (
+    field: string,
+    value: unknown,
+  ): string => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return "—";
+    }
+
+    if (
+      field ===
+        "last_payment_dp" ||
+      field ===
+        "last_payment_pelunasan"
+    ) {
+      return formatDate(
+        String(value),
+      );
+    }
+
+    if (
+      field ===
+        "admin_nyelem_id" ||
+      field ===
+        "admin_rekap_id"
+    ) {
+      return getMemberName(
+        String(value),
+      );
+    }
+
+    if (field === "image_path") {
+      return "Gambar tersedia";
+    }
+
+    return String(value);
+  };
+
+  const getHistoryChanges = (
+    history: BatchHistory,
+  ) => {
+    if (
+      history.action !== "EDIT" ||
+      !history.old_data ||
+      !history.new_data
+    ) {
+      return [];
+    }
+
+    return HISTORY_FIELDS
+      .filter((field) => {
+        return (
+          JSON.stringify(
+            history.old_data?.[field],
+          ) !==
+          JSON.stringify(
+            history.new_data?.[field],
+          )
+        );
+      })
+      .map((field) => ({
+        field,
+        label:
+          HISTORY_FIELD_LABELS[
+            field
+          ] ?? field,
+        oldValue:
+          getHistoryValue(
+            field,
+            history.old_data?.[
+              field
+            ],
+          ),
+        newValue:
+          getHistoryValue(
+            field,
+            history.new_data?.[
+              field
+            ],
+          ),
+      }));
+  };
+
+  const getHistoryImageUrl = (
+    data:
+      | BatchHistory["old_data"]
+      | BatchHistory["new_data"],
+  ): string | null => {
+    if (!data) {
+      return null;
+    }
+
+    const imageUrl =
+      data["image_url"];
+
+    return typeof imageUrl ===
+      "string" &&
+      imageUrl.trim()
+      ? imageUrl
+      : null;
+  };
+
+  const getRecapHistoryData = (
+    history: RecapHistory,
+  ) => {
+    return (
+      history.new_data ??
+      history.old_data ??
+      null
+    );
+  };
+
+  const getRecapHistoryMemberName = (
+    history: RecapHistory,
+  ) => {
+    const data =
+      getRecapHistoryData(
+        history,
+      );
+
+    return (
+      data?.member?.name ??
+      getMemberName(
+        data?.member_id,
+      )
+    );
+  };
+
+  const getRecapHistorySummary = (
+    history: RecapHistory,
+  ) => {
+    const data =
+      getRecapHistoryData(
+        history,
+      );
+
+    return {
+      memberName:
+        getRecapHistoryMemberName(
+          history,
+        ),
+      detailBarang:
+        data?.detail_barang ??
+        "—",
+      qty:
+        data?.qty ??
+        "—",
+      hargaBarang:
+        data?.harga_barang !==
+        undefined
+          ? formatRupiah(
+              Number(
+                data.harga_barang,
+              ),
+            )
+          : "—",
+      totalHarga:
+        data?.total_harga !==
+        undefined
+          ? formatRupiah(
+              Number(
+                data.total_harga,
+              ),
+            )
+          : "—",
+      persentaseDp:
+        data?.persentase_dp !==
+        undefined
+          ? `${data.persentase_dp}%`
+          : "—",
+      totalDp:
+        data?.total_dp !==
+        undefined
+          ? formatRupiah(
+              Number(
+                data.total_dp,
+              ),
+            )
+          : "—",
+      sisaPelunasan:
+        data?.sisa_pelunasan !==
+        undefined
+          ? formatRupiah(
+              Number(
+                data.sisa_pelunasan,
+              ),
+            )
+          : "—",
+    };
+  };
+
+  const getRecapPaymentHistorySummary = (
+    history: RecapHistory,
+  ) => {
+    const data =
+      getRecapHistoryData(history);
+
+    const paymentType =
+      String(
+        data?.payment_type ?? "",
+      )
+        .toUpperCase()
+        .trim();
+
+    const memberName =
+      typeof data?.member_name === "string"
+        ? data.member_name
+        : typeof data?.member?.name === "string"
+          ? data.member.name
+          : getRecapHistoryMemberName(
+              history,
+            );
+
+    const memberPhone =
+      typeof data?.member_phone === "string"
+        ? data.member_phone
+        : typeof data?.member?.phone === "string"
+          ? data.member.phone
+          : "—";
+
+    return {
+      memberName,
+      memberPhone,
+      paymentType:
+        paymentType === "DP"
+          ? "DP"
+          : paymentType ===
+              "PELUNASAN"
+            ? "Pelunasan"
+            : "—",
+    };
+  };
+
+  /* =======================================
      RESET SAAT PINDAH NEGARA
   ======================================= */
 
@@ -511,6 +1040,14 @@ const [
     );
 
     setSelectedDeleteBatch(
+      null,
+    );
+
+    setIsHistoryDialogOpen(
+      false,
+    );
+
+    setSelectedHistoryBatch(
       null,
     );
 
@@ -821,6 +1358,15 @@ const [
         },
       );
 
+      await queryClient.invalidateQueries(
+        {
+          queryKey: [
+            "batch-histories",
+            country,
+          ],
+        },
+      );
+
       await refetch();
 
       setActiveTab("all");
@@ -870,6 +1416,15 @@ const handleEditBatchFromList = (
         {
           queryKey: [
             "batches",
+            country,
+          ],
+        },
+      );
+
+      await queryClient.invalidateQueries(
+        {
+          queryKey: [
+            "batch-histories",
             country,
           ],
         },
@@ -927,7 +1482,54 @@ const handleEditBatchFromList = (
         },
       );
 
+      await queryClient.invalidateQueries(
+        {
+          queryKey: [
+            "batch-histories",
+            country,
+          ],
+        },
+      );
+
       await refetch();
+    };
+
+  /* =======================================
+     BATCH HISTORY
+  ======================================= */
+
+  const handleOpenAllBatchHistory =
+    () => {
+      setSelectedHistoryBatch(
+        null,
+      );
+
+      setIsHistoryDialogOpen(
+        true,
+      );
+    };
+
+  const handleOpenBatchHistory = (
+    batch: Batch,
+  ) => {
+    setSelectedHistoryBatch(
+      batch,
+    );
+
+    setIsHistoryDialogOpen(
+      true,
+    );
+  };
+
+  const handleCloseBatchHistory =
+    () => {
+      setIsHistoryDialogOpen(
+        false,
+      );
+
+      setSelectedHistoryBatch(
+        null,
+      );
     };
 
   /* =======================================
@@ -995,6 +1597,15 @@ const handleEditBatchFromList = (
         },
       );
 
+      await queryClient.invalidateQueries(
+        {
+          queryKey: [
+            "recap-histories",
+            country,
+          ],
+        },
+      );
+
       await refetch();
     };
 
@@ -1040,6 +1651,15 @@ const handleEditBatchFromList = (
         {
           queryKey: [
             "batches",
+            country,
+          ],
+        },
+      );
+
+      await queryClient.invalidateQueries(
+        {
+          queryKey: [
+            "recap-histories",
             country,
           ],
         },
@@ -1367,6 +1987,20 @@ const handlePaymentSuccess =
               />
 
             </div>
+
+            {/* Riwayat */}
+
+            <button
+              type="button"
+              onClick={
+                handleOpenAllBatchHistory
+              }
+              className="flex h-12 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#50628e] shadow-sm transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+            >
+              <History className="h-5 w-5" />
+
+              Riwayat
+            </button>
 
             {/* Tambah Batch */}
 
@@ -1784,6 +2418,24 @@ const handlePaymentSuccess =
 
                             <div className="flex items-center justify-center gap-2">
 
+                              <button
+                                type="button"
+                                onClick={(
+                                  event,
+                                ) => {
+                                  event.stopPropagation();
+
+                                  handleOpenBatchHistory(
+                                    batch,
+                                  );
+                                }}
+                                aria-label={`Lihat riwayat ${batch.name}`}
+                                title="Lihat riwayat batch"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                              >
+                                <History className="h-4 w-4" />
+                              </button>
+
                               {batch.status !== "Sudah sampai di Admin" && (
                                 <>
                                   {canAccessPermission("batches.edit") && (
@@ -2087,10 +2739,29 @@ const handlePaymentSuccess =
                   </div>
 
                   {/* ACTIONS */}
-                  {batch.status !== "Sudah sampai di Admin" && (
-                    <div className="mt-4 flex justify-end gap-2 border-t border-[#edf0f6] pt-4">
+                  <div className="mt-4 flex justify-end gap-2 border-t border-[#edf0f6] pt-4">
 
-                      {canAccessPermission("batches.edit") && (
+                    <button
+                      type="button"
+                      onClick={(
+                        event,
+                      ) => {
+                        event.stopPropagation();
+
+                        handleOpenBatchHistory(
+                          batch,
+                        );
+                      }}
+                      aria-label={`Lihat riwayat ${batch.name}`}
+                      title="Lihat riwayat batch"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                    >
+                      <History className="h-4 w-4" />
+                    </button>
+
+                    {batch.status !== "Sudah sampai di Admin" && (
+                      <>
+                        {canAccessPermission("batches.edit") && (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -2105,23 +2776,23 @@ const handlePaymentSuccess =
                         </button>
                       )}
 
-                      {canAccessPermission("batches.delete") && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDeleteBatchFromList(batch);
-                          }}
-                          aria-label={`Hapus ${batch.name}`}
-                          title="Hapus batch"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-
-                    </div>
-                  )}
+                        {canAccessPermission("batches.delete") && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteBatchFromList(batch);
+                            }}
+                            aria-label={`Hapus ${batch.name}`}
+                            title="Hapus batch"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
 
                 </article>
               ))}
@@ -2249,7 +2920,23 @@ const handlePaymentSuccess =
                     {/* Actions */}
 
                     {activeBatch.status !== "Sudah sampai di Admin" && (
-                      <div className="flex shrink-0 items-center justify-end gap-3">
+                      <div className="flex w-full items-center justify-stretch gap-2 lg:w-auto lg:shrink-0 lg:justify-end">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenBatchHistory(
+                              activeBatch,
+                            )
+                          }
+                          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm font-medium text-[#50628e] transition hover:bg-[#f5f8ff] hover:text-[#1457ff] lg:flex-none lg:px-5"
+                        >
+
+                          <History className="h-4 w-4" />
+
+                          Riwayat
+
+                        </button>
 
                         {canAccessPermission("batches.edit") && (
                           <button
@@ -2257,7 +2944,7 @@ const handlePaymentSuccess =
                             onClick={
                               handleEditBatch
                             }
-                            className="flex h-11 items-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-5 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff]"
+                            className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#d9e0ef] bg-white px-3 text-sm font-medium text-[#1457ff] transition hover:bg-[#f5f8ff] lg:flex-none lg:px-5"
                           >
 
                             <Pencil className="h-4 w-4" />
@@ -2273,7 +2960,7 @@ const handlePaymentSuccess =
                             onClick={
                               handleAddRecap
                             }
-                            className="flex h-11 items-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0]"
+                            className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-3 text-sm font-medium text-white transition hover:bg-[#0d4be0] lg:flex-none lg:px-5"
                           >
 
                             <Plus className="h-4 w-4" />
@@ -3963,6 +4650,522 @@ const handlePaymentSuccess =
         />
 
       </div>
+
+      {/* ===================================
+          HISTORY
+      ==================================== */}
+
+      {isHistoryDialogOpen && (
+        <div
+          className="fixed inset-0 z-[110] flex justify-end bg-black/30"
+          onClick={
+            handleCloseBatchHistory
+          }
+        >
+          <div
+            className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            {/* HEADER */}
+
+            <div className="flex items-start justify-between border-b border-[#edf0f6] px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-[#10245c]">
+                  {selectedHistoryBatch
+                    ? `Riwayat - ${selectedHistoryBatch.name}`
+                    : `Riwayat - ${config.name}`}
+                </h2>
+
+                <p className="mt-1 text-sm text-[#7a89ad]">
+                  {selectedHistoryBatch
+                    ? "Seluruh aktivitas batch dan rekapan pada batch ini."
+                    : "Seluruh aktivitas batch dan rekapan untuk negara ini."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  handleCloseBatchHistory
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d9e0ef] text-[#50628e] transition hover:bg-[#f8faff] hover:text-[#1457ff]"
+                aria-label="Tutup riwayat"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* CONTENT */}
+
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              {isLoadingHistory && (
+                <div className="flex min-h-[240px] items-center justify-center">
+                  <p className="text-sm text-[#7a89ad]">
+                    Memuat riwayat...
+                  </p>
+                </div>
+              )}
+
+              {isHistoryError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+                  <p className="text-sm font-medium text-red-600">
+                    Gagal mengambil riwayat.
+                  </p>
+
+                  <p className="mt-1 text-xs text-red-500">
+                    {historyError?.message}
+                  </p>
+                </div>
+              )}
+
+              {!isLoadingHistory &&
+                !isHistoryError &&
+                combinedHistories.length ===
+                  0 && (
+                  <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed border-[#d9e0ef] bg-[#f8faff] px-6 text-center">
+                    <div>
+                      <History className="mx-auto h-8 w-8 text-[#8a96b4]" />
+
+                      <p className="mt-3 text-sm font-medium text-[#20366f]">
+                        Belum ada riwayat.
+                      </p>
+
+                      <p className="mt-1 text-xs text-[#7a89ad]">
+                        Perubahan batch dan rekapan akan muncul di sini.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+              {!isLoadingHistory &&
+                !isHistoryError &&
+                combinedHistories.length >
+                  0 && (
+                  <div className="space-y-4">
+                    {combinedHistories.map(
+                      (item) => {
+                        if (item.type === "batch") {
+                          const history =
+                            item.history;
+                          const changes =
+                            getHistoryChanges(
+                              history,
+                            );
+
+                          return (
+                            <div
+                              key={`batch-${history.id}`}
+                              className="rounded-xl border border-[#edf0f6] bg-white p-5 shadow-sm"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={[
+                                        "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                                        getHistoryActionClassName(
+                                          history.action,
+                                        ),
+                                      ].join(
+                                        " ",
+                                      )}
+                                    >
+                                      {getHistoryActionLabel(
+                                        history.action,
+                                      )}
+                                    </span>
+
+                                    <span className="text-xs text-[#7a89ad]">
+                                      {formatPaymentDate(
+                                        history.created_at,
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  {!selectedHistoryBatch && (
+                                    <p className="mt-3 text-sm font-semibold text-[#20366f]">
+                                      {history.batch_name}
+                                    </p>
+                                  )}
+
+                                  <p className="mt-1 text-xs text-[#7a89ad]">
+                                    Admin:{" "}
+                                    <span className="font-medium text-[#50628e]">
+                                      {history.admin_name}
+                                    </span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {history.action ===
+                                "CREATE" && (
+                                <p className="mt-4 text-sm text-[#50628e]">
+                                  Membuat batch baru.
+                                </p>
+                              )}
+
+                              {history.action ===
+                                "DELETE" && (
+                                <p className="mt-4 text-sm text-[#50628e]">
+                                  Menghapus batch ini.
+                                </p>
+                              )}
+
+                              {history.action ===
+                                "EDIT" && (
+                                <div className="mt-4">
+                                  {changes.length ===
+                                    0 ? (
+                                    <p className="text-sm text-[#7a89ad]">
+                                      Tidak ada perubahan field yang tercatat.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {changes.map(
+                                        (change) => (
+                                          <div
+                                            key={
+                                              change.field
+                                            }
+                                            className="rounded-lg bg-[#f8faff] p-3"
+                                          >
+                                            <p className="text-xs font-semibold text-[#65749b]">
+                                              {change.label}
+                                            </p>
+
+                                            {change.field ===
+                                            "image_path" ? (
+                                              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                                                <div className="rounded-lg border border-red-100 bg-red-50 p-3">
+                                                  <p className="mb-2 text-xs font-medium text-red-500">
+                                                    Sebelum
+                                                  </p>
+
+                                                  {getHistoryImageUrl(
+                                                    history.old_data,
+                                                  ) ? (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const imageUrl =
+                                                          getHistoryImageUrl(
+                                                            history.old_data,
+                                                          );
+
+                                                        if (!imageUrl) {
+                                                          return;
+                                                        }
+
+                                                        handlePreviewImage(
+                                                          imageUrl,
+                                                          `${history.batch_name} - Gambar Lama`,
+                                                        );
+                                                      }}
+                                                      className="group relative block h-32 w-full overflow-hidden rounded-lg bg-white"
+                                                      title="Preview gambar lama"
+                                                    >
+                                                      <img
+                                                        src={
+                                                          getHistoryImageUrl(
+                                                            history.old_data,
+                                                          ) ??
+                                                          undefined
+                                                        }
+                                                        alt={`${history.batch_name} - gambar lama`}
+                                                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                                      />
+
+                                                      <span className="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-[11px] font-medium text-white">
+                                                        Klik untuk preview
+                                                      </span>
+                                                    </button>
+                                                  ) : (
+                                                    <div className="flex h-32 items-center justify-center rounded-lg bg-white px-3 text-center text-xs text-[#7a89ad]">
+                                                      Tidak ada gambar
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                <span className="text-center text-[#8a96b4]">
+                                                  →
+                                                </span>
+
+                                                <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                                                  <p className="mb-2 text-xs font-medium text-emerald-600">
+                                                    Sesudah
+                                                  </p>
+
+                                                  {getHistoryImageUrl(
+                                                    history.new_data,
+                                                  ) ? (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const imageUrl =
+                                                          getHistoryImageUrl(
+                                                            history.new_data,
+                                                          );
+
+                                                        if (!imageUrl) {
+                                                          return;
+                                                        }
+
+                                                        handlePreviewImage(
+                                                          imageUrl,
+                                                          `${history.batch_name} - Gambar Baru`,
+                                                        );
+                                                      }}
+                                                      className="group relative block h-32 w-full overflow-hidden rounded-lg bg-white"
+                                                      title="Preview gambar baru"
+                                                    >
+                                                      <img
+                                                        src={
+                                                          getHistoryImageUrl(
+                                                            history.new_data,
+                                                          ) ??
+                                                          undefined
+                                                        }
+                                                        alt={`${history.batch_name} - gambar baru`}
+                                                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                                      />
+
+                                                      <span className="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-[11px] font-medium text-white">
+                                                        Klik untuk preview
+                                                      </span>
+                                                    </button>
+                                                  ) : (
+                                                    <div className="flex h-32 items-center justify-center rounded-lg bg-white px-3 text-center text-xs text-[#7a89ad]">
+                                                      Tidak ada gambar
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                                                <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-red-600">
+                                                  {change.oldValue}
+                                                </div>
+
+                                                <span className="text-center text-[#8a96b4]">
+                                                  →
+                                                </span>
+
+                                                <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-600">
+                                                  {change.newValue}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        const history =
+                          item.history;
+                        const recapSummary =
+                          getRecapHistorySummary(
+                            history,
+                          );
+                        const isPaymentHistory =
+                          history.action ===
+                            "GENERATE_PAYMENT_LINK" ||
+                          history.action ===
+                            "COPY_PAYMENT_LINK" ||
+                          history.action ===
+                            "SEND_WHATSAPP";
+                        const paymentHistorySummary =
+                          isPaymentHistory
+                            ? getRecapPaymentHistorySummary(
+                                history,
+                              )
+                            : null;
+
+                        return (
+                          <div
+                            key={`recap-${history.id}`}
+                            className="rounded-xl border border-[#edf0f6] bg-white p-5 shadow-sm"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={[
+                                      "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                                      getHistoryActionClassName(
+                                        history.action,
+                                      ),
+                                    ].join(
+                                      " ",
+                                    )}
+                                  >
+                                    {getRecapHistoryActionLabel(
+                                      history.action,
+                                    )}
+                                  </span>
+
+                                  <span className="text-xs text-[#7a89ad]">
+                                    {formatPaymentDate(
+                                      history.created_at,
+                                    )}
+                                  </span>
+                                </div>
+
+                                {!selectedHistoryBatch && (
+                                  <p className="mt-3 text-sm font-semibold text-[#20366f]">
+                                    {history.batch_name}
+                                  </p>
+                                )}
+
+                                <p className="mt-1 text-xs text-[#7a89ad]">
+                                  Admin:{" "}
+                                  <span className="font-medium text-[#50628e]">
+                                    {history.admin_name}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <p className="mt-4 text-sm text-[#50628e]">
+                              {getRecapHistoryActionDescription(
+                                history.action,
+                              )}
+                            </p>
+
+                            {isPaymentHistory &&
+                            paymentHistorySummary && (
+                              <div className="mt-4 rounded-lg bg-[#f8faff] p-3">
+                                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                                  <div>
+                                    <p className="text-xs font-semibold text-[#65749b]">
+                                      Nama Pembeli
+                                    </p>
+                                    <p className="mt-1 text-[#20366f]">
+                                      {
+                                        paymentHistorySummary.memberName
+                                      }
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs font-semibold text-[#65749b]">
+                                      Nomor WhatsApp
+                                    </p>
+                                    <p className="mt-1 text-[#20366f]">
+                                      {
+                                        paymentHistorySummary.memberPhone
+                                      }
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs font-semibold text-[#65749b]">
+                                      Tipe Pembayaran
+                                    </p>
+                                    <p className="mt-1 text-[#20366f]">
+                                      {
+                                        paymentHistorySummary.paymentType
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {!isPaymentHistory && (
+                              <div className="mt-4 rounded-lg bg-[#f8faff] p-3">
+                                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Nama Pembeli
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.memberName}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Detail Barang
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.detailBarang}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Qty
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.qty}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Harga Barang
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.hargaBarang}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Total Harga
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.totalHarga}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Persentase DP
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.persentaseDp}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Total DP
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.totalDp}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-semibold text-[#65749b]">
+                                    Sisa Pelunasan
+                                  </p>
+                                  <p className="mt-1 text-[#20366f]">
+                                    {recapSummary.sisaPelunasan}
+                                  </p>
+                                </div>
+                              </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===================================
           IMAGE PREVIEW

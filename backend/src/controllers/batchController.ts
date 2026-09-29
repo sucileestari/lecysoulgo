@@ -13,6 +13,12 @@ import {
   uploadBatchImage,
 } from "../services/batchService.js";
 
+import {
+  getBatchHistoriesByCountry,
+  getBatchHistoryByBatchId,
+  recordBatchHistory,
+} from "../services/batchHistoryService.js";
+
 import type {
   BatchStatus,
   Country,
@@ -114,6 +120,126 @@ export async function listBatches(
       error instanceof Error
         ? error.message
         : "Gagal mengambil data batch.";
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   GET BATCH HISTORY BY ID
+========================================= */
+
+/**
+ * GET /api/batches/:id/history
+ */
+export async function getBatchHistoryHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const id = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    /* -------------------------------------
+       Validate ID
+    ------------------------------------- */
+
+    if (
+      !id ||
+      !id.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ID batch wajib diisi.",
+      });
+    }
+
+    /* -------------------------------------
+       Get history
+    ------------------------------------- */
+
+    const data =
+      await getBatchHistoryByBatchId(
+        id.trim(),
+      );
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "getBatchHistoryHandler error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil riwayat batch.";
+
+    return res.status(500).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   GET ALL BATCH HISTORIES
+========================================= */
+
+/**
+ * GET /api/batches/history?country=china
+ */
+export async function listBatchHistories(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const country =
+      req.query.country;
+
+    /* -------------------------------------
+       Validate country
+    ------------------------------------- */
+
+    if (!isValidCountry(country)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Country tidak valid.",
+      });
+    }
+
+    /* -------------------------------------
+       Get histories
+    ------------------------------------- */
+
+    const data =
+      await getBatchHistoriesByCountry(
+        country,
+      );
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "listBatchHistories error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil riwayat batch.";
 
     return res.status(500).json({
       success: false,
@@ -388,6 +514,19 @@ export async function createBatchHandler(
         uploadedImagePath,
       );
 
+    if (req.user) {
+      await recordBatchHistory({
+        batchId: data.id,
+        batchName: data.name,
+        country: data.country,
+        action: "CREATE",
+        oldData: null,
+        newData: data,
+        adminId: req.user.id,
+        adminName: req.user.name,
+      });
+    }
+
     return res.status(201).json({
       success: true,
       data,
@@ -613,6 +752,19 @@ export async function updateBatchHandler(
         newImagePath,
       );
 
+    if (req.user) {
+      await recordBatchHistory({
+        batchId: data.id,
+        batchName: data.name,
+        country: data.country,
+        action: "EDIT",
+        oldData: existingBatch,
+        newData: data,
+        adminId: req.user.id,
+        adminName: req.user.name,
+      });
+    }
+
     /* -------------------------------------
        Delete old image
 
@@ -715,9 +867,10 @@ export async function deleteBatchHandler(
        Check batch exists
     ------------------------------------- */
 
-    await getBatchById(
-      id.trim(),
-    );
+    const existingBatch =
+      await getBatchById(
+        id.trim(),
+      );
 
     /* -------------------------------------
        Delete batch
@@ -726,6 +879,19 @@ export async function deleteBatchHandler(
     await deleteBatch(
       id.trim(),
     );
+
+    if (req.user) {
+      await recordBatchHistory({
+        batchId: null,
+        batchName: existingBatch.name,
+        country: existingBatch.country,
+        action: "DELETE",
+        oldData: existingBatch,
+        newData: null,
+        adminId: req.user.id,
+        adminName: req.user.name,
+      });
+    }
 
     return res.status(200).json({
       success: true,

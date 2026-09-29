@@ -9,6 +9,11 @@ import {
 } from "../services/paymentService.js";
 
 import { sendWhatsApp } from "../services/whatsappService.js";
+import {
+  recordRecapHistory,
+} from "../services/recapHistoryService.js";
+
+import type { Country } from "../services/batchService.js";
 
 /* =========================================
    COUNTRY NAME
@@ -91,6 +96,8 @@ export async function sendWhatsAppHandler(
 ) {
   let sendSucceeded = false;
   let activePaymentId = "";
+  let recapBatchId: string | null = null;
+  let recapCountry: Country | null = null;
 
   try {
     const {
@@ -291,6 +298,7 @@ export async function sendWhatsAppHandler(
         .select(`
           detail_barang,
           batch:batches (
+            id,
             name,
             country,
             last_payment_dp,
@@ -331,6 +339,22 @@ export async function sendWhatsAppHandler(
         Array.isArray(recap.member)
           ? recap.member[0]
           : recap.member;
+
+      /* -------------------------------------
+         Recap History Reference
+      ------------------------------------- */
+
+      recapBatchId =
+        batch &&
+        typeof batch.id === "string"
+          ? batch.id
+          : null;
+
+      recapCountry =
+        batch &&
+        typeof batch.country === "string"
+          ? (batch.country as Country)
+          : null;
 
       /* -------------------------------------
          Product
@@ -972,6 +996,36 @@ export async function sendWhatsAppHandler(
       throw new Error(
         `WhatsApp berhasil dikirim tetapi status log gagal diperbarui: ${markSentError.message}`,
       );
+    }
+
+    /* -------------------------------------
+       RECORD RECAP HISTORY
+       Hanya setelah WhatsApp berhasil dikirim
+       dan notification log berhasil berstatus sent.
+    ------------------------------------- */
+
+    if (
+      payment.recap_id &&
+      recapBatchId &&
+      recapCountry &&
+      req.user
+    ) {
+      await recordRecapHistory({
+        recapId: payment.recap_id,
+        batchId: recapBatchId,
+        batchName,
+        country: recapCountry,
+        action: "SEND_WHATSAPP",
+        oldData: null,
+        newData: {
+          payment_id: payment.id,
+          payment_type: paymentType,
+          member_name: buyerName,
+          member_phone: target,
+        },
+        adminId: req.user.id,
+        adminName: req.user.name,
+      });
     }
 
     return res.status(200).json({
