@@ -791,6 +791,14 @@ export default function RulesGoPage() {
                               {member.name}
                             </p>
 
+                            <p className="mt-0.5 text-[11px] text-[#7a89ad]">
+                              {"phone" in member &&
+                              typeof member.phone === "string" &&
+                              member.phone.trim()
+                                ? member.phone
+                                : "-"}
+                            </p>
+
                             <p className="mt-0.5 text-[11px] text-[#9aa6bf]">
                               HNR
                             </p>

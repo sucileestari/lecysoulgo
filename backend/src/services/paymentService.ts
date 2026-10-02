@@ -33,10 +33,15 @@ export type Payment = {
   payment_type: PaymentType;
 
   /**
-   * Nominal payment.
+   * Nominal yang tersimpan pada record payment.
    *
-   * Untuk payment baru:
-   * nominal dasar + denda berjalan.
+   * Untuk payment Rekapan:
+   * nominal yang benar-benar ditagihkan ke provider
+   * saat payment / Payment Link dibuat.
+   *
+   * Karena payment.amount digunakan sebagai
+   * gross_amount Midtrans, nilainya tidak diubah
+   * menjadi nominal dasar Rekapan.
    */
   amount: number;
 
@@ -47,6 +52,14 @@ export type Payment = {
    * dengan amount jika nominal berubah karena denda.
    */
   current_amount?: number;
+
+  /**
+   * Total nominal dasar + denda.
+   *
+   * Field ini dikirim sebagai metadata dari backend
+   * dan tidak berasal dari kolom database payments.
+   */
+  total_amount?: number;
 
   status: PaymentStatus;
 
@@ -191,11 +204,29 @@ type RecapPaymentContext = {
 
   persentase_dp: number;
 
+  total_dp: number;
+
+  sisa_pelunasan: number;
+
+  dp_penalty_days: number;
+
+  dp_penalty_amount: number;
+
+  dp_total_amount: number;
+
+  pelunasan_penalty_days: number;
+
+  pelunasan_penalty_amount: number;
+
+  pelunasan_total_amount: number;
+
   batch_id: string;
 
   batch:
     | {
         id: string;
+
+        status: string;
 
         last_payment_dp:
           | string
@@ -924,10 +955,19 @@ async function getRecapPaymentContext(
         qty,
         harga_barang,
         persentase_dp,
+        total_dp,
+        sisa_pelunasan,
+        dp_penalty_days,
+        dp_penalty_amount,
+        dp_total_amount,
+        pelunasan_penalty_days,
+        pelunasan_penalty_amount,
+        pelunasan_total_amount,
         batch_id,
 
         batch:batches (
           id,
+          status,
           last_payment_dp,
           last_payment_pelunasan
         )
@@ -982,6 +1022,54 @@ async function getRecapPaymentContext(
           0,
       ),
 
+    total_dp:
+      Number(
+        data.total_dp ??
+          0,
+      ),
+
+    sisa_pelunasan:
+      Number(
+        data.sisa_pelunasan ??
+          0,
+      ),
+
+    dp_penalty_days:
+      Number(
+        data.dp_penalty_days ??
+          0,
+      ),
+
+    dp_penalty_amount:
+      Number(
+        data.dp_penalty_amount ??
+          0,
+      ),
+
+    dp_total_amount:
+      Number(
+        data.dp_total_amount ??
+          0,
+      ),
+
+    pelunasan_penalty_days:
+      Number(
+        data.pelunasan_penalty_days ??
+          0,
+      ),
+
+    pelunasan_penalty_amount:
+      Number(
+        data.pelunasan_penalty_amount ??
+          0,
+      ),
+
+    pelunasan_total_amount:
+      Number(
+        data.pelunasan_total_amount ??
+          0,
+      ),
+
     batch_id:
       data.batch_id,
 
@@ -990,6 +1078,9 @@ async function getRecapPaymentContext(
         ? {
             id:
               rawBatch.id,
+
+            status:
+              rawBatch.status ?? "",
 
             last_payment_dp:
               rawBatch.last_payment_dp ??
@@ -1011,46 +1102,32 @@ function calculateBasePaymentAmount(
   recap: RecapPaymentContext,
   paymentType: PaymentType,
 ): number {
-  const qty =
-    Number(
-      recap.qty ?? 0,
-    );
-
-  const hargaBarang =
-    Number(
-      recap.harga_barang ??
-        0,
-    );
-
-  const persentaseDp =
-    Number(
-      recap.persentase_dp ??
-        0,
-    );
-
-  const totalHarga =
-    qty *
-    hargaBarang;
-
-  const nominalDp =
-    Math.round(
-      totalHarga *
-        (persentaseDp /
-          100),
-    );
-
-  const nominalPelunasan =
-    totalHarga -
-    nominalDp;
-
+  /**
+   * Nominal dasar payment mengikuti nilai
+   * yang sudah tersimpan pada Recap.
+   *
+   * DP:
+   *   recaps.total_dp
+   *
+   * Pelunasan:
+   *   recaps.sisa_pelunasan
+   *
+   * Dengan begitu nominal dasar yang dikirim
+   * backend selalu konsisten dengan data Rekapan
+   * dan tidak menghitung ulang dari qty x harga.
+   */
   if (
     paymentType ===
     "DP"
   ) {
-    return nominalDp;
+    return Number(
+      recap.total_dp ?? 0,
+    );
   }
 
-  return nominalPelunasan;
+  return Number(
+    recap.sisa_pelunasan ?? 0,
+  );
 }
 
 /* =========================================
@@ -1083,6 +1160,174 @@ function getPaymentDueDate(
       .last_payment_pelunasan ??
     null
   );
+}
+
+/* =========================================
+   SYNC RECAP PENALTY
+========================================= */
+
+/**
+ * Menyimpan kondisi denda terbaru ke Rekapan.
+ *
+ * DP disimpan ke:
+ * - dp_penalty_days
+ * - dp_penalty_amount
+ * - dp_total_amount
+ *
+ * Pelunasan disimpan ke:
+ * - pelunasan_penalty_days
+ * - pelunasan_penalty_amount
+ * - pelunasan_total_amount
+ *
+ * Nominal dasar tidak pernah ditulis ke kolom
+ * penalty. Total selalu = nominal dasar + denda.
+ */
+async function syncRecapPenaltyState(
+  recap: RecapPaymentContext,
+  paymentType: PaymentType,
+  penaltyDays: number,
+  penaltyAmount: number,
+  totalAmount: number,
+): Promise<void> {
+  const normalizedPenaltyDays =
+    Math.max(
+      0,
+      Math.round(
+        penaltyDays,
+      ),
+    );
+
+  const normalizedPenaltyAmount =
+    Math.max(
+      0,
+      Math.round(
+        penaltyAmount,
+      ),
+    );
+
+  const normalizedTotalAmount =
+    Math.max(
+      0,
+      Math.round(
+        totalAmount,
+      ),
+    );
+
+  if (
+    paymentType === "DP"
+  ) {
+    const isAlreadySynced =
+      Number(
+        recap.dp_penalty_days,
+      ) ===
+        normalizedPenaltyDays &&
+      Number(
+        recap.dp_penalty_amount,
+      ) ===
+        normalizedPenaltyAmount &&
+      Number(
+        recap.dp_total_amount,
+      ) ===
+        normalizedTotalAmount;
+
+    if (
+      isAlreadySynced
+    ) {
+      return;
+    }
+
+    const {
+      error,
+    } =
+      await supabase
+        .from("recaps")
+        .update({
+          dp_penalty_days:
+            normalizedPenaltyDays,
+
+          dp_penalty_amount:
+            normalizedPenaltyAmount,
+
+          dp_total_amount:
+            normalizedTotalAmount,
+        })
+        .eq(
+          "id",
+          recap.id,
+        );
+
+    if (error) {
+      throw new Error(
+        `Gagal menyimpan data denda Rekapan: ${error.message}`,
+      );
+    }
+
+    recap.dp_penalty_days =
+      normalizedPenaltyDays;
+
+    recap.dp_penalty_amount =
+      normalizedPenaltyAmount;
+
+    recap.dp_total_amount =
+      normalizedTotalAmount;
+
+    return;
+  }
+
+  const isAlreadySynced =
+    Number(
+      recap.pelunasan_penalty_days,
+    ) ===
+      normalizedPenaltyDays &&
+    Number(
+      recap.pelunasan_penalty_amount,
+    ) ===
+      normalizedPenaltyAmount &&
+    Number(
+      recap.pelunasan_total_amount,
+    ) ===
+      normalizedTotalAmount;
+
+  if (
+    isAlreadySynced
+  ) {
+    return;
+  }
+
+  const {
+    error,
+  } =
+    await supabase
+      .from("recaps")
+      .update({
+        pelunasan_penalty_days:
+          normalizedPenaltyDays,
+
+        pelunasan_penalty_amount:
+          normalizedPenaltyAmount,
+
+        pelunasan_total_amount:
+          normalizedTotalAmount,
+      })
+      .eq(
+        "id",
+        recap.id,
+      );
+
+  if (error) {
+    throw new Error(
+      `Gagal menyimpan data denda Rekapan: ${error.message}`,
+    );
+  }
+
+  recap.pelunasan_penalty_days =
+    normalizedPenaltyDays;
+
+  recap.pelunasan_penalty_amount =
+    normalizedPenaltyAmount;
+
+  recap.pelunasan_total_amount =
+    normalizedTotalAmount;
 }
 
 /* =========================================
@@ -1407,6 +1652,128 @@ export async function calculateCurrentPaymentAmount(
       paymentType,
     );
 
+  /* -------------------------------------
+     Check paid payment
+  ------------------------------------- */
+
+  const payments =
+    await getPaymentsByRecapId(
+      recapId,
+    );
+
+  const paidPayment =
+    getPaidPayment(
+      payments,
+      paymentType,
+    );
+
+  /**
+   * Jika payment sudah paid, denda berhenti.
+   *
+   * Untuk payment paid:
+   * - total amount = nominal yang benar-benar dibayar
+   * - penalty amount = total paid - nominal dasar
+   *
+   * Nilai ini kemudian disimpan kembali ke Rekapan
+   * agar riwayat nominal yang sudah dibayar tetap
+   * konsisten dan tidak terus bertambah setiap hari.
+   */
+  if (
+    paidPayment
+  ) {
+    const paidAmount =
+      Number(
+        paidPayment.amount ??
+          baseAmount,
+      );
+
+    const frozenTotalAmount =
+      Number.isFinite(
+        paidAmount,
+      ) &&
+      paidAmount >=
+        baseAmount
+        ? paidAmount
+        : baseAmount;
+
+    const frozenPenaltyAmount =
+      Math.max(
+        0,
+        frozenTotalAmount -
+          baseAmount,
+      );
+
+    const storedPenaltyAmount =
+      paymentType === "DP"
+        ? Number(
+            recap.dp_penalty_amount ??
+              0,
+          )
+        : Number(
+            recap
+              .pelunasan_penalty_amount ??
+              0,
+          );
+
+    const storedPenaltyDays =
+      paymentType === "DP"
+        ? Number(
+            recap.dp_penalty_days ??
+              0,
+          )
+        : Number(
+            recap
+              .pelunasan_penalty_days ??
+              0,
+          );
+
+    const frozenPenaltyDays =
+      storedPenaltyAmount ===
+        frozenPenaltyAmount &&
+      Number.isFinite(
+        storedPenaltyDays,
+      )
+        ? Math.max(
+            0,
+            Math.round(
+              storedPenaltyDays,
+            ),
+          )
+        : Math.max(
+            0,
+            Math.round(
+              frozenPenaltyAmount /
+                LATE_PAYMENT_PENALTY_PER_DAY,
+            ),
+          );
+
+    await syncRecapPenaltyState(
+      recap,
+      paymentType,
+      frozenPenaltyDays,
+      frozenPenaltyAmount,
+      frozenTotalAmount,
+    );
+
+    return {
+      baseAmount,
+
+      penaltyDays:
+        frozenPenaltyDays,
+
+      penaltyAmount:
+        frozenPenaltyAmount,
+
+      currentAmount:
+        frozenTotalAmount,
+
+      dueDate,
+
+      permission:
+        null,
+    };
+  }
+
   /**
    * Jika tanggal jatuh tempo belum ada,
    * tidak ada denda yang bisa dihitung.
@@ -1414,7 +1781,7 @@ export async function calculateCurrentPaymentAmount(
   if (
     !dueDate
   ) {
-    return {
+    const result = {
       baseAmount,
 
       penaltyDays:
@@ -1432,6 +1799,56 @@ export async function calculateCurrentPaymentAmount(
       permission:
         null,
     };
+
+    await syncRecapPenaltyState(
+      recap,
+      paymentType,
+      result.penaltyDays,
+      result.penaltyAmount,
+      result.currentAmount,
+    );
+
+    return result;
+  }
+
+  /**
+   * Batch yang masih "Akan di Order"
+   * belum menjalankan denda.
+   *
+   * Nominal yang digunakan tetap
+   * nominal dasar tanpa penalty.
+   */
+  if (
+    recap.batch?.status ===
+    "Akan di Order"
+  ) {
+    const result = {
+      baseAmount,
+
+      penaltyDays:
+        0,
+
+      penaltyAmount:
+        0,
+
+      currentAmount:
+        baseAmount,
+
+      dueDate,
+
+      permission:
+        null,
+    };
+
+    await syncRecapPenaltyState(
+      recap,
+      paymentType,
+      result.penaltyDays,
+      result.penaltyAmount,
+      result.currentAmount,
+    );
+
+    return result;
   }
 
   const today =
@@ -1623,7 +2040,7 @@ export async function calculateCurrentPaymentAmount(
    *
    * "Sedang mengajukan ijin telat..."
    */
-  return {
+  const result = {
     baseAmount,
 
     penaltyDays,
@@ -1637,6 +2054,20 @@ export async function calculateCurrentPaymentAmount(
     permission:
       activePermission,
   };
+
+  /* -------------------------------------
+     Persist current penalty state
+  ------------------------------------- */
+
+  await syncRecapPenaltyState(
+    recap,
+    paymentType,
+    result.penaltyDays,
+    result.penaltyAmount,
+    result.currentAmount,
+  );
+
+  return result;
 }
 
 /* =========================================
@@ -1652,6 +2083,9 @@ function buildPaymentMeta(
     ...payment,
 
     current_amount:
+      penalty.currentAmount,
+
+    total_amount:
       penalty.currentAmount,
 
     base_amount:
@@ -3667,6 +4101,20 @@ export async function handleMidtransNotification(
       updatedPayment.payment_type,
     );
 
+    /**
+     * Simpan nominal final yang benar-benar
+     * dibayar customer ke Rekapan.
+     *
+     * calculateCurrentPaymentAmount() akan
+     * mendeteksi payment yang sudah paid dan
+     * menghentikan pertumbuhan denda setelah
+     * pembayaran selesai.
+     */
+    await calculateCurrentPaymentAmount(
+      updatedPayment.recap_id,
+      updatedPayment.payment_type,
+    );
+
     await restoreMemberToCustomerIfAllRecapPaymentsPaid(
       updatedPayment.recap_id,
     );
@@ -4054,27 +4502,16 @@ export async function getRecapPaymentSummary(
     );
 
   /**
-   * Jika sudah paid,
-   * gunakan nominal actual payment.
-   *
-   * Jangan gunakan nominal current
-   * karena denda sudah berhenti.
+   * calculateCurrentPaymentAmount() sudah
+   * mengembalikan total terbaru untuk payment
+   * yang belum paid, dan membekukan nominal
+   * terakhir untuk payment yang sudah paid.
    */
   const dpCurrentAmount =
-    dpPaid
-      ? Number(
-          dpPaidPayment?.amount ??
-            dpCalculation.baseAmount,
-        )
-      : dpCalculation.currentAmount;
+    dpCalculation.currentAmount;
 
   const pelunasanCurrentAmount =
-    pelunasanPaid
-      ? Number(
-          pelunasanPaidPayment?.amount ??
-            pelunasanCalculation.baseAmount,
-        )
-      : pelunasanCalculation.currentAmount;
+    pelunasanCalculation.currentAmount;
 
   /* -------------------------------------
      Sync permission status
@@ -4142,25 +4579,27 @@ export async function getRecapPaymentSummary(
     },
 
     dp: {
+      /**
+       * amount = nominal dasar / original payment.
+       * Total yang harus dibayar ada di total_amount.
+       */
       amount:
-        dpCurrentAmount,
+        dpCalculation.baseAmount,
 
       base_amount:
         dpCalculation.baseAmount,
 
-      /**
-       * Setelah paid, denda tidak relevan lagi
-       * untuk display current payment.
-       */
+      total_amount:
+        dpCurrentAmount,
+
+      current_amount:
+        dpCurrentAmount,
+
       penalty_days:
-        dpPaid
-          ? 0
-          : dpCalculation.penaltyDays,
+        dpCalculation.penaltyDays,
 
       penalty_amount:
-        dpPaid
-          ? 0
-          : dpCalculation.penaltyAmount,
+        dpCalculation.penaltyAmount,
 
       status:
         dpPaid
@@ -4211,28 +4650,52 @@ export async function getRecapPaymentSummary(
           ? {
               ...currentDpPayment,
 
+              amount:
+                currentDpPayment.amount,
+
+              base_amount:
+                dpCalculation.baseAmount,
+
+              penalty_days:
+                dpCalculation.penaltyDays,
+
+              penalty_amount:
+                dpCalculation.penaltyAmount,
+
+              total_amount:
+                dpCurrentAmount,
+
               current_amount:
                 dpCurrentAmount,
+
+              due_date:
+                dpCalculation.dueDate,
             }
           : null,
     },
 
     pelunasan: {
+      /**
+       * amount = nominal dasar / original payment.
+       * Total yang harus dibayar ada di total_amount.
+       */
       amount:
-        pelunasanCurrentAmount,
+        pelunasanCalculation.baseAmount,
 
       base_amount:
         pelunasanCalculation.baseAmount,
 
+      total_amount:
+        pelunasanCurrentAmount,
+
+      current_amount:
+        pelunasanCurrentAmount,
+
       penalty_days:
-        pelunasanPaid
-          ? 0
-          : pelunasanCalculation.penaltyDays,
+        pelunasanCalculation.penaltyDays,
 
       penalty_amount:
-        pelunasanPaid
-          ? 0
-          : pelunasanCalculation.penaltyAmount,
+        pelunasanCalculation.penaltyAmount,
 
       status:
         pelunasanPaid
@@ -4286,8 +4749,26 @@ export async function getRecapPaymentSummary(
           ? {
               ...currentPelunasanPayment,
 
+              amount:
+                currentPelunasanPayment.amount,
+
+              base_amount:
+                pelunasanCalculation.baseAmount,
+
+              penalty_days:
+                pelunasanCalculation.penaltyDays,
+
+              penalty_amount:
+                pelunasanCalculation.penaltyAmount,
+
+              total_amount:
+                pelunasanCurrentAmount,
+
               current_amount:
                 pelunasanCurrentAmount,
+
+              due_date:
+                pelunasanCalculation.dueDate,
             }
           : null,
     },

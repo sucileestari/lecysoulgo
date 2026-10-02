@@ -10,17 +10,31 @@ import AdminLayout from "../layouts/AdminLayout";
 import LoginPage from "../pages/LoginPage";
 
 import MembersPage from "../pages/MembersPage";
+
 import RekapPage from "../pages/RekapPage";
+
 import RulesGoPage from "../pages/RulesGoPage";
+
 import NotificationLogPage from "../pages/NotificationLogPage";
+
+import PengumumanPage from "../pages/PengumumanPage";
+
 import IjinTelatBayarPage from "../pages/IjinTelatBayarPage";
+
 import PengirimanManualPage from "../pages/PengirimanManualPage";
+
 import ModalDanKeuntunganPage from "../pages/ModalDanKeuntunganPage";
+
 import ArusDanaPage from "../pages/ArusDanaPage";
+
 import GajiKaryawanPage from "../pages/GajiKaryawanPage";
+
 import RekapanSaya from "../pages/RekapanSayaPage";
+
 import RolesPermissionPage from "../pages/RolesPermissionPage";
+
 import PesananMarketplacePage from "../pages/PesananMarketplacePage";
+
 import CustomerDashboardPage from "../pages/CustomerDashboardPage";
 
 import ProtectedRoute from "./ProtectedRoute";
@@ -146,7 +160,26 @@ export default function AppRoutes() {
 
           <Route
             path="/notification-log"
-            element={<NotificationLogPage />}
+            element={
+              <NotificationLogPage />
+            }
+          />
+
+          {/* =========================================
+              PENGUMUMAN
+
+              Hanya tersedia sebagai menu
+              untuk admin/staff.
+
+              Customer tidak memiliki menu
+              Pengumuman di AdminLayout.
+          ========================================= */}
+
+          <Route
+            path="/pengumuman"
+            element={
+              <PengumumanPage />
+            }
           />
 
           {/* =========================================
@@ -238,7 +271,9 @@ export default function AppRoutes() {
 
           <Route
             path="/ijin-telat-bayar"
-            element={<IjinTelatBayarPage />}
+            element={
+              <IjinTelatBayarPage />
+            }
           />
 
           {/* =========================================
@@ -253,7 +288,9 @@ export default function AppRoutes() {
 
           <Route
             path="/pengiriman-manual"
-            element={<PengirimanManualPage />}
+            element={
+              <PengirimanManualPage />
+            }
           />
 
           {/* =========================================
@@ -291,7 +328,9 @@ export default function AppRoutes() {
 
           <Route
             path="/arus-dana"
-            element={<ArusDanaPage />}
+            element={
+              <ArusDanaPage />
+            }
           />
 
           {/* =========================================
@@ -300,7 +339,9 @@ export default function AppRoutes() {
 
           <Route
             path="/gaji-karyawan"
-            element={<GajiKaryawanPage />}
+            element={
+              <GajiKaryawanPage />
+            }
           />
 
           {/* =========================================
@@ -318,7 +359,9 @@ export default function AppRoutes() {
 
           <Route
             path="/roles-permissions"
-            element={<RolesPermissionPage />}
+            element={
+              <RolesPermissionPage />
+            }
           />
 
           {/* =========================================
@@ -329,7 +372,9 @@ export default function AppRoutes() {
 
           <Route
             path="/customer/dashboard"
-            element={<CustomerDashboardPage />}
+            element={
+              <CustomerDashboardPage />
+            }
           />
 
           {/* =========================================
@@ -340,7 +385,9 @@ export default function AppRoutes() {
 
           <Route
             path="/customer/rekapan"
-            element={<RekapanSaya />}
+            element={
+              <RekapanSaya />
+            }
           />
 
           {/* =========================================
@@ -351,7 +398,9 @@ export default function AppRoutes() {
 
           <Route
             path="/customer/ijin-telat-bayar"
-            element={<IjinTelatBayarPage />}
+            element={
+              <IjinTelatBayarPage />
+            }
           />
 
           {/* =========================================

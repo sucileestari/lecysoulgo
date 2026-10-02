@@ -85,12 +85,26 @@ export type CustomerCheckoutReady = {
   created_at: string;
 };
 
+export type CustomerDashboardAnnouncement = {
+  id: string;
+  title: string;
+  category:
+    | "important"
+    | "attention"
+    | "information"
+    | string;
+  content: string;
+  action_solution: string | null;
+  published_at: string | null;
+};
+
 export type CustomerDashboardData = {
   member: CustomerDashboardMember;
   summary: CustomerDashboardSummary;
   upcoming_payments: CustomerUpcomingPayment[];
   upcoming_recaps: CustomerUpcomingRecap[];
   checkout_ready: CustomerCheckoutReady[];
+  announcements: CustomerDashboardAnnouncement[];
 };
 
 export type CustomerDashboardResponse = {

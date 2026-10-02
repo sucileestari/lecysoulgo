@@ -28,6 +28,7 @@ export type Member = {
 export type HnrMember = {
   id: string;
   name: string;
+  phone: string;
   type: "hnr";
 };
 

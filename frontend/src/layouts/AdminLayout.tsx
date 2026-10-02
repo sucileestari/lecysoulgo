@@ -32,6 +32,7 @@ import {
   Home,
   Menu,
   X,
+  Megaphone,
 } from "lucide-react";
 
 import {
@@ -128,6 +129,13 @@ const adminMenuItems: MenuItem[] = [
   },
 
   {
+    group: "General",
+    label: "Pengumuman",
+    path: "/pengumuman",
+    icon: Megaphone,
+  },
+
+  {
     group: "Rekapan",
     label: "Rekapan",
     icon: ReceiptText,
@@ -177,7 +185,7 @@ const adminMenuItems: MenuItem[] = [
     label: "Ijin Telat Bayar",
     path: "/ijin-telat-bayar",
     icon: Clock3,
-  
+
     permission:
       "late_payment_permissions.view",
   },
@@ -187,7 +195,7 @@ const adminMenuItems: MenuItem[] = [
     label: "Pengiriman Manual",
     path: "/pengiriman-manual",
     icon: Package,
-  
+
     permission: "shipping.view",
   },
 

@@ -5,6 +5,7 @@ import {
 import {
   loginHandler,
   meHandler,
+  changePasswordHandler,
 } from "../controllers/authController.js";
 
 import {
@@ -37,6 +38,19 @@ router.get(
   "/me",
   authenticate,
   meHandler,
+);
+
+/* =========================================
+   CHANGE PASSWORD
+========================================= */
+
+/**
+ * POST /api/auth/change-password
+ */
+router.post(
+  "/change-password",
+  authenticate,
+  changePasswordHandler,
 );
 
 export default router;

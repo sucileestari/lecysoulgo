@@ -261,6 +261,123 @@ async function getUserByUsername(
   return data as UserRecord;
 }
 
+
+/* =========================================
+   CHANGE PASSWORD
+========================================= */
+
+export async function changeUserPassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const normalizedUserId =
+    userId.trim();
+
+  const current =
+    currentPassword;
+
+  const next =
+    newPassword;
+
+  if (!normalizedUserId) {
+    throw new Error(
+      "User tidak valid.",
+    );
+  }
+
+  if (!current) {
+    throw new Error(
+      "Password saat ini wajib diisi.",
+    );
+  }
+
+  if (!next) {
+    throw new Error(
+      "Password baru wajib diisi.",
+    );
+  }
+
+  if (next.length < 8) {
+    throw new Error(
+      "Password baru minimal 8 karakter.",
+    );
+  }
+
+  if (current === next) {
+    throw new Error(
+      "Password baru harus berbeda dari password saat ini.",
+    );
+  }
+
+  const { data, error } =
+    await supabase
+      .from("users")
+      .select(
+        `
+          id,
+          password_hash,
+          is_active
+        `,
+      )
+      .eq(
+        "id",
+        normalizedUserId,
+      )
+      .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Gagal mengambil data user: ${error.message}`,
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      "User tidak ditemukan.",
+    );
+  }
+
+  if (!data.is_active) {
+    throw new Error(
+      "Akun tidak aktif.",
+    );
+  }
+
+  const passwordValid =
+    await verifyPassword(
+      current,
+      data.password_hash,
+    );
+
+  if (!passwordValid) {
+    throw new Error(
+      "Password saat ini salah.",
+    );
+  }
+
+  const newPasswordHash =
+    await hashPassword(next);
+
+  const { error: updateError } =
+    await supabase
+      .from("users")
+      .update({
+        password_hash:
+          newPasswordHash,
+      })
+      .eq(
+        "id",
+        normalizedUserId,
+      );
+
+  if (updateError) {
+    throw new Error(
+      `Gagal mengubah password: ${updateError.message}`,
+    );
+  }
+}
+
 /* =========================================
    GET ROLE
 ========================================= */

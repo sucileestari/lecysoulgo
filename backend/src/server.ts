@@ -1,31 +1,50 @@
 import "dotenv/config";
 
 import cors from "cors";
+
 import express from "express";
+
 import helmet from "helmet";
 
 import memberRoutes from "./routes/memberRoutes.js";
+
 import batchRoutes from "./routes/batchRoutes.js";
+
 import productCostRoutes from "./routes/productCostRoutes.js";
+
 import recapRoutes from "./routes/recapRoutes.js";
+
 import paymentRoutes from "./routes/paymentRoutes.js";
+
 import latePaymentPermissionRoutes, {
   customerLatePaymentPermissionRoutes,
 } from "./routes/latePaymentPermissionRoutes.js";
+
 import manualShippingBatchRoutes, {
   customerManualShippingBatchRoutes,
 } from "./routes/manualShippingBatchRoutes.js";
+
 import manualShippingRoutes, {
   customerManualShippingRoutes,
 } from "./routes/manualShippingRoutes.js";
+
 import authRoutes from "./routes/authRoutes.js";
+
 import customerRoutes from "./routes/customerRoutes.js";
+
 import rolePermissionRoutes from "./routes/rolePermissionRoutes.js";
+
 import whatsappRoutes from "./routes/whatsappRoutes.js";
+
 import bankAccountRoutes from "./routes/bankAccountRoutes.js";
+
 import financeRoutes from "./routes/financeRoutes.js";
+
 import marketplaceOrderRoutes from "./routes/marketplaceOrderRoutes.js";
+
 import notificationRoutes from "./routes/notificationRoutes.js";
+
+import announcementRoutes from "./routes/announcementRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -51,6 +70,17 @@ if (!FRONTEND_URL) {
   );
 }
 
+const ALLOWED_FRONTEND_ORIGINS = [
+  FRONTEND_URL,
+
+  ...(process.env.FRONTEND_URLS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+
+  "http://localhost:5173",
+];
+
 /* =========================================
    SECURITY HEADERS
 ========================================= */
@@ -75,7 +105,24 @@ app.use(
 
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        ALLOWED_FRONTEND_ORIGINS.includes(
+          origin,
+        )
+      ) {
+        callback(null, true);
+
+        return;
+      }
+
+      callback(
+        new Error(
+          "Origin tidak diizinkan oleh CORS.",
+        ),
+      );
+    },
 
     methods: [
       "GET",
@@ -492,6 +539,39 @@ app.use(
 app.use(
   "/api/notifications",
   notificationRoutes,
+);
+
+/* =========================================
+   ANNOUNCEMENT ROUTES
+========================================= */
+
+/**
+ * GET
+ * /api/announcements
+ *
+ * GET
+ * /api/announcements/:id
+ *
+ * POST
+ * /api/announcements
+ *
+ * PUT
+ * /api/announcements/:id
+ *
+ * DELETE
+ * /api/announcements/:id
+ *
+ * POST
+ * /api/announcements/:id/publish
+ *
+ * Tidak menggunakan permission khusus.
+ * Authentication ditangani di dalam
+ * announcementRoutes.
+ */
+
+app.use(
+  "/api/announcements",
+  announcementRoutes,
 );
 
 /* =========================================

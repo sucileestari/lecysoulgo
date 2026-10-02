@@ -65,6 +65,19 @@ type NotificationLogRecord = {
   last_attempt_at: string | null;
 };
 
+type AnnouncementRecord = {
+  id: string;
+  title: string;
+  category:
+    | "important"
+    | "attention"
+    | "information"
+    | string;
+  content: string;
+  action_solution: string | null;
+  published_at: string | null;
+};
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -207,6 +220,45 @@ export async function getCustomerDashboard(
     memberData as MemberRecord;
 
   /* =======================================
+     ANNOUNCEMENTS
+  ======================================== */
+
+  const {
+    data: announcementData,
+    error: announcementError,
+  } = await supabase
+    .from("announcements")
+    .select(`
+      id,
+      title,
+      category,
+      content,
+      action_solution,
+      published_at
+    `)
+    .eq("status", "published")
+    .order("published_at", {
+      ascending: false,
+    })
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (announcementError) {
+    console.error(
+      "getCustomerDashboard announcements error:",
+      announcementError,
+    );
+
+    throw new Error(
+      "Gagal mengambil pengumuman.",
+    );
+  }
+
+  const announcements =
+    (announcementData ?? []) as AnnouncementRecord[];
+
+  /* =======================================
      RECAPS + BATCH
   ======================================== */
 
@@ -282,6 +334,7 @@ export async function getCustomerDashboard(
       upcoming_payments: [],
       upcoming_recaps: [],
       checkout_ready: [],
+      announcements,
     };
   }
 
@@ -897,5 +950,7 @@ export async function getCustomerDashboard(
 
     checkout_ready:
       checkoutReady,
+
+    announcements,
   };
 }

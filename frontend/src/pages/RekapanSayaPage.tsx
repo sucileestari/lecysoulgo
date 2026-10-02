@@ -4,23 +4,19 @@ import {
   useRef,
   useState,
 } from "react";
-
 import {
   useQuery,
 } from "@tanstack/react-query";
-
 import {
   ChevronDown,
   Search,
   Image as ImageIcon,
   X,
 } from "lucide-react";
-
 import {
   getCustomerRecaps,
   type CustomerRecap,
 } from "@/services/customerRecapService";
-
 import {
   CN,
   ID,
@@ -28,7 +24,6 @@ import {
   KR,
   TH,
 } from "country-flag-icons/react/3x2";
-
 import type {
   FlagComponent,
 } from "country-flag-icons/react/3x2";
@@ -36,7 +31,6 @@ import type {
 /* =========================================
    COUNTRY CONFIG
 ========================================= */
-
 type CustomerRecapWithMaxTimbun =
   CustomerRecap & {
     max_timbun?: string | null;
@@ -53,22 +47,18 @@ const countryConfig: Record<
     name: "China",
     flag: CN,
   },
-
   indonesia: {
     name: "Indonesia",
     flag: ID,
   },
-
   jepang: {
     name: "Jepang",
     flag: JP,
   },
-
   korea: {
     name: "Korea",
     flag: KR,
   },
-
   thailand: {
     name: "Thailand",
     flag: TH,
@@ -78,7 +68,6 @@ const countryConfig: Record<
 /* =========================================
    HELPERS
 ========================================= */
-
 function formatCurrency(
   value: number,
 ): string {
@@ -251,13 +240,11 @@ function getCountryInfo(
 /* =========================================
    PAYMENT STATUS
 ========================================= */
-
 function PaymentInfo({
   payment,
   showDueDate = true,
 }: {
-  payment:
-    CustomerRecap["down_payment"];
+  payment: CustomerRecap["down_payment"];
   showDueDate?: boolean;
 }) {
   const isPaid =
@@ -274,11 +261,40 @@ function PaymentInfo({
       payment.due_date,
     );
 
+  const penaltyAmount =
+    payment.penalty_amount;
+
   return (
     <div className="space-y-1">
+      <div className="text-xs text-gray-500">
+        Nominal Dasar
+      </div>
+
       <div className="font-semibold text-gray-900">
         {formatCurrency(
-          payment.amount,
+          payment.base_amount,
+        )}
+      </div>
+
+      {payment.penalty_days > 0 &&
+        penaltyAmount > 0 && (
+          <div className="text-xs text-red-500">
+            Denda{" "}
+            {payment.penalty_days}{" "}
+            hari:{" "}
+            {formatCurrency(
+              penaltyAmount,
+            )}
+          </div>
+        )}
+
+      <div className="mt-1 text-xs text-gray-500">
+        Total
+      </div>
+
+      <div className="font-semibold text-gray-900">
+        {formatCurrency(
+          payment.total_amount,
         )}
       </div>
 
@@ -302,29 +318,6 @@ function PaymentInfo({
           </div>
         )}
 
-      {!isPaid &&
-        Number(
-          payment.penalty_days ?? 0,
-        ) > 0 && (
-          <div className="text-xs leading-5">
-            <p className="text-red-500">
-              Terlambat{" "}
-              {payment.penalty_days}{" "}
-              hari
-            </p>
-
-            <p className="text-gray-900">
-              Denda +{" "}
-              {formatCurrency(
-                Number(
-                  payment.penalty_amount ??
-                    0,
-                ),
-              )}
-            </p>
-          </div>
-        )}
-
       {isPaid &&
         paidAt && (
           <div className="text-xs text-gray-500">
@@ -338,7 +331,6 @@ function PaymentInfo({
 /* =========================================
    CHECKED OUT STATUS
 ========================================= */
-
 function CheckoutStatus({
   checkedOut,
 }: {
@@ -362,7 +354,6 @@ function CheckoutStatus({
 /* =========================================
    COUNTRY DISPLAY
 ========================================= */
-
 function CountryDisplay({
   country,
 }: {
@@ -398,7 +389,6 @@ function CountryDisplay({
 /* =========================================
    PRODUCT IMAGE
 ========================================= */
-
 function ProductImage({
   recap,
   onPreview,
@@ -454,7 +444,6 @@ function ProductImage({
 /* =========================================
    MAIN PAGE
 ========================================= */
-
 export default function RekapanSaya() {
   const [search, setSearch] =
     useState("");
@@ -529,6 +518,7 @@ export default function RekapanSaya() {
    * sehingga halaman lain seperti Dashboard
    * tetap dapat menggunakannya.
    */
+
   const displayRecaps =
     useMemo(() => {
       return recaps.filter(
@@ -779,11 +769,8 @@ export default function RekapanSaya() {
       <div className="p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 rounded bg-gray-200" />
-
           <div className="h-12 rounded bg-gray-200" />
-
           <div className="h-32 rounded bg-gray-200" />
-
           <div className="h-32 rounded bg-gray-200" />
         </div>
       </div>
@@ -820,7 +807,6 @@ export default function RekapanSaya() {
             : "",
         ].join(" ")}
       >
-
         {/* HEADER */}
 
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -842,7 +828,6 @@ export default function RekapanSaya() {
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row">
-
             {/* SEARCH */}
 
             <div className="relative flex-1">
@@ -1145,7 +1130,6 @@ export default function RekapanSaya() {
         {/* CONTENT */}
 
         <div className="mt-6">
-
           {/* EMPTY */}
 
           {displayRecaps.length ===
@@ -1188,10 +1172,8 @@ export default function RekapanSaya() {
 
           <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white md:block">
             <table className="w-full min-w-[1100px]">
-
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Negara
                   </th>
@@ -1235,7 +1217,6 @@ export default function RekapanSaya() {
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Sudah CO?
                   </th>
-
                 </tr>
               </thead>
 
@@ -1284,7 +1265,6 @@ export default function RekapanSaya() {
                               : "bg-white",
                           ].join(" ")}
                         >
-
                           {/* COUNTRY */}
 
                           <td className="px-5 py-5">
@@ -1299,7 +1279,6 @@ export default function RekapanSaya() {
 
                           <td className="px-5 py-5">
                             <div className="max-w-[180px]">
-
                               <div className="flex items-center gap-2">
                                 <div className="font-semibold text-gray-900">
                                   {
@@ -1320,7 +1299,6 @@ export default function RekapanSaya() {
                                   recap.detail_barang
                                 }
                               </div>
-
                             </div>
                           </td>
 
@@ -1445,14 +1423,12 @@ export default function RekapanSaya() {
                               }
                             />
                           </td>
-
                         </tr>
                       );
                     },
                   )
                 )}
               </tbody>
-
             </table>
           </div>
 
@@ -1461,7 +1437,6 @@ export default function RekapanSaya() {
           {filteredRecaps.length >
             0 && (
             <div className="mt-4 space-y-4 md:hidden">
-
               {filteredRecaps.map(
                 (recap) => {
                   return (
@@ -1477,11 +1452,9 @@ export default function RekapanSaya() {
                           : "bg-white",
                       ].join(" ")}
                     >
-
                       {/* COUNTRY */}
 
                       <div className="flex items-center justify-between">
-
                         <CountryDisplay
                           country={
                             recap.country
@@ -1493,13 +1466,11 @@ export default function RekapanSaya() {
                             recap.sudah_co
                           }
                         />
-
                       </div>
 
                       {/* BATCH + IMAGE */}
 
                       <div className="mt-4 flex gap-3">
-
                         <ProductImage
                           recap={
                             recap
@@ -1522,7 +1493,6 @@ export default function RekapanSaya() {
                         />
 
                         <div className="min-w-0">
-
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-gray-900">
                               {
@@ -1552,15 +1522,12 @@ export default function RekapanSaya() {
                               }
                             </span>
                           </div>
-
                         </div>
-
                       </div>
 
                       {/* TOTAL */}
 
                       <div className="mt-5 border-t border-gray-100 pt-4">
-
                         <div className="text-xs text-gray-500">
                           Total
                         </div>
@@ -1570,15 +1537,12 @@ export default function RekapanSaya() {
                             recap.total_harga,
                           )}
                         </div>
-
                       </div>
 
                       {/* PAYMENT */}
 
                       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-
                         <div>
-
                           <div className="mb-1 text-xs font-medium text-gray-500">
                             Down Payment
                           </div>
@@ -1588,11 +1552,9 @@ export default function RekapanSaya() {
                               recap.down_payment
                             }
                           />
-
                         </div>
 
                         <div>
-
                           <div className="mb-1 text-xs font-medium text-gray-500">
                             Pelunasan
                           </div>
@@ -1602,11 +1564,9 @@ export default function RekapanSaya() {
                               recap.pelunasan
                             }
                           />
-
                         </div>
 
                         <div>
-
                           <div className="mb-1 text-xs font-medium text-gray-500">
                             Maksimal Timbun
                           </div>
@@ -1620,19 +1580,14 @@ export default function RekapanSaya() {
                             ) ??
                               "—"}
                           </div>
-
                         </div>
-
                       </div>
-
                     </div>
                   );
                 },
               )}
-
             </div>
           )}
-
         </div>
       </div>
 
@@ -1645,14 +1600,12 @@ export default function RekapanSaya() {
             setPreview(null)
           }
         >
-
           <div
             className="relative max-h-[90vh] max-w-[90vw]"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-
             <button
               type="button"
               onClick={() =>
@@ -1672,12 +1625,9 @@ export default function RekapanSaya() {
             <div className="mt-3 text-center text-sm font-medium text-white">
               {preview.title}
             </div>
-
           </div>
-
         </div>
       )}
-
     </>
   );
 }

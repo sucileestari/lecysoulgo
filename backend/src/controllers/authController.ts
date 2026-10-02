@@ -6,6 +6,7 @@ import type {
 import jwt from "jsonwebtoken";
 
 import {
+  changeUserPassword,
   getAuthUserById,
   loginUser,
 } from "../services/authService.js";
@@ -126,6 +127,94 @@ export async function loginHandler(
         : "Login gagal.";
 
     return res.status(401).json({
+      success: false,
+      message,
+    });
+  }
+}
+
+/* =========================================
+   CHANGE PASSWORD
+========================================= */
+
+export async function changePasswordHandler(
+  req: Request,
+  res: Response,
+) {
+  try {
+    /* -------------------------------------
+       USER ID DARI JWT
+    ------------------------------------- */
+
+    const userId =
+      req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Unauthorized.",
+      });
+    }
+
+    const {
+      currentPassword,
+      newPassword,
+    } = req.body ?? {};
+
+    /* -------------------------------------
+       VALIDATION
+    ------------------------------------- */
+
+    if (
+      typeof currentPassword !== "string" ||
+      !currentPassword
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password saat ini wajib diisi.",
+      });
+    }
+
+    if (
+      typeof newPassword !== "string" ||
+      !newPassword
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password baru wajib diisi.",
+      });
+    }
+
+    /* -------------------------------------
+       CHANGE PASSWORD
+    ------------------------------------- */
+
+    await changeUserPassword(
+      userId,
+      currentPassword,
+      newPassword,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password berhasil diubah.",
+    });
+  } catch (error) {
+    console.error(
+      "Change password error:",
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengubah password.";
+
+    return res.status(400).json({
       success: false,
       message,
     });

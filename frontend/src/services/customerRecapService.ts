@@ -16,36 +16,70 @@ function buildApiUrl(path: string): string {
 ========================================= */
 
 export type CustomerPayment = {
+  /**
+   * Nominal dasar sebelum denda.
+   */
   amount: number;
+
+  /**
+   * Nominal dasar sebelum denda.
+   */
+  base_amount: number;
+
+  /**
+   * Total pembayaran yang harus
+   * atau sudah dibayar, termasuk denda
+   * jika ada.
+   */
+  total_amount: number;
+
   status: string;
+
   paid_at: string | null;
+
   due_date: string | null;
+
   penalty_days: number;
+
   penalty_amount: number;
 };
 
 export type CustomerRecap = {
   id: string;
+
   country: string | null;
+
   batch_name: string | null;
+
   product_image: string | null;
+
   detail_barang: string;
+
   qty: number;
+
   total_harga: number;
+
   sudah_co: boolean;
+
   member_type:
     | "customer"
     | "employee"
     | "hnr";
+
   max_timbun: string | null;
+
   status_barang: string | null;
+
   down_payment: CustomerPayment;
+
   pelunasan: CustomerPayment;
 };
 
 export type CustomerRecapsResponse = {
   success: boolean;
+
   message: string;
+
   data: {
     recaps: CustomerRecap[];
   };
@@ -79,6 +113,7 @@ export async function getCustomerRecaps(): Promise<
         headers: {
           Authorization:
             `Bearer ${token}`,
+
           "Content-Type":
             "application/json",
         },

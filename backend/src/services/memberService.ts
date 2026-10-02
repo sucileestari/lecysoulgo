@@ -17,6 +17,7 @@ type MemberRecord = {
 type HnrMemberRecord = {
   id: string;
   name: string;
+  phone: string;
   type: "hnr";
 };
 
@@ -89,9 +90,10 @@ export async function getMembers(
   MemberRecord[] | HnrMemberRecord[]
 > {
   /*
-   * HNR hanya membutuhkan:
+   * HNR membutuhkan:
    * - id
    * - name
+   * - phone
    * - type
    *
    * Query dibuat terpisah supaya
@@ -102,7 +104,7 @@ export async function getMembers(
     let query = supabase
       .from("members")
       .select(
-        "id, name, type",
+        "id, name, phone, type",
       )
       .eq(
         "type",

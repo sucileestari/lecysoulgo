@@ -30,6 +30,7 @@ type RecapContext = {
     id: string;
     name: string | null;
     country: string | null;
+    status: string | null;
     last_payment_dp: string | null;
     last_payment_pelunasan: string | null;
   } | null;
@@ -107,7 +108,7 @@ async function getRecapsCreatedToday(date = new Date()): Promise<RecapContext[]>
       created_at,
       detail_barang,
       member:members ( id, name, phone ),
-      batch:batches ( id, name, country, last_payment_dp, last_payment_pelunasan )
+      batch:batches ( id, name, country, status, last_payment_dp, last_payment_pelunasan )
     `)
     .gte("created_at", `${dateOnly}T00:00:00+07:00`)
     .lte("created_at", `${dateOnly}T23:59:59.999+07:00`);
@@ -123,7 +124,7 @@ async function getRecapsByDueDate(paymentType: PaymentType, dateOnly: string): P
       created_at,
       detail_barang,
       member:members ( id, name, phone ),
-      batch:batches!inner ( id, name, country, last_payment_dp, last_payment_pelunasan )
+      batch:batches!inner ( id, name, country, status, last_payment_dp, last_payment_pelunasan )
     `)
     .eq(paymentType === "DP" ? "batch.last_payment_dp" : "batch.last_payment_pelunasan", dateOnly);
   if (error) throw new Error(`Gagal mengambil rekapan ${paymentType}: ${error.message}`);
@@ -354,6 +355,14 @@ async function buildOverdueMessage(
 
 
 async function processPaymentNotification(recap: RecapContext, paymentType: PaymentType, notificationType: NotificationType): Promise<keyof JobResult> {
+  const isBatchNotOrdered =
+    recap.batch?.status?.trim().toLowerCase() ===
+    "akan di order";
+
+  if (isBatchNotOrdered) {
+    return "skipped";
+  }
+
   if (!recap.member?.id || !recap.member.phone) throw new Error("Member atau nomor WhatsApp tidak tersedia.");
   const payment = await ensurePayment(recap.id, paymentType);
   if (payment.status === "paid") return "processed";

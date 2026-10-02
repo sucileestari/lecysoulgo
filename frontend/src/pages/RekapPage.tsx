@@ -617,12 +617,30 @@ const [
      GET MEMBERS
   ======================================= */
 
+  /*
+   * Endpoint /api/members tetap dilindungi
+   * oleh permission members.view.
+   *
+   * Rekapan tidak boleh memaksa role yang
+   * tidak memiliki members.view untuk
+   * memanggil endpoint tersebut.
+   *
+   * Data pembeli pada detail rekapan tetap
+   * berasal dari recap.member melalui
+   * GET /api/recaps.
+   */
+  const canViewMembers =
+    canAccessPermission(
+      "members.view",
+    );
+
   const {
     data: members = [],
   } = useQuery<Member[], Error>({
     queryKey: ["members"],
     queryFn: () =>
       getMembers(),
+    enabled: canViewMembers,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -3467,14 +3485,42 @@ const handlePaymentSuccess =
 
                                     ) : paymentSummary ? (
 
-                                      <p className="text-center text-base font-medium text-[#20366f]">
-                                        {formatRupiah(
-                                          Number(
-                                            dpSummary?.amount ??
-                                              0,
-                                          ),
+                                      <div className="space-y-0.5 text-center">
+                                        <p className="text-sm text-[#65749b]">
+                                          Nominal Dasar:{" "}
+                                          {formatRupiah(
+                                            Number(
+                                              dpSummary?.amount ??
+                                                0,
+                                            ),
+                                          )}
+                                        </p>
+
+                                        {Number(
+                                          dpSummary?.penalty_amount ??
+                                            0,
+                                        ) > 0 && (
+                                          <p className="text-xs text-red-600">
+                                            Denda{" "}{dpSummary?.penalty_days ?? 0}{" "}hari:{" "}
+                                            {formatRupiah(
+                                              Number(
+                                                dpSummary?.penalty_amount ??
+                                                  0,
+                                              ),
+                                            )}
+                                          </p>
                                         )}
-                                      </p>
+
+                                        <p className="text-base font-semibold text-[#20366f]">
+                                          Total:{" "}
+                                          {formatRupiah(
+                                            Number(
+                                              dpSummary?.total_amount ??
+                                                0,
+                                            ),
+                                          )}
+                                        </p>
+                                      </div>
 
                                     ) : (
 
@@ -3536,32 +3582,7 @@ const handlePaymentSuccess =
                                       ) > 0 && (
 
                                       <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
-
-                                        <p className="font-semibold text-red-600">
-                                          Terlambat{" "}
-                                          {
-                                            dpSummary!
-                                              .penalty_days
-                                          }{" "}
-                                          hari
-                                        </p>
-
-                                        <p>
-                                          Denda +{" "}
-                                          {formatRupiah(
-                                            Number(
-                                              dpSummary!
-                                                .penalty_amount ??
-                                                0,
-                                            ),
-                                          )}
-                                          {dpSummary
-                                            ?.late_payment_permission && (
-                                            <>{" "}dan</>
-                                          )}
-                                        </p>
-
-                                        {dpSummary
+{dpSummary
                                           ?.late_payment_permission && (
                                           <>
                                             <p className="mt-1">
@@ -3633,14 +3654,42 @@ const handlePaymentSuccess =
                                     ) : dpPaid &&
                                       paymentSummary ? (
 
-                                      <p className="text-center text-base font-medium text-[#20366f]">
-                                        {formatRupiah(
-                                          Number(
-                                            pelunasanSummary?.amount ??
-                                              0,
-                                          ),
+                                      <div className="space-y-0.5 text-center">
+                                        <p className="text-sm text-[#65749b]">
+                                          Nominal Dasar:{" "}
+                                          {formatRupiah(
+                                            Number(
+                                              pelunasanSummary?.amount ??
+                                                0,
+                                            ),
+                                          )}
+                                        </p>
+
+                                        {Number(
+                                          pelunasanSummary?.penalty_amount ??
+                                            0,
+                                        ) > 0 && (
+                                          <p className="text-xs text-red-600">
+                                            Denda{" "}{pelunasanSummary?.penalty_days ?? 0}{" "}hari:{" "}
+                                            {formatRupiah(
+                                              Number(
+                                                pelunasanSummary?.penalty_amount ??
+                                                  0,
+                                              ),
+                                            )}
+                                          </p>
                                         )}
-                                      </p>
+
+                                        <p className="text-base font-semibold text-[#20366f]">
+                                          Total:{" "}
+                                          {formatRupiah(
+                                            Number(
+                                              pelunasanSummary?.total_amount ??
+                                                0,
+                                            ),
+                                          )}
+                                        </p>
+                                      </div>
 
                                     ) : (
 
@@ -3703,32 +3752,7 @@ const handlePaymentSuccess =
                                         ) > 0 && (
 
                                           <div className="mt-2 text-center text-xs leading-5 text-[#7a89ad]">
-
-                                            <p className="font-semibold text-red-600">
-                                              Terlambat{" "}
-                                              {
-                                                pelunasanSummary!
-                                                  .penalty_days
-                                              }{" "}
-                                              hari
-                                            </p>
-
-                                            <p>
-                                              Denda +{" "}
-                                              {formatRupiah(
-                                                Number(
-                                                  pelunasanSummary!
-                                                    .penalty_amount ??
-                                                    0,
-                                                ),
-                                              )}
-                                              {pelunasanSummary
-                                                ?.late_payment_permission && (
-                                                <>{" "}dan</>
-                                              )}
-                                            </p>
-
-                                            {pelunasanSummary
+{pelunasanSummary
                                               ?.late_payment_permission && (
                                               <>
                                                 <p className="mt-1">
@@ -4173,13 +4197,38 @@ const handlePaymentSuccess =
                               Memuat...
                             </p>
                           ) : paymentSummary ? (
-                            <p className="mt-1 text-base font-semibold text-[#20366f]">
-                              {formatRupiah(
-                                Number(
-                                  dpSummary?.amount ?? 0,
-                                ),
+                            <div className="mt-1 space-y-0.5">
+                              <p className="text-sm text-[#65749b]">
+                                Nominal Dasar:{" "}
+                                {formatRupiah(
+                                  Number(
+                                    dpSummary?.amount ?? 0,
+                                  ),
+                                )}
+                              </p>
+
+                              {Number(
+                                dpSummary?.penalty_amount ?? 0,
+                              ) > 0 && (
+                                <p className="text-xs text-red-600">
+                                  Denda{" "}{dpSummary?.penalty_days ?? 0}{" "}hari:{" "}
+                                  {formatRupiah(
+                                    Number(
+                                      dpSummary?.penalty_amount ?? 0,
+                                    ),
+                                  )}
+                                </p>
                               )}
-                            </p>
+
+                              <p className="text-base font-bold text-[#20366f]">
+                                Total:{" "}
+                                {formatRupiah(
+                                  Number(
+                                    dpSummary?.total_amount ?? 0,
+                                  ),
+                                )}
+                              </p>
+                            </div>
                           ) : (
                             <p className="mt-1 text-sm text-red-500">
                               -
@@ -4225,18 +4274,7 @@ const handlePaymentSuccess =
                               dpSummary?.penalty_days ?? 0,
                             ) > 0 && (
                               <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
-                                <p className="font-semibold text-red-600">
-                                  Terlambat {dpSummary?.penalty_days} hari
-                                </p>
-                                <p>
-                                  Denda + {formatRupiah(
-                                    Number(
-                                      dpSummary?.penalty_amount ?? 0,
-                                    ),
-                                  )}
-                                </p>
-
-                                {dpSummary?.late_payment_permission && (
+{dpSummary?.late_payment_permission && (
                                   <>
                                     <p className="mt-1">
                                       Sedang mengajukan ijin telat
@@ -4290,13 +4328,38 @@ const handlePaymentSuccess =
                               Memuat...
                             </p>
                           ) : dpPaid && paymentSummary ? (
-                            <p className="mt-1 text-base font-semibold text-[#20366f]">
-                              {formatRupiah(
-                                Number(
-                                  pelunasanSummary?.amount ?? 0,
-                                ),
+                            <div className="mt-1 space-y-0.5">
+                              <p className="text-sm text-[#65749b]">
+                                Nominal Dasar:{" "}
+                                {formatRupiah(
+                                  Number(
+                                    pelunasanSummary?.amount ?? 0,
+                                  ),
+                                )}
+                              </p>
+
+                              {Number(
+                                pelunasanSummary?.penalty_amount ?? 0,
+                              ) > 0 && (
+                                <p className="text-xs text-red-600">
+                                  Denda{" "}{pelunasanSummary?.penalty_days ?? 0}{" "}hari:{" "}
+                                  {formatRupiah(
+                                    Number(
+                                      pelunasanSummary?.penalty_amount ?? 0,
+                                    ),
+                                  )}
+                                </p>
                               )}
-                            </p>
+
+                              <p className="text-base font-bold text-[#20366f]">
+                                Total:{" "}
+                                {formatRupiah(
+                                  Number(
+                                    pelunasanSummary?.total_amount ?? 0,
+                                  ),
+                                )}
+                              </p>
+                            </div>
                           ) : (
                             <p className="mt-1 text-sm text-[#7a89ad]">
                               -
@@ -4345,18 +4408,7 @@ const handlePaymentSuccess =
                               pelunasanSummary?.penalty_days ?? 0,
                             ) > 0 && (
                               <div className="mt-2 text-xs leading-5 text-[#7a89ad]">
-                                <p className="font-semibold text-red-600">
-                                  Terlambat {pelunasanSummary?.penalty_days} hari
-                                </p>
-                                <p>
-                                  Denda + {formatRupiah(
-                                    Number(
-                                      pelunasanSummary?.penalty_amount ?? 0,
-                                    ),
-                                  )}
-                                </p>
-
-                                {pelunasanSummary?.late_payment_permission && (
+{pelunasanSummary?.late_payment_permission && (
                                   <>
                                     <p className="mt-1">
                                       Sedang mengajukan ijin telat
@@ -5195,9 +5247,7 @@ const handlePaymentSuccess =
               className="absolute -right-3 -top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#20366f] shadow-lg transition hover:bg-[#f1f4fa]"
               aria-label="Tutup preview gambar"
             >
-
               <X className="h-5 w-5" />
-
             </button>
 
             <img

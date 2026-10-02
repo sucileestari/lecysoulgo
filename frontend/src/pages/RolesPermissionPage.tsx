@@ -18,6 +18,8 @@ import {
   Trash2,
   Users,
   X,
+  Eye as EyeIcon,
+  EyeOff,
 } from "lucide-react";
 
 import {
@@ -35,6 +37,10 @@ import {
 import {
   canAccessPermission,
 } from "../utils/permissions";
+
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ?? ""
+).trim();
 
 /* =========================================
    TYPES
@@ -518,6 +524,37 @@ export default function RolesPermissionPage() {
     roleModalLoading,
     setRoleModalLoading,
   ] = useState(false);
+
+  /* =========================================
+     CHANGE PASSWORD
+  ========================================= */
+
+  const [currentPassword, setCurrentPassword] =
+    useState("");
+
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
+
+  const [passwordSaving, setPasswordSaving] =
+    useState(false);
+
+  const [passwordError, setPasswordError] =
+    useState("");
+
+  const [passwordSuccess, setPasswordSuccess] =
+    useState("");
+
+  const [showCurrentPassword, setShowCurrentPassword] =
+    useState(false);
+
+  const [showNewPassword, setShowNewPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   /* =========================================
      EXPANDED MODULES
@@ -1203,6 +1240,135 @@ export default function RolesPermissionPage() {
     } finally {
       setRoleModalLoading(false);
     }
+  }
+
+  /* =========================================
+     CHANGE PASSWORD
+  ========================================= */
+
+  async function handleChangePassword() {
+    const current = currentPassword.trim();
+    const next = newPassword;
+    const confirmation = confirmPassword;
+
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!current || !next || !confirmation) {
+      setPasswordError(
+        "Semua field password wajib diisi.",
+      );
+      return;
+    }
+
+    if (next.length < 8) {
+      setPasswordError(
+        "Password baru minimal 8 karakter.",
+      );
+      return;
+    }
+
+    if (next === current) {
+      setPasswordError(
+        "Password baru harus berbeda dari password saat ini.",
+      );
+      return;
+    }
+
+    if (next !== confirmation) {
+      setPasswordError(
+        "Konfirmasi password baru tidak sama.",
+      );
+      return;
+    }
+
+    if (!API_BASE_URL) {
+      setPasswordError(
+        "VITE_API_BASE_URL belum dikonfigurasi.",
+      );
+      return;
+    }
+
+    const token = localStorage.getItem("auth_token");
+
+    if (!token) {
+      setPasswordError(
+        "Session admin tidak ditemukan. Silakan login kembali.",
+      );
+      return;
+    }
+
+    try {
+      setPasswordSaving(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/change-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            currentPassword: current,
+            newPassword: next,
+          }),
+        },
+      );
+
+      let result: {
+        success?: boolean;
+        message?: string;
+        error?: string;
+      } | null = null;
+
+      try {
+        result = await response.json();
+      } catch {
+        result = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result?.message ??
+            result?.error ??
+            `Gagal mengubah password (${response.status})`,
+        );
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(
+        result?.message ??
+          "Password berhasil diubah.",
+      );
+    } catch (err) {
+      console.error(err);
+
+      setPasswordError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengubah password.",
+      );
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  function resetPasswordForm() {
+    if (passwordSaving) {
+      return;
+    }
+
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordError("");
+    setPasswordSuccess("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
   }
 
   /* =========================================
@@ -2297,61 +2463,245 @@ export default function RolesPermissionPage() {
       </div>
 
       {/* =====================================
-          DETAIL ROLE
+          KEAMANAN AKUN
       ===================================== */}
 
-      {selectedRole && (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 
-          <div className="mb-5">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.1fr]">
 
-            <h2 className="font-semibold text-slate-900">
-              Detail Role
-            </h2>
+          <div>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Informasi detail role yang
-              dipilih.
-            </p>
+            <div className="flex items-start gap-3">
+
+              <div className="shrink-0 rounded-lg bg-blue-50 p-2.5 text-blue-600">
+                <ShieldCheck size={20} />
+              </div>
+
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Keamanan Akun
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Kelola keamanan akun Anda dengan mengubah password secara berkala.
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+
+              <div className="flex items-start gap-3">
+                <Shield size={18} className="mt-0.5 shrink-0 text-blue-600" />
+
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">
+                    Tips Keamanan
+                  </p>
+
+                  <ul className="mt-2 space-y-1.5 text-xs leading-5 text-blue-700">
+                    <li>Gunakan password yang kuat dan unik.</li>
+                    <li>Minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.</li>
+                    <li>Jangan gunakan password yang sama dengan akun lain.</li>
+                  </ul>
+                </div>
+
+              </div>
+
+            </div>
 
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-4">
 
-            <DetailItem
-              label="Nama Role"
-              value={formatRoleName(
-                selectedRole.name
-              )}
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Password Saat Ini
+              </label>
 
-            <DetailItem
-              label="Deskripsi"
-              value={
-                selectedRole.description ??
-                "-"
-              }
-            />
+              <div className="relative">
+                <input
+                  type={
+                    showCurrentPassword
+                      ? "text"
+                      : "password"
+                  }
+                  value={currentPassword}
+                  onChange={(event) => {
+                    setCurrentPassword(event.target.value);
+                    setPasswordError("");
+                    setPasswordSuccess("");
+                  }}
+                  placeholder="Masukkan password saat ini"
+                  disabled={passwordSaving}
+                  className="w-full rounded-lg border border-slate-200 py-2.5 pl-3 pr-11 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                />
 
-            <DetailItem
-              label="Jumlah Permission"
-              value={
-                isSuperAdmin
-                  ? `Semua dari ${totalPermissions}`
-                  : `${permissionCount} dari ${totalPermissions} permission`
-              }
-            />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowCurrentPassword(
+                      (current) => !current,
+                    )
+                  }
+                  disabled={passwordSaving}
+                  aria-label={
+                    showCurrentPassword
+                      ? "Sembunyikan password saat ini"
+                      : "Tampilkan password saat ini"
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff size={17} />
+                  ) : (
+                    <EyeIcon size={17} />
+                  )}
+                </button>
+              </div>
+            </div>
 
-            <DetailItem
-              label="Status"
-              value="Aktif"
-              badge
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Password Baru
+              </label>
+
+              <div className="relative">
+                <input
+                  type={
+                    showNewPassword
+                      ? "text"
+                      : "password"
+                  }
+                  value={newPassword}
+                  onChange={(event) => {
+                    setNewPassword(event.target.value);
+                    setPasswordError("");
+                    setPasswordSuccess("");
+                  }}
+                  placeholder="Masukkan password baru"
+                  disabled={passwordSaving}
+                  className="w-full rounded-lg border border-slate-200 py-2.5 pl-3 pr-11 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowNewPassword(
+                      (current) => !current,
+                    )
+                  }
+                  disabled={passwordSaving}
+                  aria-label={
+                    showNewPassword
+                      ? "Sembunyikan password baru"
+                      : "Tampilkan password baru"
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                >
+                  {showNewPassword ? (
+                    <EyeOff size={17} />
+                  ) : (
+                    <EyeIcon size={17} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Konfirmasi Password Baru
+              </label>
+
+              <div className="relative">
+                <input
+                  type={
+                    showConfirmPassword
+                      ? "text"
+                      : "password"
+                  }
+                  value={confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    setPasswordError("");
+                    setPasswordSuccess("");
+                  }}
+                  placeholder="Masukkan ulang password baru"
+                  disabled={passwordSaving}
+                  className="w-full rounded-lg border border-slate-200 py-2.5 pl-3 pr-11 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      (current) => !current,
+                    )
+                  }
+                  disabled={passwordSaving}
+                  aria-label={
+                    showConfirmPassword
+                      ? "Sembunyikan konfirmasi password"
+                      : "Tampilkan konfirmasi password"
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={17} />
+                  ) : (
+                    <EyeIcon size={17} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {passwordError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                {passwordError}
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-700">
+                {passwordSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+
+              <button
+                type="button"
+                onClick={resetPasswordForm}
+                disabled={passwordSaving}
+                className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleChangePassword()}
+                disabled={
+                  passwordSaving ||
+                  !currentPassword ||
+                  !newPassword ||
+                  !confirmPassword
+                }
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {passwordSaving
+                  ? "Mengubah Password..."
+                  : "Ubah Password"}
+              </button>
+
+            </div>
 
           </div>
 
         </div>
-      )}
+
+      </div>
 
       {/* =====================================
           ROLE MODAL
@@ -2705,40 +3055,3 @@ function SummaryCard({
   );
 }
 
-/* =========================================
-   DETAIL ITEM
-========================================= */
-
-function DetailItem({
-  label,
-  value,
-  badge = false,
-}: {
-  label: string;
-  value: string;
-  badge?: boolean;
-}) {
-  return (
-    <div>
-
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </div>
-
-      {badge ? (
-        <div className="mt-2">
-
-          <span className="inline-flex rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-600">
-            {value}
-          </span>
-
-        </div>
-      ) : (
-        <div className="mt-2 text-sm font-medium text-slate-800">
-          {value}
-        </div>
-      )}
-
-    </div>
-  );
-}
