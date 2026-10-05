@@ -3850,44 +3850,90 @@ export async function handleMidtransNotification(
   ------------------------------------- */
 
   /*
-   * Cari payment hanya berdasarkan order_id yang
-   * ditandatangani Midtrans.
+   * Payment Link Midtrans dapat mengirim order_id
+   * dengan suffix timestamp pada notification.
    *
-   * Jangan menggunakan custom_field1 atau membuat
-   * variasi order_id lain sebagai fallback karena
-   * field tersebut tidak termasuk field signature
-   * Midtrans. Menggunakannya sebagai identifier
-   * dapat membuat notification yang sah untuk satu
-   * order diarahkan ke payment lain.
+   * Contoh:
+   *
+   * DB:
+   *   PAY-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   *
+   * Midtrans notification:
+   *   PAY-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-1791223807391
+   *
+   * order_id pada notification sudah diverifikasi
+   * melalui signature Midtrans, sehingga kita hanya
+   * menormalisasi suffix timestamp dari order_id
+   * tersebut untuk mencari provider_order_id asli
+   * yang tersimpan di database.
+   *
+   * Jangan menggunakan custom_field1 sebagai fallback
+   * identifier utama karena field tersebut tidak ikut
+   * membentuk signature notification Midtrans.
    */
+  const normalizedOrderId =
+    orderId.replace(
+      /-\d+$/,
+      "",
+    );
+
+  const candidateOrderIds =
+    Array.from(
+      new Set([
+        orderId,
+        normalizedOrderId,
+      ]),
+    );
+
   let paymentData: Payment | null =
     null;
 
-  const {
-    data,
-    error: paymentLookupError,
-  } = await supabase
-    .from("payments")
-    .select("*")
-    .eq(
-      "provider_order_id",
-      orderId,
-    )
-    .eq(
-      "provider",
-      "midtrans",
-    )
-    .maybeSingle();
+  let paymentLookupError:
+    | Error
+    | null = null;
+
+  for (
+    const candidateOrderId of
+    candidateOrderIds
+  ) {
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("payments")
+      .select("*")
+      .eq(
+        "provider_order_id",
+        candidateOrderId,
+      )
+      .eq(
+        "provider",
+        "midtrans",
+      )
+      .maybeSingle();
+
+    if (error) {
+      paymentLookupError =
+        error instanceof Error
+          ? error
+          : new Error(
+              String(error),
+            );
+
+      break;
+    }
+
+    if (data) {
+      paymentData =
+        data as Payment;
+      break;
+    }
+  }
 
   if (paymentLookupError) {
     throw new Error(
       `Gagal mencari pembayaran Midtrans: ${paymentLookupError.message}`,
     );
-  }
-
-  if (data) {
-    paymentData =
-      data as Payment;
   }
 
   if (!paymentData) {

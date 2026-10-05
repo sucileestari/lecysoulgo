@@ -270,7 +270,7 @@ export async function createMidtransPaymentLink(
     },
 
     // Hanya tampilkan metode pembayaran QRIS.
-    enabled_payments: ["other_qris"],
+    enabled_payments: ["other_qris","bca_va"],
 
     usage_limit: 1,
 
