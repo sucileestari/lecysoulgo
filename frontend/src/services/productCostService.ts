@@ -15,7 +15,10 @@ export type ProductCost = {
   id: string;
   batch_id: string;
 
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string | null;
@@ -30,7 +33,11 @@ export type ProductCost = {
 
 export type CreateProductCostInput = {
   batch_id: string;
+
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string;
@@ -38,7 +45,10 @@ export type CreateProductCostInput = {
 };
 
 export type UpdateProductCostInput = {
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string;
@@ -121,6 +131,88 @@ async function parseResponse<T>(
 }
 
 /* =========================================
+   VALIDATE PRODUCT COST INPUT
+========================================= */
+
+function validateProductCostInput(
+  input: {
+    modal_beli: number;
+    tax: number;
+    total_modal: number;
+    qty: number;
+    transaction_date: string;
+    bank_account_id: string;
+  },
+): void {
+  if (
+    !Number.isFinite(
+      input.modal_beli,
+    ) ||
+    input.modal_beli <= 0
+  ) {
+    throw new Error(
+      "Modal beli harus lebih besar dari 0.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      input.tax,
+    ) ||
+    input.tax < 0
+  ) {
+    throw new Error(
+      "Tax tidak valid. Isi 0 jika tidak ada tax.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      input.total_modal,
+    ) ||
+    input.total_modal < 0
+  ) {
+    throw new Error(
+      "Total modal tidak valid.",
+    );
+  }
+
+  const calculatedTotalModal =
+    input.modal_beli +
+    input.tax;
+
+  if (
+    input.total_modal !==
+    calculatedTotalModal
+  ) {
+    throw new Error(
+      "Total modal harus sama dengan Modal Beli + Tax.",
+    );
+  }
+
+  if (
+    !Number.isInteger(input.qty) ||
+    input.qty <= 0
+  ) {
+    throw new Error(
+      "Qty harus lebih besar dari 0.",
+    );
+  }
+
+  if (!input.transaction_date.trim()) {
+    throw new Error(
+      "Tanggal transaksi wajib diisi.",
+    );
+  }
+
+  if (!input.bank_account_id.trim()) {
+    throw new Error(
+      "Bank pembayaran wajib dipilih.",
+    );
+  }
+}
+
+/* =========================================
    GET ALL
 ========================================= */
 
@@ -195,43 +287,34 @@ export async function getProductCostByBatchId(
 export async function createProductCost(
   input: CreateProductCostInput,
 ): Promise<ProductCost> {
-  if (!input.batch_id.trim()) {
+  const batchId =
+    input.batch_id.trim();
+
+  if (!batchId) {
     throw new Error(
       "Batch wajib dipilih.",
     );
   }
 
-  if (
-    !Number.isInteger(input.qty) ||
-    input.qty <= 0
-  ) {
-    throw new Error(
-      "Qty harus lebih besar dari 0.",
-    );
-  }
+  validateProductCostInput({
+    modal_beli:
+      input.modal_beli,
 
-  if (
-    !Number.isFinite(
+    tax:
+      input.tax,
+
+    total_modal:
       input.total_modal,
-    ) ||
-    input.total_modal <= 0
-  ) {
-    throw new Error(
-      "Modal beli harus lebih besar dari 0.",
-    );
-  }
 
-  if (!input.transaction_date.trim()) {
-    throw new Error(
-      "Tanggal transaksi wajib diisi.",
-    );
-  }
+    qty:
+      input.qty,
 
-  if (!input.bank_account_id.trim()) {
-    throw new Error(
-      "Bank pembayaran wajib dipilih.",
-    );
-  }
+    transaction_date:
+      input.transaction_date,
+
+    bank_account_id:
+      input.bank_account_id,
+  });
 
   const token =
     getAuthToken();
@@ -254,12 +337,19 @@ export async function createProductCost(
 
       body: JSON.stringify({
         batch_id:
-          input.batch_id.trim(),
+          batchId,
+
+        modal_beli:
+          input.modal_beli,
+
+        tax:
+          input.tax,
 
         total_modal:
           input.total_modal,
 
-        qty: input.qty,
+        qty:
+          input.qty,
 
         transaction_date:
           input.transaction_date.trim(),
@@ -283,50 +373,41 @@ export async function updateProductCost(
   id: string,
   input: UpdateProductCostInput,
 ): Promise<ProductCost> {
-  if (!id.trim()) {
+  const normalizedId =
+    id.trim();
+
+  if (!normalizedId) {
     throw new Error(
       "ID modal penjualan wajib diisi.",
     );
   }
 
-  if (
-    !Number.isInteger(input.qty) ||
-    input.qty <= 0
-  ) {
-    throw new Error(
-      "Qty harus lebih besar dari 0.",
-    );
-  }
+  validateProductCostInput({
+    modal_beli:
+      input.modal_beli,
 
-  if (
-    !Number.isFinite(
+    tax:
+      input.tax,
+
+    total_modal:
       input.total_modal,
-    ) ||
-    input.total_modal <= 0
-  ) {
-    throw new Error(
-      "Modal beli harus lebih besar dari 0.",
-    );
-  }
 
-  if (!input.transaction_date.trim()) {
-    throw new Error(
-      "Tanggal transaksi wajib diisi.",
-    );
-  }
+    qty:
+      input.qty,
 
-  if (!input.bank_account_id.trim()) {
-    throw new Error(
-      "Bank pembayaran wajib dipilih.",
-    );
-  }
+    transaction_date:
+      input.transaction_date,
+
+    bank_account_id:
+      input.bank_account_id,
+  });
 
   const token =
     getAuthToken();
 
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs/${encodeURIComponent(
-      id.trim(),
+      normalizedId,
     )}`,
     {
       method: "PUT",
@@ -343,10 +424,17 @@ export async function updateProductCost(
       },
 
       body: JSON.stringify({
+        modal_beli:
+          input.modal_beli,
+
+        tax:
+          input.tax,
+
         total_modal:
           input.total_modal,
 
-        qty: input.qty,
+        qty:
+          input.qty,
 
         transaction_date:
           input.transaction_date.trim(),
@@ -369,7 +457,10 @@ export async function updateProductCost(
 export async function deleteProductCost(
   id: string,
 ): Promise<void> {
-  if (!id.trim()) {
+  const normalizedId =
+    id.trim();
+
+  if (!normalizedId) {
     throw new Error(
       "ID modal penjualan wajib diisi.",
     );
@@ -380,7 +471,7 @@ export async function deleteProductCost(
 
   const response = await fetch(
     `${API_BASE_URL}/api/product-costs/${encodeURIComponent(
-      id.trim(),
+      normalizedId,
     )}`,
     {
       method: "DELETE",

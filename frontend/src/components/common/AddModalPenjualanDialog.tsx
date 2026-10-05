@@ -6,26 +6,18 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-
 import type { Batch } from "../../services/batchService";
 import {
   getActiveBankAccounts,
   type BankAccount,
 } from "../../services/bankAccountService";
-import {
-  getProductCosts,
-} from "../../services/productCostService";
-
-/* =========================================
-   TYPES
-========================================= */
+import { getProductCosts } from "../../services/productCostService";
 
 export type CreateModalPenjualanInput = {
   batch_id: string;
@@ -33,25 +25,20 @@ export type CreateModalPenjualanInput = {
   modal_beli: number;
   transaction_date: string;
   bank_account_id: string;
+  tax: number;
+  total_modal: number;
 };
 
 type DatePickerType = "transaction" | null;
 
 type AddModalPenjualanDialogProps = {
   open: boolean;
-
   batches: Batch[];
-
   onClose: () => void;
-
   onSubmit: (
     input: CreateModalPenjualanInput,
   ) => Promise<void>;
 };
-
-/* =========================================
-   COUNTRY CONFIG
-========================================= */
 
 const countryConfig: Record<
   Batch["country"],
@@ -62,50 +49,54 @@ const countryConfig: Record<
   china: {
     name: "China",
   },
-
   indonesia: {
     name: "Indonesia",
   },
-
   jepang: {
     name: "Jepang",
   },
-
   korea: {
     name: "Korea",
   },
-
   thailand: {
     name: "Thailand",
   },
 };
 
-/* =========================================
-   FORMAT
-========================================= */
-
-function formatRupiah(
-  value: number,
-): string {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    },
-  ).format(value);
+function formatRupiah(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-/* =========================================
-   DATE
-========================================= */
+function parseRupiahInput(value: string): number {
+  const digits = value.replace(/\D/g, "");
+
+  if (!digits) {
+    return 0;
+  }
+
+  return Number(digits);
+}
+
+function formatRupiahInput(value: string): string {
+  const digits = value.replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(Number(digits));
+}
 
 function getTodayDate(): string {
   const date = new Date();
 
-  const year =
-    date.getFullYear();
+  const year = date.getFullYear();
 
   const month = String(
     date.getMonth() + 1,
@@ -118,52 +109,117 @@ function getTodayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-/* =========================================
-   CALENDAR HELPERS
-========================================= */
-
 const MONTH_NAMES = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
 ];
 
-const DAY_NAMES = ["Mg", "Sn", "Sl", "Rb", "Km", "Jm", "Sb"];
+const DAY_NAMES = [
+  "Mg",
+  "Sn",
+  "Sl",
+  "Rb",
+  "Km",
+  "Jm",
+  "Sb",
+];
 
 function parseDate(value: string): Date | null {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  if (!value) {
+    return null;
+  }
+
+  const [
+    year,
+    month,
+    day,
+  ] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+  );
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
   return date;
 }
 
 function toDateString(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate(),
+  ).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
-function formatDisplayDate(value: string): string {
+function formatDisplayDate(
+  value: string,
+): string {
   const date = parseDate(value);
-  if (!date) return "Pilih tanggal";
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit", month: "long", year: "numeric",
-  }).format(date);
+
+  if (!date) {
+    return "Pilih tanggal";
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    },
+  ).format(date);
 }
 
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
+function getDaysInMonth(
+  year: number,
+  month: number,
+): number {
+  return new Date(
+    year,
+    month + 1,
+    0,
+  ).getDate();
 }
 
-function getFirstDayOfMonth(year: number, month: number): number {
-  return new Date(year, month, 1).getDay();
+function getFirstDayOfMonth(
+  year: number,
+  month: number,
+): number {
+  return new Date(
+    year,
+    month,
+    1,
+  ).getDay();
 }
-
-/* =========================================
-   PAGE
-========================================= */
 
 export default function AddModalPenjualanDialog({
   open,
@@ -171,17 +227,15 @@ export default function AddModalPenjualanDialog({
   onClose,
   onSubmit,
 }: AddModalPenjualanDialogProps) {
-  /* =======================================
-     FORM STATE
-  ======================================== */
-
   const [
     selectedBatchId,
     setSelectedBatchId,
   ] = useState("");
 
-  const [qty, setQty] =
-    useState("");
+  const [
+    qty,
+    setQty,
+  ] = useState("");
 
   const [
     modalBeli,
@@ -198,16 +252,15 @@ export default function AddModalPenjualanDialog({
     setSelectedBankAccountId,
   ] = useState("");
 
-  /* =======================================
-     BANK ACCOUNT STATE
-  ======================================== */
+  const [
+    tax,
+    setTax,
+  ] = useState("");
 
   const [
     bankAccounts,
     setBankAccounts,
-  ] = useState<BankAccount[]>(
-    [],
-  );
+  ] = useState<BankAccount[]>([]);
 
   const [
     existingBatchIds,
@@ -218,10 +271,6 @@ export default function AddModalPenjualanDialog({
     isLoadingBankAccounts,
     setIsLoadingBankAccounts,
   ] = useState(false);
-
-  /* =======================================
-     DROPDOWN STATE
-  ======================================== */
 
   const [
     isBatchDropdownOpen,
@@ -244,25 +293,28 @@ export default function AddModalPenjualanDialog({
   const bankDropdownRef =
     useRef<HTMLDivElement>(null);
 
-  /* =======================================
-     DATE PICKER STATE
-  ======================================== */
+  const [
+    datePickerType,
+    setDatePickerType,
+  ] = useState<DatePickerType>(null);
 
-  const [datePickerType, setDatePickerType] =
-    useState<DatePickerType>(null);
+  const [
+    temporaryDate,
+    setTemporaryDate,
+  ] = useState("");
 
-  const [temporaryDate, setTemporaryDate] =
-    useState("");
+  const [
+    calendarMonth,
+    setCalendarMonth,
+  ] = useState(() => {
+    const now = new Date();
 
-  const [calendarMonth, setCalendarMonth] =
-    useState(() => {
-      const now = new Date();
-      return new Date(now.getFullYear(), now.getMonth(), 1);
-    });
-
-  /* =======================================
-     UI STATE
-  ======================================== */
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+    );
+  });
 
   const [
     error,
@@ -274,25 +326,16 @@ export default function AddModalPenjualanDialog({
     setIsSubmitting,
   ] = useState(false);
 
-  /* =======================================
-     SELECTED BATCH
-  ======================================== */
-
   const selectedBatch =
     useMemo(() => {
       return batches.find(
         (batch) =>
-          batch.id ===
-          selectedBatchId,
+          batch.id === selectedBatchId,
       );
     }, [
       batches,
       selectedBatchId,
     ]);
-
-  /* =======================================
-     SELECTED BANK ACCOUNT
-  ======================================== */
 
   const selectedBankAccount =
     useMemo(() => {
@@ -305,10 +348,6 @@ export default function AddModalPenjualanDialog({
       bankAccounts,
       selectedBankAccountId,
     ]);
-
-  /* =======================================
-     FILTER BATCH
-  ======================================== */
 
   const filteredBatches =
     useMemo(() => {
@@ -339,14 +378,10 @@ export default function AddModalPenjualanDialog({
           return (
             batch.name
               .toLowerCase()
-              .includes(
-                keyword,
-              ) ||
+              .includes(keyword) ||
             country.name
               .toLowerCase()
-              .includes(
-                keyword,
-              )
+              .includes(keyword)
           );
         },
       );
@@ -356,31 +391,29 @@ export default function AddModalPenjualanDialog({
       existingBatchIds,
     ]);
 
-  /* =======================================
-     CALCULATION
-  ======================================== */
-
   const qtyNumber =
     Number(qty);
 
   const modalBeliNumber =
-    Number(modalBeli);
+    parseRupiahInput(modalBeli);
 
+  const taxNumber =
+    parseRupiahInput(tax);
+
+  // Total modal sekarang berasal dari:
+  // Modal Beli + Tax
+  const totalModal =
+    modalBeliNumber +
+    taxNumber;
+
+  // Harga modal per barang sekarang menggunakan:
+  // Total Modal ÷ Qty
   const hargaModalPerBarang =
     qtyNumber > 0 &&
-    modalBeliNumber >= 0
-      ? modalBeliNumber /
+    totalModal >= 0
+      ? totalModal /
         qtyNumber
       : 0;
-
-  /*
-   * Pembulatan ke atas ke
-   * kelipatan Rp1.000.
-   *
-   * Contoh:
-   * 13.600 -> 14.000
-   * 15.000 -> 15.000
-   */
 
   const hargaModalPembulatan =
     hargaModalPerBarang > 0
@@ -389,10 +422,6 @@ export default function AddModalPenjualanDialog({
             1000,
         ) * 1000
       : 0;
-
-  /* =======================================
-     LOAD BANK ACCOUNTS
-  ======================================== */
 
   useEffect(() => {
     if (!open) {
@@ -480,34 +509,35 @@ export default function AddModalPenjualanDialog({
     };
   }, [open]);
 
-  /* =======================================
-     DATE PICKER KEYBOARD
-  ======================================== */
-
   useEffect(() => {
-    if (!datePickerType) return;
+    if (!datePickerType) {
+      return;
+    }
 
-    const handleEscape = (event: KeyboardEvent) => {
+    const handleEscape = (
+      event: KeyboardEvent,
+    ) => {
       if (event.key === "Escape") {
         closeDatePicker();
       }
     };
 
-    window.addEventListener("keydown", handleEscape);
+    window.addEventListener(
+      "keydown",
+      handleEscape,
+    );
+
     return () => {
-      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
     };
   }, [datePickerType]);
 
-  /* =======================================
-     RESET
-  ======================================== */
-
   const resetForm = () => {
     setSelectedBatchId("");
-
     setQty("");
-
     setModalBeli("");
 
     setTransactionDate(
@@ -515,28 +545,18 @@ export default function AddModalPenjualanDialog({
     );
 
     setSelectedBankAccountId("");
+    setTax("");
 
-    setIsBatchDropdownOpen(
-      false,
-    );
-
-    setIsBankDropdownOpen(
-      false,
-    );
+    setIsBatchDropdownOpen(false);
+    setIsBankDropdownOpen(false);
 
     setDatePickerType(null);
     setTemporaryDate("");
-
     setBatchSearch("");
 
     setError("");
-
     setIsSubmitting(false);
   };
-
-  /* =======================================
-     OPEN
-  ======================================== */
 
   useEffect(() => {
     if (!open) {
@@ -545,10 +565,6 @@ export default function AddModalPenjualanDialog({
 
     resetForm();
   }, [open]);
-
-  /* =======================================
-     CLOSE DROPDOWN OUTSIDE
-  ======================================== */
 
   useEffect(() => {
     const handleClickOutside = (
@@ -590,23 +606,14 @@ export default function AddModalPenjualanDialog({
     };
   }, []);
 
-  /* =======================================
-     CLOSE
-  ======================================== */
-
   const handleClose = () => {
     if (isSubmitting) {
       return;
     }
 
     resetForm();
-
     onClose();
   };
-
-  /* =======================================
-     SELECT BATCH
-  ======================================== */
 
   const handleSelectBatch = (
     batch: Batch,
@@ -620,24 +627,44 @@ export default function AddModalPenjualanDialog({
     );
 
     setBatchSearch("");
-
     setError("");
   };
 
   function openDatePicker(
-    type: Exclude<DatePickerType, null>,
+    type: Exclude<
+      DatePickerType,
+      null
+    >,
   ) {
-    if (isSubmitting) return;
+    if (isSubmitting) {
+      return;
+    }
 
     const currentDate =
-      type === "transaction" ? transactionDate : "";
-    const baseDate = currentDate || getTodayDate();
-    const date = parseDate(baseDate) ?? new Date();
+      type === "transaction"
+        ? transactionDate
+        : "";
+
+    const baseDate =
+      currentDate ||
+      getTodayDate();
+
+    const date =
+      parseDate(baseDate) ??
+      new Date();
 
     setCalendarMonth(
-      new Date(date.getFullYear(), date.getMonth(), 1),
+      new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        1,
+      ),
     );
-    setTemporaryDate(currentDate);
+
+    setTemporaryDate(
+      currentDate,
+    );
+
     setDatePickerType(type);
     setError("");
   }
@@ -648,19 +675,35 @@ export default function AddModalPenjualanDialog({
     setError("");
   }
 
-  function handleSelectCalendarDate(dateString: string) {
-    setTemporaryDate(dateString);
+  function handleSelectCalendarDate(
+    dateString: string,
+  ) {
+    setTemporaryDate(
+      dateString,
+    );
+
     setError("");
   }
 
   function handleConfirmDate() {
-    if (!temporaryDate || !datePickerType) {
-      setError("Silakan pilih tanggal.");
+    if (
+      !temporaryDate ||
+      !datePickerType
+    ) {
+      setError(
+        "Silakan pilih tanggal.",
+      );
+
       return;
     }
 
-    if (datePickerType === "transaction") {
-      setTransactionDate(temporaryDate);
+    if (
+      datePickerType ===
+      "transaction"
+    ) {
+      setTransactionDate(
+        temporaryDate,
+      );
     }
 
     setTemporaryDate("");
@@ -674,19 +717,19 @@ export default function AddModalPenjualanDialog({
     setError("");
   }
 
-  function changeCalendarMonth(offset: number) {
-    setCalendarMonth((current) =>
-      new Date(
-        current.getFullYear(),
-        current.getMonth() + offset,
-        1,
-      ),
+  function changeCalendarMonth(
+    offset: number,
+  ) {
+    setCalendarMonth(
+      (current) =>
+        new Date(
+          current.getFullYear(),
+          current.getMonth() +
+            offset,
+          1,
+        ),
     );
   }
-
-  /* =======================================
-     SUBMIT
-  ======================================== */
 
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -694,10 +737,6 @@ export default function AddModalPenjualanDialog({
     event.preventDefault();
 
     setError("");
-
-    /* -------------------------------------
-       VALIDATION
-    ------------------------------------- */
 
     if (!selectedBatchId) {
       setError(
@@ -751,10 +790,16 @@ export default function AddModalPenjualanDialog({
       return;
     }
 
-    try {
-      setIsSubmitting(
-        true,
+    if (tax.trim() === "") {
+      setError(
+        "Tax wajib diisi. Isi 0 jika tidak ada tax.",
       );
+
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
 
       await onSubmit({
         batch_id:
@@ -770,10 +815,14 @@ export default function AddModalPenjualanDialog({
 
         bank_account_id:
           selectedBankAccountId,
+
+        tax: taxNumber,
+
+        total_modal:
+          totalModal,
       });
 
       resetForm();
-
       onClose();
     } catch (error) {
       console.error(
@@ -793,14 +842,23 @@ export default function AddModalPenjualanDialog({
     }
   };
 
-  const calendarYear = calendarMonth.getFullYear();
-  const calendarMonthIndex = calendarMonth.getMonth();
-  const firstDay = getFirstDayOfMonth(calendarYear, calendarMonthIndex);
-  const daysInMonth = getDaysInMonth(calendarYear, calendarMonthIndex);
+  const calendarYear =
+    calendarMonth.getFullYear();
 
-  /* =======================================
-     RENDER
-  ======================================== */
+  const calendarMonthIndex =
+    calendarMonth.getMonth();
+
+  const firstDay =
+    getFirstDayOfMonth(
+      calendarYear,
+      calendarMonthIndex,
+    );
+
+  const daysInMonth =
+    getDaysInMonth(
+      calendarYear,
+      calendarMonthIndex,
+    );
 
   if (!open) {
     return null;
@@ -808,17 +866,9 @@ export default function AddModalPenjualanDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-
       <div className="w-full max-w-[600px] overflow-visible rounded-2xl bg-white shadow-2xl">
-
-        {/* =================================
-            HEADER
-        ================================== */}
-
         <div className="flex items-start justify-between border-b border-[#e7ebf3] px-6 py-5">
-
           <div>
-
             <h2 className="text-xl font-bold text-[#10245c]">
               Tambah Modal Penjualan
             </h2>
@@ -827,7 +877,6 @@ export default function AddModalPenjualanDialog({
               Tambahkan modal untuk
               batch penjualan.
             </p>
-
           </div>
 
           <button
@@ -841,44 +890,28 @@ export default function AddModalPenjualanDialog({
           >
             <X className="h-5 w-5" />
           </button>
-
         </div>
-
-        {/* =================================
-            FORM
-        ================================== */}
 
         <form
           onSubmit={handleSubmit}
           className="px-6 py-6"
         >
-
-          {/* ERROR */}
-
           {error && (
             <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
-          {/* =================================
-              NAMA BATCH
-          ================================== */}
-
           <div
             ref={dropdownRef}
             className="relative"
           >
-
             <label className="text-sm font-medium text-[#20366f]">
               Nama Batch
-
               <span className="ml-1 text-red-500">
                 *
               </span>
             </label>
-
-            {/* SELECT BUTTON */}
 
             <button
               type="button"
@@ -895,7 +928,6 @@ export default function AddModalPenjualanDialog({
             >
               {selectedBatch ? (
                 <div className="flex min-w-0 items-center gap-2">
-
                   <span className="truncate font-medium text-[#20366f]">
                     {
                       selectedBatch.name
@@ -913,7 +945,6 @@ export default function AddModalPenjualanDialog({
                       ].name
                     }
                   </span>
-
                 </div>
               ) : (
                 <span className="text-[#a0abc0]">
@@ -929,20 +960,11 @@ export default function AddModalPenjualanDialog({
                     : "",
                 ].join(" ")}
               />
-
             </button>
-
-            {/* =================================
-                DROPDOWN
-            ================================== */}
 
             {isBatchDropdownOpen && (
               <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
-
-                {/* SEARCH */}
-
                 <div className="border-b border-[#edf0f6] p-2">
-
                   <input
                     type="text"
                     value={
@@ -960,22 +982,17 @@ export default function AddModalPenjualanDialog({
                     placeholder="Cari batch..."
                     className="h-9 w-full rounded-md border border-[#d9e0ef] bg-white px-3 text-sm text-[#20366f] outline-none placeholder:text-[#a0abc0] focus:border-[#1457ff]"
                   />
-
                 </div>
-
-                {/* =================================
-                    BATCH LIST
-                ================================== */}
 
                 <div
                   style={{
                     height: "280px",
-                    overflowY: "auto",
+                    overflowY:
+                      "auto",
                     overscrollBehavior:
                       "contain",
                   }}
                 >
-
                   {filteredBatches.length ===
                   0 ? (
                     <div
@@ -990,7 +1007,6 @@ export default function AddModalPenjualanDialog({
                   ) : (
                     filteredBatches.map(
                       (batch) => {
-
                         const country =
                           countryConfig[
                             batch.country
@@ -1012,7 +1028,8 @@ export default function AddModalPenjualanDialog({
                               )
                             }
                             style={{
-                              height: "56px",
+                              height:
+                                "56px",
                               minHeight:
                                 "56px",
                             }}
@@ -1021,11 +1038,11 @@ export default function AddModalPenjualanDialog({
                               isSelected
                                 ? "bg-[#edf3ff]"
                                 : "hover:bg-[#f8faff]",
-                            ].join(" ")}
+                            ].join(
+                              " ",
+                            )}
                           >
-
                             <div className="min-w-0 flex-1">
-
                               <p className="truncate text-sm font-medium leading-5 text-[#20366f]">
                                 {
                                   batch.name
@@ -1037,7 +1054,6 @@ export default function AddModalPenjualanDialog({
                                   country.name
                                 }
                               </p>
-
                             </div>
 
                             {isSelected && (
@@ -1045,29 +1061,19 @@ export default function AddModalPenjualanDialog({
                                 Dipilih
                               </span>
                             )}
-
                           </button>
                         );
                       },
                     )
                   )}
-
                 </div>
-
               </div>
             )}
-
           </div>
 
-          {/* =================================
-              QTY
-          ================================== */}
-
           <div className="mt-5">
-
             <label className="text-sm font-medium text-[#20366f]">
               Qty
-
               <span className="ml-1 text-red-500">
                 *
               </span>
@@ -1089,33 +1095,24 @@ export default function AddModalPenjualanDialog({
               placeholder="Masukkan qty"
               className="mt-2 h-11 w-full rounded-lg border border-[#d8dfec] bg-white px-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#a0abc0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f8fb]"
             />
-
           </div>
 
-          {/* =================================
-              MODAL BELI
-          ================================== */}
-
           <div className="mt-5">
-
             <label className="text-sm font-medium text-[#20366f]">
               Modal Beli
-
               <span className="ml-1 text-red-500">
                 *
               </span>
             </label>
 
             <div className="relative mt-2">
-
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#7a89ad]">
                 Rp
               </span>
 
               <input
-                type="number"
-                min="1"
-                step="1"
+                type="text"
+                inputMode="numeric"
                 value={
                   modalBeli
                 }
@@ -1123,8 +1120,10 @@ export default function AddModalPenjualanDialog({
                   event,
                 ) =>
                   setModalBeli(
-                    event.target
-                      .value,
+                    formatRupiahInput(
+                      event.target
+                        .value,
+                    ),
                   )
                 }
                 disabled={
@@ -1133,20 +1132,12 @@ export default function AddModalPenjualanDialog({
                 placeholder="Masukkan modal beli"
                 className="h-11 w-full rounded-lg border border-[#d8dfec] bg-white pl-10 pr-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#a0abc0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f8fb]"
               />
-
             </div>
-
           </div>
 
-          {/* =================================
-              TANGGAL TRANSAKSI
-          ================================== */}
-
           <div className="mt-5">
-
             <label className="text-sm font-medium text-[#20366f]">
               Tanggal Transaksi
-
               <span className="ml-1 text-red-500">
                 *
               </span>
@@ -1155,9 +1146,13 @@ export default function AddModalPenjualanDialog({
             <button
               type="button"
               onClick={() =>
-                openDatePicker("transaction")
+                openDatePicker(
+                  "transaction",
+                )
               }
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting
+              }
               className="mt-2 flex h-11 w-full items-center justify-between rounded-lg border border-[#d8dfec] bg-white px-3 text-left text-sm text-[#20366f] outline-none transition hover:border-[#bfcbe0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:cursor-not-allowed disabled:bg-[#f7f8fb]"
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -1167,31 +1162,24 @@ export default function AddModalPenjualanDialog({
                 />
 
                 <span className="truncate text-sm text-slate-700">
-                  {formatDisplayDate(transactionDate)}
+                  {formatDisplayDate(
+                    transactionDate,
+                  )}
                 </span>
               </div>
             </button>
-
           </div>
-
-          {/* =================================
-              REKENING PEMBAYARAN
-          ================================== */}
 
           <div
             ref={bankDropdownRef}
             className="relative mt-5"
           >
-
             <label className="text-sm font-medium text-[#20366f]">
               Rekening Pembayaran
-
               <span className="ml-1 text-red-500">
                 *
               </span>
             </label>
-
-            {/* SELECT BUTTON */}
 
             <button
               type="button"
@@ -1209,14 +1197,11 @@ export default function AddModalPenjualanDialog({
             >
               {selectedBankAccount ? (
                 <div className="flex min-w-0 items-center gap-2">
-
                   <span className="truncate font-medium text-[#20366f]">
                     {
                       selectedBankAccount.name
                     }
                   </span>
-
-
                 </div>
               ) : (
                 <span className="text-[#a0abc0]">
@@ -1237,25 +1222,19 @@ export default function AddModalPenjualanDialog({
                     : "",
                 ].join(" ")}
               />
-
             </button>
-
-            {/* =================================
-                DROPDOWN
-            ================================== */}
 
             {isBankDropdownOpen && (
               <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-lg border border-[#d8dfec] bg-white shadow-lg">
-
                 <div
                   style={{
                     height: "280px",
-                    overflowY: "auto",
+                    overflowY:
+                      "auto",
                     overscrollBehavior:
                       "contain",
                   }}
                 >
-
                   {bankAccounts.length ===
                   0 ? (
                     <div
@@ -1271,7 +1250,6 @@ export default function AddModalPenjualanDialog({
                   ) : (
                     bankAccounts.map(
                       (account) => {
-
                         const isSelected =
                           account.id ===
                           selectedBankAccountId;
@@ -1294,7 +1272,8 @@ export default function AddModalPenjualanDialog({
                               setError("");
                             }}
                             style={{
-                              height: "56px",
+                              height:
+                                "56px",
                               minHeight:
                                 "56px",
                             }}
@@ -1303,18 +1282,16 @@ export default function AddModalPenjualanDialog({
                               isSelected
                                 ? "bg-[#edf3ff]"
                                 : "hover:bg-[#f8faff]",
-                            ].join(" ")}
+                            ].join(
+                              " ",
+                            )}
                           >
-
                             <div className="min-w-0 flex-1">
-
                               <p className="truncate text-sm font-medium leading-5 text-[#20366f]">
                                 {
                                   account.name
                                 }
                               </p>
-
-
                             </div>
 
                             {isSelected && (
@@ -1322,44 +1299,99 @@ export default function AddModalPenjualanDialog({
                                 Dipilih
                               </span>
                             )}
-
                           </button>
                         );
                       },
                     )
                   )}
-
                 </div>
-
               </div>
             )}
-
           </div>
 
-          {/* =================================
-              HASIL OTOMATIS
-          ================================== */}
+          <div className="mt-5">
+            <label className="text-sm font-medium text-[#20366f]">
+              Tax
+              <span className="ml-1 text-red-500">
+                *
+              </span>
+            </label>
+
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#7a89ad]">
+                Rp
+              </span>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                value={tax}
+                onChange={(
+                  event,
+                ) =>
+                  setTax(
+                    formatRupiahInput(
+                      event.target
+                        .value,
+                    ),
+                  )
+                }
+                disabled={
+                  isSubmitting
+                }
+                placeholder="Masukkan tax"
+                className="h-11 w-full rounded-lg border border-[#d8dfec] bg-white pl-10 pr-3 text-sm text-[#20366f] outline-none transition placeholder:text-[#a0abc0] focus:border-[#1457ff] focus:ring-2 focus:ring-[#1457ff]/10 disabled:bg-[#f7f8fb]"
+              />
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <label className="text-sm font-medium text-[#20366f]">
+              Total Modal
+            </label>
+
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#7a89ad]">
+                Rp
+              </span>
+
+              <input
+                type="text"
+                value={
+                  totalModal > 0
+                    ? new Intl.NumberFormat(
+                        "id-ID",
+                        {
+                          maximumFractionDigits: 0,
+                        },
+                      ).format(
+                        totalModal,
+                      )
+                    : "0"
+                }
+                readOnly
+                disabled={
+                  isSubmitting
+                }
+                className="h-11 w-full cursor-default rounded-lg border border-[#d8dfec] bg-[#f7f8fb] pl-10 pr-3 text-sm font-medium text-[#20366f] outline-none disabled:bg-[#f7f8fb]"
+              />
+            </div>
+          </div>
 
           <section className="mt-5 rounded-xl border border-[#dfe6f2] bg-[#f5f8ff] p-5">
-
             <p className="text-sm font-semibold text-[#20366f]">
               Perhitungan Modal
             </p>
 
-            {/* MODAL / BARANG */}
-
             <div className="mt-4 flex items-center justify-between gap-4">
-
               <div>
-
                 <p className="text-sm text-[#65749b]">
                   Harga Modal per Barang
                 </p>
 
                 <p className="mt-1 text-xs text-[#8a96ae]">
-                  Modal Beli ÷ Qty
+                  Total Modal ÷ Qty
                 </p>
-
               </div>
 
               <p className="text-base font-bold text-[#20366f]">
@@ -1367,15 +1399,10 @@ export default function AddModalPenjualanDialog({
                   hargaModalPerBarang,
                 )}
               </p>
-
             </div>
 
-            {/* PEMBULATAN */}
-
             <div className="mt-4 flex items-center justify-between gap-4">
-
               <div>
-
                 <p className="text-sm text-[#65749b]">
                   Harga Modal per Barang
                   (Pembulatan)
@@ -1385,7 +1412,6 @@ export default function AddModalPenjualanDialog({
                   Dibulatkan ke atas
                   kelipatan Rp1.000
                 </p>
-
               </div>
 
               <p className="text-base font-bold text-[#1457ff]">
@@ -1393,17 +1419,10 @@ export default function AddModalPenjualanDialog({
                   hargaModalPembulatan,
                 )}
               </p>
-
             </div>
-
           </section>
 
-          {/* =================================
-              ACTIONS
-          ================================== */}
-
           <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#e9edf4] pt-5">
-
             <button
               type="button"
               onClick={
@@ -1425,7 +1444,6 @@ export default function AddModalPenjualanDialog({
               }
               className="flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-lg bg-[#1457ff] px-5 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-60"
             >
-
               {isSubmitting && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
@@ -1433,26 +1451,28 @@ export default function AddModalPenjualanDialog({
               {isSubmitting
                 ? "Menyimpan..."
                 : "Simpan Modal"}
-
             </button>
-
           </div>
-
         </form>
-
       </div>
 
       {datePickerType && (
         <div
           className="fixed inset-0 z-[200] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
-          onMouseDown={() => closeDatePicker()}
+          onMouseDown={() =>
+            closeDatePicker()
+          }
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-penjualan-date-picker-title"
         >
           <div
             className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
+            onMouseDown={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
@@ -1462,13 +1482,17 @@ export default function AddModalPenjualanDialog({
                 >
                   Pilih Tanggal Transaksi
                 </h3>
+
                 <p className="mt-1 text-xs text-slate-500">
                   Pilih tanggal transaksi.
                 </p>
               </div>
+
               <button
                 type="button"
-                onClick={closeDatePicker}
+                onClick={
+                  closeDatePicker
+                }
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Tutup kalender"
               >
@@ -1480,90 +1504,145 @@ export default function AddModalPenjualanDialog({
               <div className="mb-5 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => changeCalendarMonth(-1)}
+                  onClick={() =>
+                    changeCalendarMonth(
+                      -1,
+                    )
+                  }
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
                   aria-label="Bulan sebelumnya"
                 >
-                  <ChevronLeft size={19} />
+                  <ChevronLeft
+                    size={19}
+                  />
                 </button>
 
                 <p className="text-base font-semibold capitalize text-slate-800">
-                  {MONTH_NAMES[calendarMonthIndex]} {calendarYear}
+                  {
+                    MONTH_NAMES[
+                      calendarMonthIndex
+                    ]
+                  }{" "}
+                  {calendarYear}
                 </p>
 
                 <button
                   type="button"
-                  onClick={() => changeCalendarMonth(1)}
+                  onClick={() =>
+                    changeCalendarMonth(
+                      1,
+                    )
+                  }
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
                   aria-label="Bulan berikutnya"
                 >
-                  <ChevronRight size={19} />
+                  <ChevronRight
+                    size={19}
+                  />
                 </button>
               </div>
 
               <div className="mb-2 grid grid-cols-7 gap-1">
-                {DAY_NAMES.map((day) => (
-                  <div
-                    key={day}
-                    className="flex h-9 items-center justify-center text-xs font-medium text-slate-400"
-                  >
-                    {day}
-                  </div>
-                ))}
+                {DAY_NAMES.map(
+                  (day) => (
+                    <div
+                      key={day}
+                      className="flex h-9 items-center justify-center text-xs font-medium text-slate-400"
+                    >
+                      {day}
+                    </div>
+                  ),
+                )}
               </div>
 
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: firstDay }).map((_, index) => (
-                  <div
-                    key={`empty-${index}`}
-                    className="h-11"
-                  />
-                ))}
+                {Array.from({
+                  length: firstDay,
+                }).map(
+                  (
+                    _,
+                    index,
+                  ) => (
+                    <div
+                      key={`empty-${index}`}
+                      className="h-11"
+                    />
+                  ),
+                )}
 
-                {Array.from({ length: daysInMonth }).map((_, index) => {
-                  const day = index + 1;
-                  const date = new Date(
-                    calendarYear,
-                    calendarMonthIndex,
-                    day,
-                  );
-                  const dateString = toDateString(date);
-                  const isSelected = temporaryDate === dateString;
+                {Array.from({
+                  length:
+                    daysInMonth,
+                }).map(
+                  (
+                    _,
+                    index,
+                  ) => {
+                    const day =
+                      index + 1;
 
-                  return (
-                    <button
-                      key={dateString}
-                      type="button"
-                      onClick={() =>
-                        handleSelectCalendarDate(dateString)
-                      }
-                      className={[
-                        "flex h-11 w-full items-center justify-center rounded-xl text-sm transition",
-                        "text-slate-700 hover:bg-blue-50",
-                        isSelected
-                          ? "bg-[#1457ff] font-semibold text-white hover:bg-[#1457ff]"
-                          : "",
-                      ].join(" ")}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
+                    const date =
+                      new Date(
+                        calendarYear,
+                        calendarMonthIndex,
+                        day,
+                      );
+
+                    const dateString =
+                      toDateString(
+                        date,
+                      );
+
+                    const isSelected =
+                      temporaryDate ===
+                      dateString;
+
+                    return (
+                      <button
+                        key={
+                          dateString
+                        }
+                        type="button"
+                        onClick={() =>
+                          handleSelectCalendarDate(
+                            dateString,
+                          )
+                        }
+                        className={[
+                          "flex h-11 w-full items-center justify-center rounded-xl text-sm transition",
+                          "text-slate-700 hover:bg-blue-50",
+                          isSelected
+                            ? "bg-[#1457ff] font-semibold text-white hover:bg-[#1457ff]"
+                            : "",
+                        ].join(" ")}
+                      >
+                        {day}
+                      </button>
+                    );
+                  },
+                )}
               </div>
             </div>
 
             <div className="flex gap-3 border-t border-slate-200 px-5 py-4">
               <button
                 type="button"
-                onClick={handleCancelDate}
+                onClick={
+                  handleCancelDate
+                }
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Batal
               </button>
+
               <button
                 type="button"
-                onClick={handleConfirmDate}
-                disabled={!temporaryDate}
+                onClick={
+                  handleConfirmDate
+                }
+                disabled={
+                  !temporaryDate
+                }
                 className="flex-1 rounded-xl bg-[#1457ff] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0d4be0] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Pilih
@@ -1572,7 +1651,6 @@ export default function AddModalPenjualanDialog({
           </div>
         </div>
       )}
-
     </div>
   );
 }
