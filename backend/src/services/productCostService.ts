@@ -8,7 +8,10 @@ export type ProductCost = {
   id: string;
   batch_id: string;
 
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string | null;
@@ -23,7 +26,11 @@ export type ProductCost = {
 
 export type CreateProductCostInput = {
   batch_id: string;
+
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string;
@@ -31,12 +38,113 @@ export type CreateProductCostInput = {
 };
 
 export type UpdateProductCostInput = {
+  modal_beli: number;
+  tax: number;
   total_modal: number;
+
   qty: number;
 
   transaction_date: string;
   bank_account_id: string;
 };
+
+/* =========================================
+   HELPERS
+========================================= */
+
+function normalizeNumber(
+  value: number,
+): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return value;
+}
+
+function validateProductCostInput(
+  input: {
+    modal_beli: number;
+    tax: number;
+    total_modal: number;
+    qty: number;
+    transaction_date: string;
+    bank_account_id: string;
+  },
+): void {
+  if (
+    !Number.isFinite(
+      input.modal_beli,
+    ) ||
+    input.modal_beli <= 0
+  ) {
+    throw new Error(
+      "Modal beli harus lebih besar dari 0.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      input.tax,
+    ) ||
+    input.tax < 0
+  ) {
+    throw new Error(
+      "Tax tidak valid. Isi 0 jika tidak ada tax.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      input.total_modal,
+    ) ||
+    input.total_modal <= 0
+  ) {
+    throw new Error(
+      "Total modal harus lebih besar dari 0.",
+    );
+  }
+
+  const expectedTotalModal =
+    input.modal_beli +
+    input.tax;
+
+  if (
+    input.total_modal !==
+    expectedTotalModal
+  ) {
+    throw new Error(
+      "Total modal tidak sesuai dengan Modal Beli + Tax.",
+    );
+  }
+
+  if (
+    !Number.isInteger(
+      input.qty,
+    ) ||
+    input.qty <= 0
+  ) {
+    throw new Error(
+      "Qty harus berupa bilangan bulat lebih besar dari 0.",
+    );
+  }
+
+  if (
+    !input.transaction_date?.trim()
+  ) {
+    throw new Error(
+      "Tanggal transaksi wajib diisi.",
+    );
+  }
+
+  if (
+    !input.bank_account_id?.trim()
+  ) {
+    throw new Error(
+      "Bank pembayaran wajib dipilih.",
+    );
+  }
+}
 
 /* =========================================
    GET ALL PRODUCT COSTS
@@ -45,13 +153,30 @@ export type UpdateProductCostInput = {
 export async function getProductCosts(): Promise<
   ProductCost[]
 > {
-  const { data, error } =
-    await supabase
-      .from("product_costs")
-      .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("product_costs")
+    .select(
+      `
+        id,
+        batch_id,
+        modal_beli,
+        tax,
+        total_modal,
+        qty,
+        transaction_date,
+        bank_account_id,
+        modal_per_qty,
+        modal_per_qty_rounded,
+        created_at,
+        updated_at
+      `,
+    )
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (error) {
     console.error(
@@ -74,18 +199,41 @@ export async function getProductCosts(): Promise<
 export async function getProductCostByBatchId(
   batchId: string,
 ): Promise<ProductCost | null> {
-  if (!batchId.trim()) {
+  const normalizedBatchId =
+    batchId?.trim();
+
+  if (!normalizedBatchId) {
     throw new Error(
       "ID batch wajib diisi.",
     );
   }
 
-  const { data, error } =
-    await supabase
-      .from("product_costs")
-      .select("*")
-      .eq("batch_id", batchId.trim())
-      .maybeSingle();
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("product_costs")
+    .select(
+      `
+        id,
+        batch_id,
+        modal_beli,
+        tax,
+        total_modal,
+        qty,
+        transaction_date,
+        bank_account_id,
+        modal_per_qty,
+        modal_per_qty_rounded,
+        created_at,
+        updated_at
+      `,
+    )
+    .eq(
+      "batch_id",
+      normalizedBatchId,
+    )
+    .maybeSingle();
 
   if (error) {
     console.error(
@@ -117,37 +265,40 @@ export async function createProductCost(
     );
   }
 
-  if (
-    !Number.isInteger(input.qty) ||
-    input.qty <= 0
-  ) {
-    throw new Error(
-      "Qty harus berupa bilangan bulat lebih besar dari 0.",
+  const modalBeli =
+    normalizeNumber(
+      input.modal_beli,
     );
-  }
 
-  if (
-    !Number.isFinite(
+  const tax =
+    normalizeNumber(
+      input.tax,
+    );
+
+  const totalModal =
+    normalizeNumber(
       input.total_modal,
-    ) ||
-    input.total_modal <= 0
-  ) {
-    throw new Error(
-      "Modal beli harus lebih besar dari 0.",
     );
-  }
 
-  if (!input.transaction_date?.trim()) {
-    throw new Error(
-      "Tanggal transaksi wajib diisi.",
-    );
-  }
+  validateProductCostInput({
+    modal_beli:
+      modalBeli,
 
-  if (!input.bank_account_id?.trim()) {
-    throw new Error(
-      "Bank pembayaran wajib dipilih.",
-    );
-  }
+    tax:
+      tax,
+
+    total_modal:
+      totalModal,
+
+    qty:
+      input.qty,
+
+    transaction_date:
+      input.transaction_date,
+
+    bank_account_id:
+      input.bank_account_id,
+  });
 
   /* -------------------------------------
      CHECK EXISTING
@@ -168,33 +319,60 @@ export async function createProductCost(
      INSERT
 
      modal_per_qty dan
-     modal_per_qty_rounded merupakan
-     generated column di database.
+     modal_per_qty_rounded tetap
+     dihitung oleh generated column
+     di database berdasarkan:
 
-     Karena itu kedua field tersebut
+     total_modal / qty
+
+     Jadi kedua field tersebut
      TIDAK dikirim saat INSERT.
   ------------------------------------- */
 
-  const { data, error } =
-    await supabase
-      .from("product_costs")
-      .insert({
-        batch_id: batchId,
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("product_costs")
+    .insert({
+      batch_id:
+        batchId,
 
-        total_modal:
-          input.total_modal,
+      modal_beli:
+        modalBeli,
 
-        qty:
-          input.qty,
+      tax:
+        tax,
 
-        transaction_date:
-          input.transaction_date.trim(),
+      total_modal:
+        totalModal,
 
-        bank_account_id:
-          input.bank_account_id.trim(),
-      })
-      .select("*")
-      .single();
+      qty:
+        input.qty,
+
+      transaction_date:
+        input.transaction_date.trim(),
+
+      bank_account_id:
+        input.bank_account_id.trim(),
+    })
+    .select(
+      `
+        id,
+        batch_id,
+        modal_beli,
+        tax,
+        total_modal,
+        qty,
+        transaction_date,
+        bank_account_id,
+        modal_per_qty,
+        modal_per_qty_rounded,
+        created_at,
+        updated_at
+      `,
+    )
+    .single();
 
   if (error) {
     console.error(
@@ -203,10 +381,20 @@ export async function createProductCost(
     );
 
     if (
-      error.code === "23505"
+      error.code ===
+      "23505"
     ) {
       throw new Error(
         "Batch ini sudah memiliki data modal penjualan.",
+      );
+    }
+
+    if (
+      error.code ===
+      "23514"
+    ) {
+      throw new Error(
+        "Data modal tidak valid. Pastikan Total Modal = Modal Beli + Tax.",
       );
     }
 
@@ -227,85 +415,127 @@ export async function updateProductCost(
   id: string,
   input: UpdateProductCostInput,
 ): Promise<ProductCost> {
-  if (!id.trim()) {
+  const normalizedId =
+    id?.trim();
+
+  if (!normalizedId) {
     throw new Error(
       "ID modal penjualan wajib diisi.",
     );
   }
 
-  if (
-    !Number.isInteger(input.qty) ||
-    input.qty <= 0
-  ) {
-    throw new Error(
-      "Qty harus berupa bilangan bulat lebih besar dari 0.",
+  const modalBeli =
+    normalizeNumber(
+      input.modal_beli,
     );
-  }
 
-  if (
-    !Number.isFinite(
+  const tax =
+    normalizeNumber(
+      input.tax,
+    );
+
+  const totalModal =
+    normalizeNumber(
       input.total_modal,
-    ) ||
-    input.total_modal <= 0
-  ) {
-    throw new Error(
-      "Modal beli harus lebih besar dari 0.",
     );
-  }
 
-  if (!input.transaction_date?.trim()) {
-    throw new Error(
-      "Tanggal transaksi wajib diisi.",
-    );
-  }
+  validateProductCostInput({
+    modal_beli:
+      modalBeli,
 
-  if (!input.bank_account_id?.trim()) {
-    throw new Error(
-      "Bank pembayaran wajib dipilih.",
-    );
-  }
+    tax:
+      tax,
+
+    total_modal:
+      totalModal,
+
+    qty:
+      input.qty,
+
+    transaction_date:
+      input.transaction_date,
+
+    bank_account_id:
+      input.bank_account_id,
+  });
 
   /* -------------------------------------
      UPDATE
 
-     modal_per_qty dan
-     modal_per_qty_rounded merupakan
-     generated column di database.
+     Database akan menghitung ulang:
 
-     Database akan menghitung ulang
-     secara otomatis berdasarkan:
-     - total_modal
-     - qty
+     modal_per_qty =
+       total_modal / qty
+
+     modal_per_qty_rounded =
+       ceil(
+         (total_modal / qty) / 1000
+       ) * 1000
   ------------------------------------- */
 
-  const { data, error } =
-    await supabase
-      .from("product_costs")
-      .update({
-        total_modal:
-          input.total_modal,
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("product_costs")
+    .update({
+      modal_beli:
+        modalBeli,
 
-        qty:
-          input.qty,
+      tax:
+        tax,
 
-        transaction_date:
-          input.transaction_date.trim(),
+      total_modal:
+        totalModal,
 
-        bank_account_id:
-          input.bank_account_id.trim(),
+      qty:
+        input.qty,
 
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", id.trim())
-      .select("*")
-      .single();
+      transaction_date:
+        input.transaction_date.trim(),
+
+      bank_account_id:
+        input.bank_account_id.trim(),
+
+      updated_at:
+        new Date().toISOString(),
+    })
+    .eq(
+      "id",
+      normalizedId,
+    )
+    .select(
+      `
+        id,
+        batch_id,
+        modal_beli,
+        tax,
+        total_modal,
+        qty,
+        transaction_date,
+        bank_account_id,
+        modal_per_qty,
+        modal_per_qty_rounded,
+        created_at,
+        updated_at
+      `,
+    )
+    .single();
 
   if (error) {
     console.error(
       "updateProductCost error:",
       error,
     );
+
+    if (
+      error.code ===
+      "23514"
+    ) {
+      throw new Error(
+        "Data modal tidak valid. Pastikan Total Modal = Modal Beli + Tax.",
+      );
+    }
 
     throw new Error(
       error.message ||
@@ -323,17 +553,24 @@ export async function updateProductCost(
 export async function deleteProductCost(
   id: string,
 ): Promise<void> {
-  if (!id.trim()) {
+  const normalizedId =
+    id?.trim();
+
+  if (!normalizedId) {
     throw new Error(
       "ID modal penjualan wajib diisi.",
     );
   }
 
-  const { error } =
-    await supabase
-      .from("product_costs")
-      .delete()
-      .eq("id", id.trim());
+  const {
+    error,
+  } = await supabase
+    .from("product_costs")
+    .delete()
+    .eq(
+      "id",
+      normalizedId,
+    );
 
   if (error) {
     console.error(

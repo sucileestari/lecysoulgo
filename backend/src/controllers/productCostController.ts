@@ -107,6 +107,8 @@ export async function createProductCostHandler(
   try {
     const {
       batch_id,
+      modal_beli,
+      tax,
       total_modal,
       qty,
       transaction_date,
@@ -128,6 +130,61 @@ export async function createProductCostHandler(
       });
     }
 
+    /* -------------------------------------
+       MODAL BELI
+       Wajib lebih besar dari 0
+    ------------------------------------- */
+
+    const modalBeliNumber =
+      Number(modal_beli);
+
+    if (
+      !Number.isFinite(
+        modalBeliNumber,
+      ) ||
+      modalBeliNumber <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Modal beli harus lebih besar dari 0.",
+      });
+    }
+
+    /* -------------------------------------
+       TAX
+       Wajib diisi, tetapi 0 diperbolehkan
+    ------------------------------------- */
+
+    if (tax === undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tax wajib diisi. Isi 0 jika tidak ada tax.",
+      });
+    }
+
+    const taxNumber =
+      Number(tax);
+
+    if (
+      !Number.isFinite(
+        taxNumber,
+      ) ||
+      taxNumber < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tax tidak valid. Isi 0 jika tidak ada tax.",
+      });
+    }
+
+    /* -------------------------------------
+       TOTAL MODAL
+       Total Modal = Modal Beli + Tax
+    ------------------------------------- */
+
     const totalModalNumber =
       Number(total_modal);
 
@@ -140,9 +197,28 @@ export async function createProductCostHandler(
       return res.status(400).json({
         success: false,
         message:
-          "Modal beli harus lebih besar dari 0.",
+          "Total modal harus lebih besar dari 0.",
       });
     }
+
+    const expectedTotalModal =
+      modalBeliNumber +
+      taxNumber;
+
+    if (
+      totalModalNumber !==
+      expectedTotalModal
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Total modal harus sama dengan Modal Beli + Tax.",
+      });
+    }
+
+    /* -------------------------------------
+       QTY
+    ------------------------------------- */
 
     const qtyNumber =
       Number(qty);
@@ -160,6 +236,10 @@ export async function createProductCostHandler(
       });
     }
 
+    /* -------------------------------------
+       TRANSACTION DATE
+    ------------------------------------- */
+
     if (
       typeof transaction_date !==
         "string" ||
@@ -171,6 +251,10 @@ export async function createProductCostHandler(
           "Tanggal transaksi wajib diisi.",
       });
     }
+
+    /* -------------------------------------
+       BANK ACCOUNT
+    ------------------------------------- */
 
     if (
       typeof bank_account_id !==
@@ -192,6 +276,12 @@ export async function createProductCostHandler(
       await createProductCost({
         batch_id:
           batch_id.trim(),
+
+        modal_beli:
+          modalBeliNumber,
+
+        tax:
+          taxNumber,
 
         total_modal:
           totalModalNumber,
@@ -255,11 +345,68 @@ export async function updateProductCostHandler(
     }
 
     const {
+      modal_beli,
+      tax,
       total_modal,
       qty,
       transaction_date,
       bank_account_id,
     } = req.body as Partial<UpdateProductCostInput>;
+
+    /* -------------------------------------
+       MODAL BELI
+       Wajib lebih besar dari 0
+    ------------------------------------- */
+
+    const modalBeliNumber =
+      Number(modal_beli);
+
+    if (
+      !Number.isFinite(
+        modalBeliNumber,
+      ) ||
+      modalBeliNumber <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Modal beli harus lebih besar dari 0.",
+      });
+    }
+
+    /* -------------------------------------
+       TAX
+       Wajib diisi, tetapi 0 diperbolehkan
+    ------------------------------------- */
+
+    if (tax === undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tax wajib diisi. Isi 0 jika tidak ada tax.",
+      });
+    }
+
+    const taxNumber =
+      Number(tax);
+
+    if (
+      !Number.isFinite(
+        taxNumber,
+      ) ||
+      taxNumber < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tax tidak valid. Isi 0 jika tidak ada tax.",
+      });
+    }
+
+    /* -------------------------------------
+       TOTAL MODAL
+       Total Modal = Modal Beli + Tax
+    ------------------------------------- */
 
     const totalModalNumber =
       Number(total_modal);
@@ -273,9 +420,28 @@ export async function updateProductCostHandler(
       return res.status(400).json({
         success: false,
         message:
-          "Modal beli harus lebih besar dari 0.",
+          "Total modal harus lebih besar dari 0.",
       });
     }
+
+    const expectedTotalModal =
+      modalBeliNumber +
+      taxNumber;
+
+    if (
+      totalModalNumber !==
+      expectedTotalModal
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Total modal harus sama dengan Modal Beli + Tax.",
+      });
+    }
+
+    /* -------------------------------------
+       QTY
+    ------------------------------------- */
 
     const qtyNumber =
       Number(qty);
@@ -293,6 +459,10 @@ export async function updateProductCostHandler(
       });
     }
 
+    /* -------------------------------------
+       TRANSACTION DATE
+    ------------------------------------- */
+
     if (
       typeof transaction_date !==
         "string" ||
@@ -304,6 +474,10 @@ export async function updateProductCostHandler(
           "Tanggal transaksi wajib diisi.",
       });
     }
+
+    /* -------------------------------------
+       BANK ACCOUNT
+    ------------------------------------- */
 
     if (
       typeof bank_account_id !==
@@ -325,6 +499,12 @@ export async function updateProductCostHandler(
       await updateProductCost(
         id.trim(),
         {
+          modal_beli:
+            modalBeliNumber,
+
+          tax:
+            taxNumber,
+
           total_modal:
             totalModalNumber,
 
